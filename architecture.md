@@ -363,7 +363,22 @@ The CT tables (`ct/store.py`) live in the same file. They hold public certificat
 
 ## 14. Post-MVP roadmap
 
-Built only after the MVP works end to end and has evaluation numbers.
+Built only after the MVP works end to end and has evaluation numbers. Order: P1 → E1–E4 → P2 → P3 → P4.
+
+### Next: explain and guide (E1–E4)
+
+ScamSentinel's niche is being a focused, explainable checker for **tax-related** scams that runs locally and shows its evidence, not another generic scam detector. The next phase builds on that before any page fetching. All four items follow design principle 1: the output comes from deterministic templates and data files keyed on signals the rules already produce. The LLM doesn't write advice or explanations.
+
+| Phase | What | Notes |
+|---|---|---|
+| **E1** | **"What should I do next?"** | Each result gets a short, cautious `next_steps[]` list, chosen from fixed templates by the evidence that fired. Examples: a sensitive-data request → "Don't reply with personal information"; an IRS or brand impersonation → "Contact the agency using a number from its official website or your paperwork, not the one in the message"; a gift-card or crypto demand → "The IRS doesn't take payment this way. Don't pay." Official contact details come only from `data/facts.yaml`, with sources. **Links and phone numbers found in the analyzed message are never repeated, opened or recommended.** Advice is worded cautiously and never promises safety; a `likely_legitimate` verdict still says to verify through a channel you already trust. Shown in the UI below the verdict. |
+| **E2** | **Richer domain explanations** | Today each domain technique carries a one-line `detail`. Add a structured explanation of *what* differs from the real brand: the swapped characters (`0` for `o`, Cyrillic `і` for `i`), the misspelling (`turbotxa` vs. `turbotax`), the misleading extra words (`-refund-secure`), or the real owner of a brand-in-subdomain URL. Built from data the engine already computes (skeleton, edit operations, keywords, PSL split). |
+| **E3** | **Fact-check summary** | The verification layer already evaluates every check as matched / conflicts / can't verify (`CheckResult.verified`), but only failures and mitigations reach the response, as reasons. Expose the full list as `fact_checks[]`: each claim in the message, the trusted fact it was compared with, the outcome, and the fact's source and last-reviewed date. Shown in the UI as a matches / conflicts table. |
+| **E4** | **Tax-specific scenarios** | Recognize named scenarios, such as refund delay or "refund on hold", balance due or payment demand, identity verification, account suspension, and fake tax-prep or "IRS agent" offers. Each scenario is a rule over existing signals in a new `data/scenarios.yaml` with a plain-language description and its own E1 next steps. Reported as `scenario` on the result (0 points: it explains the score and doesn't change it). New scenarios are added over time as data, each with eval samples. |
+
+E1–E4 change no scores, so evaluation numbers stay comparable. Each needs tests that the advice and explanations never quote a URL or phone number from the input, and that every result still has at least one reason (AC-6).
+
+### Infrastructure phases
 
 | Phase | What | Notes |
 |---|---|---|

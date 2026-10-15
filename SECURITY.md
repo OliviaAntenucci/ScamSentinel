@@ -179,6 +179,8 @@ The Certificate Transparency watcher (`python -m scamsentinel.ct`, [`architectur
 
 These come back when the corresponding post-MVP phase lands (see [`architecture.md` §14](architecture.md#14-post-mvp-roadmap)).
 
+**Advice turned against the user (E1 next steps).** If a scammer could steer the advice, a "call this number to confirm" could send victims straight to them. Planned defenses: advice comes only from fixed templates chosen by rule signals (the LLM can't write or pick it), official contacts come only from `data/facts.yaml`, and tests check that no URL, domain or phone number from the input ever appears in `next_steps`, including under the prompt-injection corpus.
+
 **Full SSRF (P2 page fetch, P3 headless browser).** Once ScamSentinel fetches pages, a naive `ipaddress.ip_address(host).is_private` check is not enough. It misses hostnames that *resolve* to private IPs, alternate IP encodings (`http://2852039166/`), IPv4-mapped IPv6, redirects to internal addresses, DNS rebinding, and (with a browser) every subresource the page loads. The planned guard (`security/url_guard.py`):
 1. Allow `http`/`https` on ports 80/443 only, and reject userinfo.
 2. Resolve A/AAAA and reject if **any** address is not globally routable.

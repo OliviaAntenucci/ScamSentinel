@@ -217,9 +217,19 @@ MVP
   M5  Screenshot analysis (Groq vision transcription)          (done)
   M6  Eval dataset + harness + published metrics               (done)
 
-Post-MVP (in order, only after M6)
+Post-MVP (in order, only after M6). E1-E4 ("explain and guide") deepen
+the tax-scam niche and explainability, and come before page fetching.
   P1  Certificate Transparency watcher (crt.sh) + GET /v1/ct/candidates
                                                                 (done)
+  E1  "What should I do next?": evidence-based, cautious next steps
+      from fixed templates (never repeats links/numbers from the
+      message; official contacts only from facts.yaml)            (next)
+  E2  Richer domain explanations (swapped characters, misspelling,
+      misleading extra words, real owner of the domain)          (next)
+  E3  Fact-check summary: claims that match / conflict / can't be
+      verified against trusted facts, with sources                (next)
+  E4  Tax-specific scenarios (refund delay, payment demand,
+      identity verification, ...), added over time as data        (next)
   P2  Lightweight page fetch (httpx + HTML parser) + SSRF URL guard
   P3  Playwright headless-browser sandbox in an isolated container
   P4  Docker packaging

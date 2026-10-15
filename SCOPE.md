@@ -51,11 +51,15 @@ The allowlist lives in `data/brands.yaml`. It is versioned, and each entry recor
 
 ## Post-MVP (planned, not in the MVP)
 
-Built in this order, only after the MVP works end to end. Details in [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
+Built in this order, only after the MVP works end to end. E1–E4 ("explain and guide") come after P1 and before P2: they deepen the tax-scam focus and explainability before any page fetching. Details in [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
 
 | Phase | What | Status |
 |---|---|---|
 | P1 | Certificate Transparency watcher (crt.sh) to find newly registered lookalikes | ✅ Done |
+| E1 | "What should I do next?": short, cautious next steps chosen by the evidence found (never repeating links or numbers from the message) | Next |
+| E2 | Richer domain explanations: which characters were swapped, the misspelling, the misleading extra words | Next |
+| E3 | Fact-check summary: which claims match, conflict with, or can't be checked against the trusted facts | Next |
+| E4 | Tax-specific scenarios (refund delay, payment demand, identity verification, …), added over time | Next |
 | P2 | Lightweight page fetch (no browser) to inspect forms and brand content, together with the SSRF URL guard | Planned |
 | P3 | Playwright headless-browser sandbox (screenshots, JavaScript-rendered pages, redirect chains) | Planned |
 | P4 | Docker packaging | Planned |
@@ -86,6 +90,11 @@ Built in this order, only after the MVP works end to end. Details in [`architect
 ### Data handling
 - Inputs may contain victims' personal data. Analyses are retained for 7 days by default, SSN- and card-like numbers are redacted in logs, and user submissions never go into the public eval set without consent.
 - Groq's free tier sends input text to a third party. Only analyze synthetic or public samples with the LLM enabled. Never send real victims' personal data. Rules-only mode (no API key) keeps everything local.
+
+### Guidance (E1)
+- Next-step advice comes from fixed, reviewed templates, never from the LLM.
+- It never repeats, links to or recommends a URL or phone number from the analyzed message. Official contacts come only from `data/facts.yaml`, with sources.
+- It's worded cautiously and never promises that something is safe.
 
 ### Evaluation data
 - Use public datasets under their licenses and cite them in `data/eval/SOURCES.md`.

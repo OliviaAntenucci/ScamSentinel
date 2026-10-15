@@ -50,7 +50,12 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 
 **Post-MVP:**
 - **Certificate Transparency watcher** ✅ (P1): polls crt.sh every 6 hours for new certificates whose names contain a brand token, scores each name with the domain engine, and lists the lookalikes at `GET /v1/ct/candidates`. It finds phishing domains before anyone reports them, and never visits them. See [`architecture.md` §15](architecture.md#15-certificate-transparency-watcher-p1).
-- Planned: page fetching, a Playwright sandbox, and Docker packaging. See [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
+- **Next: explain and guide** (E1–E4). These build on the tax-scam focus and the explanations already behind every score:
+  - **"What should I do next?"**: short, cautious next steps based on the evidence found, e.g. *"Don't reply with personal information. Contact the agency using a number from its official website or your paperwork, not the message."* Advice never repeats or recommends links or numbers from the suspicious message.
+  - **Why a domain looks suspicious**, spelled out: the swapped characters, the brand misspelling, the misleading extra words.
+  - **Fact-check summary**: which claims match, conflict with, or can't be checked against ScamSentinel's trusted reference facts.
+  - **Tax-specific scenarios** such as refund delays, payment demands and identity-verification messages, added over time.
+- Then: page fetching, a Playwright sandbox, and Docker packaging. See [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
 
 ---
 
@@ -66,6 +71,7 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 | M5 | Screenshot analysis (Groq vision) | ✅ |
 | M6 | Evaluation + metrics | ✅ |
 | P1 | Certificate Transparency watcher (post-MVP) | ✅ |
+| E1–E4 | Next steps advice, domain explanations, fact-check summary, tax scenarios | Next |
 
 ---
 
