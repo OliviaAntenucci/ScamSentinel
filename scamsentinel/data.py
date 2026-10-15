@@ -111,7 +111,6 @@ class ScoringConfig(BaseModel):
     floors: dict[str, int]
     mitigating_cap: int
     domain_points: dict[str, int]
-    sandbox_points: dict[str, int]
 
     @field_validator("weights")
     @classmethod

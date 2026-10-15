@@ -17,7 +17,6 @@ class Module(StrEnum):
     DOMAIN = "domain"
     MESSAGE = "message"
     VERIFY = "verify"
-    SANDBOX = "sandbox"
     OCR = "ocr"
 
 
@@ -47,4 +46,3 @@ class AnalysisResult(BaseModel):
     degraded: list[str] = []
     reasons: list[Reason] = []
     overrides_applied: list[str] = []
-    artifacts: dict[str, str] = {}

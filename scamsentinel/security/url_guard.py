@@ -1,4 +1,4 @@
-"""SSRF guard (SECURITY.md T1, M4).
+"""SSRF guard (SECURITY.md T1). Post-MVP (P2): only needed once ScamSentinel fetches pages.
 
 Strict parse (http/https, ports 80/443, no userinfo) -> resolve A/AAAA -> reject if ANY
 address is not globally routable -> return the pinned IP so the caller connects to
@@ -31,4 +31,4 @@ class ValidatedUrl:
 
 
 def validate_url(url: str, *, allow_private: bool = False) -> ValidatedUrl:
-    raise NotImplementedError("M4: SSRF URL guard")
+    raise NotImplementedError("P2: SSRF URL guard")

@@ -42,9 +42,8 @@ class Settings(BaseSettings):
     # API-only, localhost-only (NFR-9).
     host: str = "127.0.0.1"
     port: int = 8000
-    # Only for the API container, where Compose publishes the port on 127.0.0.1.
-    allow_non_loopback_bind: bool = False
-    # Lets the URL guard reach private addresses for local test fixtures. Refused in production.
+    # Post-MVP (P2): lets the URL guard reach private addresses for local test fixtures.
+    # Refused in production.
     allow_private_targets: bool = False
 
     # LLM feature extractor (M2). Without the selected provider's key: rules-only.
@@ -58,9 +57,6 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("ANTHROPIC_API_KEY", "SCAMSENTINEL_ANTHROPIC_API_KEY"),
     )
-
-    sandbox_url: str = "http://sandbox:8100"
-    ocr_url: str = "http://ocr:8200"
 
     data_dir: Path = Path("data")
     config_dir: Path = Path("config")
@@ -88,11 +84,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _enforce_network_policy(self) -> Settings:
-        if not is_loopback_host(self.host) and not self.allow_non_loopback_bind:
-            raise ValueError(
-                f"refusing to bind to {self.host!r}: the API is localhost-only "
-                "(SCAMSENTINEL_ALLOW_NON_LOOPBACK_BIND is only for the API container)"
-            )
+        if not is_loopback_host(self.host):
+            raise ValueError(f"refusing to bind to {self.host!r}: the API is localhost-only")
         if self.env == "production" and self.allow_private_targets:
             raise ValueError("allow_private_targets cannot be enabled in production")
         return self

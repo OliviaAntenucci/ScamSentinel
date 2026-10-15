@@ -1,10 +1,9 @@
-# Scoring configuration (architecture.md §10). Tune on the DEV split only, never on test.
+# Scoring configuration (architecture.md §9). Tune on the DEV split only, never on test.
 
 # Renormalized over the modules that actually ran.
 weights:
-  domain: 0.40
-  message: 0.30
-  sandbox: 0.30
+  domain: 0.55
+  message: 0.45
 
 # 0-29 likely_legitimate, 30-59 suspicious, 60-100 likely_scam
 bands:
@@ -13,7 +12,7 @@ bands:
 
 # Minimum score when a high-confidence combination fires.
 floors:
-  credential_form_on_lookalike: 90
+  sensitive_request_with_lookalike: 90
   irs_unusual_payment_demand: 85
   homoglyph_brand_domain: 80
   injection_plus_scam_signal: 70
@@ -35,12 +34,3 @@ domain_points:
   tld_swap: 65
   idn_mixed_script_bonus: 15
   new_registration_bonus: 10 # not applied yet: needs RDAP/certificate-age enrichment
-
-# Sandbox signal points (architecture.md §8).
-sandbox_points:
-  credential_form: 30
-  brand_on_unofficial_domain: 30
-  cross_domain_form_action: 15
-  redirect_chain: 10
-  new_certificate: 10
-  hidden_instructions: 15

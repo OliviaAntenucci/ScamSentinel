@@ -1,4 +1,4 @@
-"""CT polling loop: query each brand token, dedupe, score, persist candidates (M7)."""
+"""CT polling loop: query each brand token, dedupe, score, persist candidates (post-MVP, P1)."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ MIN_CANDIDATE_SCORE = 50
 
 def poll_once() -> int:
     """Run one polling pass. Returns the number of new candidates stored."""
-    raise NotImplementedError("M7: CT watcher")
+    raise NotImplementedError("P1: CT watcher")
 
 
 def run_forever() -> None:
-    raise NotImplementedError("M7: CT watcher")
+    raise NotImplementedError("P1: CT watcher")

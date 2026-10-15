@@ -4,7 +4,7 @@ List every source used in `data/eval/` here, with its license and how samples we
 
 | Slice | Source | License / terms | Filtering | Count |
 |---|---|---|---|---|
-| _none yet (M8)_ | | | | |
+| _none yet (M6)_ | | | | |
 
 Rules:
 - URLs are stored **defanged** (`hxxps://example[.]com`).

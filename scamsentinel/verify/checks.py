@@ -14,7 +14,6 @@ CheckName = Literal[
     "payment_method_policy",
     "phone_number",
     "sender_alignment",
-    "page_brand_mismatch",
 ]
 
 

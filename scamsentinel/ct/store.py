@@ -1,4 +1,4 @@
-"""Persistence for CT candidates (table `ct_candidates`, architecture.md §12, M7)."""
+"""Persistence for CT candidates (table `ct_candidates`, architecture.md §11, post-MVP P1)."""
 
 from __future__ import annotations
 
@@ -20,4 +20,4 @@ class CtCandidate(BaseModel):
 
 
 def list_candidates(since: str | None, min_score: int) -> list[CtCandidate]:
-    raise NotImplementedError("M7: CT candidate store")
+    raise NotImplementedError("P1: CT candidate store")

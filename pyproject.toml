@@ -22,8 +22,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Keep in sync with the base image tag in docker/sandbox.Dockerfile.
-sandbox = ["playwright==1.49.1"]
+# Screenshot OCR (M5). Also needs the Tesseract binary installed on the machine.
 ocr = ["pillow>=11.0", "pytesseract>=0.3.13"]
 dev = [
     "pytest>=8.3",

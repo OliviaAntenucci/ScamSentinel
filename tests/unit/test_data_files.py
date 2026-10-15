@@ -42,6 +42,6 @@ def test_facts_have_sources(settings):
 
 def test_scoring_config_loads(settings):
     cfg = load_scoring(settings.config_dir)
-    assert set(cfg.weights) == {Module.DOMAIN, Module.MESSAGE, Module.SANDBOX}
+    assert set(cfg.weights) == {Module.DOMAIN, Module.MESSAGE}
     assert cfg.bands.suspicious == 30
     assert cfg.bands.likely_scam == 60

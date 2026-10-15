@@ -29,7 +29,6 @@ def test_analyze_rejects_invalid_input(client, payload):
     [
         ("post", "/v1/analyze", {"json": {"text": "IRS ALERT: verify your refund now"}}),
         ("get", "/v1/analysis/an_123", {}),
-        ("get", "/v1/ct/candidates", {}),
     ],
 )
 def test_unimplemented_stages_return_501(client, method, path, kwargs):

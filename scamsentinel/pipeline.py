@@ -1,4 +1,7 @@
-"""Analysis orchestrator: ingest -> domain/message/sandbox -> verify -> aggregate (M3)."""
+"""Analysis orchestrator: ingest -> domain/message -> verify -> aggregate (M3).
+
+MVP rule: URLs are only analyzed as strings. The pipeline never connects to a
+user-supplied URL, which removes SSRF by design (SECURITY.md T1)."""
 
 from __future__ import annotations
 

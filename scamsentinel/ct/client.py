@@ -1,4 +1,4 @@
-"""crt.sh client (FR-12, FR-16, M7). Polite: sequential, spaced, backoff, descriptive UA."""
+"""crt.sh client (post-MVP P1). Polite: sequential, spaced, backoff, descriptive UA."""
 
 from __future__ import annotations
 
@@ -17,4 +17,4 @@ class CtEntry(BaseModel):
 
 def search(pattern: str) -> list[CtEntry]:
     """Query crt.sh for certificates whose names match `pattern` (e.g. "%turbotax%")."""
-    raise NotImplementedError("M7: crt.sh client")
+    raise NotImplementedError("P1: crt.sh client")

@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class AnalyzeRequest(BaseModel):
-    """Exactly one of text / url / email_raw. Images use multipart upload (M6)."""
+    """Exactly one of text / url / email_raw. Images use multipart upload (M5)."""
 
     model_config = ConfigDict(extra="forbid")
 

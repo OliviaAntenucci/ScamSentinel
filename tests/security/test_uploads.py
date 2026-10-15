@@ -36,12 +36,16 @@ def test_decompression_bomb_rejected():
 
 
 def test_polyglot_png_zip_neutralized_by_reencode():
-    raise NotImplementedError("M6: re-encoded bytes contain no ZIP signature")
+    raise NotImplementedError("M5: re-encoded bytes contain no ZIP signature")
 
 
 def test_exif_gps_stripped():
-    raise NotImplementedError("M6: re-encoded image has no EXIF")
+    raise NotImplementedError("M5: re-encoded image has no EXIF")
 
 
-def test_traversal_filename_stored_as_uuid():
-    raise NotImplementedError("M6: ../../etc/passwd.png stored under a UUID name")
+def test_upload_never_written_under_client_filename():
+    raise NotImplementedError("M5: ../../etc/passwd.png is never used as a path")
+
+
+def test_ocr_timeout_returns_degraded():
+    raise NotImplementedError("M5: tesseract killed after OCR_TIMEOUT_SECONDS -> degraded")

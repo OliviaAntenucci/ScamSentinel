@@ -1,4 +1,4 @@
-# SSRF payloads that the URL guard must reject (SECURITY.md T1, AC-3).
+# SSRF payloads that the post-MVP URL guard (P2) must reject (SECURITY.md T1).
 # One URL per line; blank lines and lines starting with # are ignored.
 # Hostname-based cases (DNS resolving to private IPs, rebinding, redirects) live in
 # test_ssrf.py because they need a mock resolver or a local test server.

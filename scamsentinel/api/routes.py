@@ -8,7 +8,6 @@ from fastapi import APIRouter, HTTPException, Query, Request
 
 from scamsentinel import __version__, pipeline
 from scamsentinel.api.schemas import AnalyzeRequest
-from scamsentinel.ct.store import CtCandidate, list_candidates
 from scamsentinel.domain.engine import DomainResult, get_engine
 from scamsentinel.domain.normalize import InvalidHost
 from scamsentinel.models import AnalysisResult
@@ -47,11 +46,3 @@ def domain_score(
         return get_engine(settings.data_dir, settings.config_dir).score(d)
     except InvalidHost as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-
-@router.get("/v1/ct/candidates")
-def ct_candidates(
-    since: str | None = None,
-    min_score: Annotated[int, Query(ge=0, le=100)] = 50,
-) -> list[CtCandidate]:
-    return list_candidates(since=since, min_score=min_score)

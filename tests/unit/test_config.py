@@ -25,10 +25,6 @@ def test_non_loopback_bind_refused(host):
         make(host=host)
 
 
-def test_non_loopback_bind_allowed_with_explicit_flag():
-    assert make(host="0.0.0.0", allow_non_loopback_bind=True).host == "0.0.0.0"  # noqa: S104
-
-
 def test_private_targets_refused_in_production():
     with pytest.raises(ValidationError, match="production"):
         make(env="production", allow_private_targets=True)
