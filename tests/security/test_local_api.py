@@ -3,7 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from scamsentinel.api.app import create_app
+from scamsentinel.api.app import WEB_DIR, create_app
 from scamsentinel.api.guards import RateLimiter
 
 
@@ -52,6 +52,28 @@ def test_preflight_not_allowed(client):
 
 def test_responses_are_json(client):
     assert client.get("/healthz").headers["content-type"].startswith("application/json")
+
+
+@pytest.mark.parametrize("path", ["/", "/static/app.js", "/static/app.css"])
+def test_frontend_has_strict_csp(client, path):
+    csp = client.get(path).headers["Content-Security-Policy"]
+    assert "default-src 'none'" in csp
+    assert "script-src 'self'" in csp
+    assert "frame-ancestors 'none'" in csp
+    assert "unsafe-inline" not in csp
+
+
+@pytest.mark.parametrize("path", ["/healthz", "/docs"])
+def test_csp_only_on_frontend(client, path):
+    # /docs loads Swagger UI from a CDN; API responses are JSON with nosniff.
+    assert "Content-Security-Policy" not in client.get(path).headers
+
+
+def test_frontend_never_uses_html_injection_sinks():
+    # Reasons quote scammer-written text, so the page must only ever use textContent.
+    source = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    for sink in ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write", "eval("):
+        assert sink not in source
 
 
 def test_create_app_uses_settings_hosts(settings):

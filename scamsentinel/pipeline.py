@@ -1,7 +1,8 @@
-"""Analysis orchestrator: ingest -> domain/message -> verify -> aggregate -> store (M3).
+"""Analysis orchestrator: ingest -> domain/message -> verify -> aggregate -> store.
 
 MVP rule: URLs are only analyzed as strings. The pipeline never connects to a
-user-supplied URL, which removes SSRF by design (SECURITY.md T1).
+user-supplied URL, which removes SSRF by design (SECURITY.md T1). The only outbound
+calls go to the configured LLM provider.
 """
 
 from __future__ import annotations
@@ -19,15 +20,27 @@ from scamsentinel.domain.engine import DomainEngine, DomainResult, get_engine
 from scamsentinel.domain.normalize import InvalidHost
 from scamsentinel.ingest.email import parse_eml
 from scamsentinel.message.analyzer import MessageAnalysis, MessageAnalyzer
-from scamsentinel.message.llm import CachedExtractor, FeatureExtractor, build_extractor
-from scamsentinel.models import AnalysisResult, InputType
+from scamsentinel.message.llm import (
+    CachedExtractor,
+    FeatureExtractor,
+    LlmUnavailable,
+    build_extractor,
+)
+from scamsentinel.models import AnalysisResult, InputType, Module, Reason
+from scamsentinel.ocr.vision import OcrUnavailable, Transcriber, build_transcriber
+from scamsentinel.security.image_sanitize import sanitize_image
 from scamsentinel.security.redaction import redact_result
+from scamsentinel.security.upload_guard import validate_image_upload
 from scamsentinel.store import Store
 
 logger = logging.getLogger(__name__)
 
 # Upper bound on domains scored per input, so a message stuffed with links stays cheap.
 MAX_DOMAINS = 20
+
+
+class NoTextFound(Exception):
+    """The screenshot was read, but it contains no text to analyze."""
 
 
 class AnalysisService:
@@ -38,15 +51,26 @@ class AnalysisService:
         analyzer: MessageAnalyzer,
         scoring: ScoringConfig,
         store: Store,
+        transcriber: Transcriber | None = None,
+        max_image_bytes: int = 5 * 1024 * 1024,
+        max_image_pixels: int = 25_000_000,
+        max_text_chars: int = 20_000,
     ) -> None:
         self._engine = engine
         self._analyzer = analyzer
         self._scoring = scoring
         self._store = store
+        self._transcriber = transcriber
+        self._max_image_bytes = max_image_bytes
+        self._max_image_pixels = max_image_pixels
+        self._max_text_chars = max_text_chars
 
     @classmethod
     def from_settings(
-        cls, settings: Settings, llm: FeatureExtractor | None = None
+        cls,
+        settings: Settings,
+        llm: FeatureExtractor | None = None,
+        transcriber: Transcriber | None = None,
     ) -> AnalysisService:
         store = Store(settings.db_path, settings.retention_days)
         if llm is None:
@@ -61,10 +85,14 @@ class AnalysisService:
             analyzer=MessageAnalyzer.from_settings(settings, llm=llm),
             scoring=load_scoring(settings.config_dir),
             store=store,
+            transcriber=transcriber or build_transcriber(settings, store),
+            max_image_bytes=settings.max_image_bytes,
+            max_image_pixels=settings.max_image_pixels,
+            max_text_chars=settings.max_text_chars,
         )
 
     def analyze(self, request: AnalyzeRequest) -> AnalysisResult:
-        """Analyze one input. Raises InvalidHost if a submitted URL has no usable host."""
+        """Analyze text, a URL or an email. Raises InvalidHost for an unusable URL input."""
         message: MessageAnalysis | None = None
         input_type: InputType
         if request.text is not None:
@@ -86,6 +114,53 @@ class AnalysisService:
             hosts = [raw]
 
         domains = self._score_domains(hosts, strict=input_type == "url")
+        return self._finish(input_type, raw.encode(), message, domains)
+
+    def analyze_image(self, data: bytes) -> AnalysisResult:
+        """Analyze a screenshot.
+
+        Raises UploadRejected (bad file), OcrUnavailable (can't read it) or NoTextFound.
+        A screenshot that couldn't be read is an error, never a "likely legitimate" verdict.
+        """
+        info = validate_image_upload(
+            data, max_bytes=self._max_image_bytes, max_pixels=self._max_image_pixels
+        )
+        clean = sanitize_image(data, info.mime)
+        if self._transcriber is None:
+            raise OcrUnavailable("vision_not_configured")
+        try:
+            text = self._transcriber.transcribe(clean, info.mime).strip()
+        except LlmUnavailable as exc:
+            raise OcrUnavailable(exc.reason) from exc
+        if not text:
+            raise NoTextFound
+        text = text[: self._max_text_chars]
+
+        message = self._analyzer.analyze(text, input_type="image")
+        transcribed = Reason(
+            module=Module.OCR,
+            signal="transcribed",
+            detail=(
+                f"Read {len(text):,} characters from a {info.width}×{info.height} "
+                f"{info.mime.removeprefix('image/').upper()} screenshot "
+                f"({self._transcriber.model}); metadata was stripped before sending"
+            ),
+            points=0,
+        )
+        message.result.reasons.insert(0, transcribed)
+        domains = self._score_domains(message.features.claimed_urls, strict=False)
+        return self._finish("image", data, message, domains)
+
+    def get_analysis(self, analysis_id: str) -> AnalysisResult | None:
+        return self._store.get_analysis(analysis_id)
+
+    def _finish(
+        self,
+        input_type: InputType,
+        raw: bytes,
+        message: MessageAnalysis | None,
+        domains: list[DomainResult],
+    ) -> AnalysisResult:
         result = aggregate(
             domains=domains,
             message=message.result if message else None,
@@ -108,7 +183,7 @@ class AnalysisService:
         )
         # SSN/card numbers quoted as evidence never reach the response, disk or logs.
         analysis = redact_result(analysis)
-        self._store.save_analysis(analysis, hashlib.sha256(raw.encode()).hexdigest())
+        self._store.save_analysis(analysis, hashlib.sha256(raw).hexdigest())
         # Metadata only: the analyzed content is never logged.
         logger.info(
             "analysis %s input=%s verdict=%s score=%d llm=%s degraded=%s",
@@ -120,9 +195,6 @@ class AnalysisService:
             ",".join(analysis.degraded) or "-",
         )
         return analysis
-
-    def get_analysis(self, analysis_id: str) -> AnalysisResult | None:
-        return self._store.get_analysis(analysis_id)
 
     def _score_domains(self, hosts: list[str], *, strict: bool) -> list[DomainResult]:
         results: list[DomainResult] = []

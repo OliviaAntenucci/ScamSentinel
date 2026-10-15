@@ -7,9 +7,9 @@ This document describes the **MVP**. Features planned for after the MVP are summ
 1. **The LLM extracts, the rules decide.** The language model turns messy text into structured features. Deterministic, unit-tested rules turn the features into a score. This keeps verdicts explainable and limits the damage prompt injection can do.
 2. **Every point is accounted for.** Every module score is built from reasons that carry points, so each verdict can be audited.
 3. **Untrusted by default.** User input, uploaded images, and LLM output all get validated at the boundary. See [`SECURITY.md`](SECURITY.md).
-4. **Graceful degradation.** If the LLM or OCR is unavailable, the analysis still finishes. It notes which modules ran and which didn't.
+4. **Graceful degradation, honest failure.** If the text LLM is unavailable, the analysis still finishes rules-only and says so. A screenshot that can't be read is an error (503), never a silent "likely legitimate".
 5. **Never touch attacker infrastructure (MVP).** URLs are analyzed as strings only. ScamSentinel never connects to a user-supplied URL, which removes SSRF by design.
-6. **Runs on a laptop.** A Python virtual environment and one external program (Tesseract, for OCR). No Docker, no headless browser.
+6. **Runs on a laptop.** A Python virtual environment and nothing else: no Docker, no headless browser, no OCR engine to install. Screenshots are read by a Groq vision model.
 
 ---
 
@@ -24,7 +24,7 @@ This document describes the **MVP**. Features planned for after the MVP are summ
                   ┌───────────────────────────────────────────────┐
                   │                Ingest / Normalize             │
                   │  .eml parse · HTML→text · URL extraction      │
-                  │  (incl. defanged) · screenshot → OCR → text   │
+                  │  (incl. defanged) · screenshot → vision → text│
                   └──────────┬────────────────────────┬───────────┘
                              │ domains                │ text
                              ▼                        ▼
@@ -56,7 +56,7 @@ ScamSentinel serves a lightweight browser UI and its HTTP API from the same loca
 | Piece | How it runs |
 |---|---|
 | API + all analysis modules | One Python process (`python -m scamsentinel`), listening on `127.0.0.1:8000` only |
-| OCR | In-process image validation and re-encoding (Pillow); `pytesseract` runs the Tesseract binary as a separate process with a timeout |
+| Screenshots | In-process header validation and byte-level sanitizing (no image decoder runs locally), then an HTTPS call to a Groq vision model to transcribe the text. Requires `GROQ_API_KEY` |
 | LLM | HTTPS call to the configured provider (Groq by default). Optional: without a key, rules-only |
 | Storage | SQLite file under `var/` |
 
@@ -75,9 +75,10 @@ scamsentinel/
   domain/         # registrable-domain parsing, homoglyphs, distance, keywords, scorer
   message/        # feature schema, rule extractor, LLM extractor, merger
   verify/         # trusted-facts checks
-  ocr/            # re-encode + Tesseract
+  ocr/            # vision.py: Groq vision transcriber + cache
+  web/            # browser UI (index.html, app.js, app.css), served at / and /static
   aggregate/      # weights, floors, verdict bands, reason assembly
-  security/       # upload_guard.py, redaction.py (url_guard.py is post-MVP)
+  security/       # upload_guard.py, image_sanitize.py, redaction.py (url_guard.py is post-MVP)
   ct/             # post-MVP: crt.sh client, watcher, candidate store (stubs)
   eval/           # dataset loader, runner, metrics, ablations, report
 config/
@@ -203,20 +204,31 @@ Output: `[{check, claim, verified: true|false|null, source, detail}]`. Checks th
 | Text (`text`) | Up to 20,000 characters. URLs and domains extracted, including defanged forms |
 | URL (`url`) | Scored by the domain engine only (running the message analyzer on the URL string would count the same evidence twice). **Never fetched** |
 | Email (`email_raw`) | Parsed with Python's `email` package. HTML bodies converted to text with an HTML parser, never rendered; link `href` targets are collected separately. Attachments listed by name/type/size, never opened. The domain module scores body links, link targets, and the From / Reply-To domains |
-| Screenshot (multipart `image`) | Upload guard → OCR (§8) → treated as text |
+| Screenshot (`POST /v1/analyze/image`, raw body) | Upload guard → sanitize → vision transcription (§8) → treated as text, with `input_type: "image"` |
 
 ---
 
-## 8. Screenshot OCR
+## 8. Screenshot analysis
 
 ```
-upload ─▶ upload_guard (size cap, magic bytes, pixel cap)
-       ─▶ decode → re-encode PNG (strips metadata and appended payloads)
-       ─▶ grayscale + upscale if small → tesseract subprocess (timeout)
-       ─▶ text + mean confidence ─▶ ingest (URL extraction) ─▶ message analyzer
+raw image body (image/png | image/jpeg | image/webp | application/octet-stream)
+  ─▶ body-size cap (6 MB) ─▶ upload_guard: magic bytes, 5 MB, 25 MP read from the header
+  ─▶ image_sanitize: rebuild the file from display-critical chunks only
+       PNG  keep IHDR PLTE tRNS IDAT IEND gAMA cHRM sRGB (CRC-checked); stop at IEND
+       JPEG drop APP1–13, APP15, COM; keep APP0/APP14; stop at the first EOI after SOS
+       WebP keep VP8/VP8L/VP8X/ALPH/ANIM/ANMF; drop EXIF/XMP/ICCP; clear VP8X metadata flags
+  ─▶ Groq vision model (qwen/qwen3.8-27b): "transcribe all visible text", JSON {"text": …}
+  ─▶ transcription ─▶ same path as a pasted message (rules + text LLM + verify + domains)
 ```
 
-Tesseract must be installed on the machine (Windows installer, `brew install tesseract`, or `apt install tesseract-ocr`). If it's missing, screenshot analysis returns `degraded: ocr_unavailable` instead of failing. When OCR confidence is low (<60), the reasons say so.
+- **No local image decoding.** Header parsing and chunk copying are plain byte operations, so image-library parser bugs and decompression bombs can't hit our process. The only decoder is Groq's.
+- **Why sanitize at all:** EXIF/GPS and other metadata would otherwise go to a third party, and bytes appended after the end-of-image marker (polyglots) are dropped.
+- **The vision model only transcribes.** Its text is scored by the same rules and grounded LLM features as any message. An `ocr` reason records the image size, type and model.
+- **Endpoint:** `POST /v1/analyze/image` with the raw image as the body. Image content types aren't CORS "simple" types, so other websites can't send them without a preflight (unlike `multipart/form-data`), and no multipart parser is needed.
+- **Failures are errors, not verdicts:** no Groq key or vision failure (timeout, rate limit, retired model) → 503; no text in the image → 422; rejected file → 422 / 413.
+- **Caching:** transcriptions are cached by the SHA-256 of the sanitized image (7-day retention, like other LLM results).
+- **Preview model:** Groq lists its only vision model as *preview* ("may be discontinued at short notice"). The model is configurable (`SCAMSENTINEL_VISION_MODEL`), and a retired model surfaces as `503 … model_not_found`.
+- Each screenshot costs up to two LLM calls (transcription + feature extraction).
 
 ---
 
@@ -328,7 +340,8 @@ ct_candidates(...)   -- post-MVP (P1)
 ## 12. Observability
 - Structured logs with PII redaction (`security/redaction.py`).
 - Per-module latency, LLM token usage, cache hit rate, grounding-drop rate, and LLM/rule disagreement rate.
-- `/healthz` reports the LLM provider/model and whether a key is configured (later: OCR availability).
+- `/healthz` reports the LLM provider/model, whether a key is configured, the vision model, and whether screenshots are available.
+- The browser UI (`/`, `/static/*`) is served with a strict Content-Security-Policy (same-origin scripts, styles and requests only; `blob:` images for the screenshot preview; no framing).
 
 ---
 
@@ -343,6 +356,7 @@ ct_candidates(...)   -- post-MVP (P1)
 | Plain venv, no Docker | Containers per component | Fast to set up and iterate; isolation comes back with page fetching post-MVP |
 | SQLite | Postgres | Single-user local tool; schema is portable |
 | Images only for uploads | PDF/Office support | Much smaller parser attack surface |
+| Vision LLM for screenshots, byte-level sanitizing | Local OCR (Tesseract, RapidOCR) with Pillow re-encoding | Nothing to install and no image decoder in our process; costs: screenshots need a Groq key, leave the machine, and depend on a preview model |
 
 ---
 
@@ -355,4 +369,4 @@ Built only after the MVP works end to end and has evaluation numbers.
 | **P1** | **Certificate Transparency watcher** | Poll crt.sh politely (every 6 h, sequential, backoff) for certificates containing brand tokens. Score each new name with the existing domain engine and store candidates ≥ 50. Expose `GET /v1/ct/candidates`. Cheap, because the domain engine already exists. Stubs live in `scamsentinel/ct/`. |
 | **P2** | **Lightweight page fetch** | `httpx` + an HTML parser (no browser). Look for credential/SSN forms, forms posting to other domains, and brand mentions on unofficial domains. **Requires the SSRF URL guard first** (strict parsing, resolve-then-pin, reject non-global IPs, re-check every redirect hop). Guard stub and payload tests already exist. |
 | **P3** | **Headless-browser sandbox** | Playwright for JavaScript-rendered pages, screenshots and redirect chains, run in an isolated container with an egress proxy that blocks internal addresses. |
-| **P4** | **Docker packaging** | Containerize the API, OCR and (with P3) the sandbox with locked-down settings. |
+| **P4** | **Docker packaging** | Containerize the API and (with P3) the sandbox with locked-down settings. |

@@ -3,7 +3,7 @@ ScamSentinel: Product Requirements Document
 ================================================================================
 Version: 0.2
 Date:    2026-10-14
-Status:  MVP in progress (M0-M4 done)
+Status:  MVP in progress (M0-M5 done)
 
 --------------------------------------------------------------------------------
 1. SUMMARY
@@ -123,10 +123,13 @@ Verification layer
   FR-17  Each check yields {check, claim, verified: true|false|unknown,
          source}.
 
-Screenshot OCR
-  FR-18  Validate, re-encode, OCR (Tesseract, with a timeout), then pass
-         the text through FR-5 and FR-12-FR-15. If Tesseract isn't
-         installed, report degraded: ocr_unavailable.
+Screenshot analysis
+  FR-18  Validate the header (type, size, pixels), sanitize at the byte
+         level (strip metadata and anything after end-of-image; no local
+         decoding), transcribe with a Groq vision model (timeout), then
+         pass the text through FR-5 and FR-12-FR-15. If the image can't be
+         read (no key, vision failure, no text), return an error, never a
+         verdict.
 
 Aggregation & output
   FR-19  Combine module scores with configurable weights, renormalized over
@@ -158,11 +161,12 @@ Evaluation
          sent to the LLM beyond the input text.
   NFR-5  Determinism: given the same LLM features, scoring is fully
          deterministic and unit-testable.
-  NFR-6  Cost: at most one LLM call per input; responses are cached by
+  NFR-6  Cost: at most one LLM call per input (two for a screenshot:
+         transcription + feature extraction); responses are cached by
          content hash. Works on Groq's free tier.
   NFR-7  Abuse resistance: per-client rate limit (e.g. 30 analyses/min).
   NFR-8  Portability: runs in a Python virtual environment on a laptop.
-         The only extra install is Tesseract (for screenshots).
+         Nothing else to install; screenshots use a Groq vision model.
   NFR-9  Interface: API-only, no web UI. The API listens on
          127.0.0.1:8000 and isn't reachable from other machines. Users
          interact from the command line (curl or similar). Responses are
@@ -171,7 +175,8 @@ Evaluation
 --------------------------------------------------------------------------------
 8. API (MVP)
 --------------------------------------------------------------------------------
-  POST /v1/analyze           JSON {text | url | email_raw} or multipart image
+  POST /v1/analyze           JSON {text | url | email_raw}
+  POST /v1/analyze/image     Raw screenshot body (image/png|jpeg|webp)
   GET  /v1/analysis/{id}     Fetch a stored result
   GET  /v1/domain/score?d=   Domain engine only (done)
   GET  /healthz              Status, LLM provider/model, key configured
@@ -204,7 +209,7 @@ MVP
   M3  Aggregator + POST /v1/analyze (text, URL, email) + storage  (done)
   M4  Security hardening: upload guard, prompt-injection suite,
       no-fetch test, log redaction, rate limit                  (done)
-  M5  Screenshot OCR (Tesseract)
+  M5  Screenshot analysis (Groq vision transcription)          (done)
   M6  Eval dataset + harness + published metrics
 
 Post-MVP (in order, only after M6)

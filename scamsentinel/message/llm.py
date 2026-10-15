@@ -173,6 +173,42 @@ def parse_llm_output(data: Any) -> MessageFeatures:
     return features.with_source("llm")
 
 
+def groq_client(
+    api_key: str, timeout: float, transport: httpx.BaseTransport | None = None
+) -> httpx.Client:
+    return httpx.Client(
+        headers={"Authorization": f"Bearer {api_key}"}, timeout=timeout, transport=transport
+    )
+
+
+def groq_chat_json(client: httpx.Client, body: dict[str, Any]) -> Any:
+    """POST a chat completion to Groq and return the reply content parsed as JSON.
+
+    Every failure becomes LlmUnavailable with a short reason code.
+    """
+    try:
+        response = client.post(GROQ_CHAT_URL, json=body)
+    except httpx.TimeoutException as exc:
+        raise LlmUnavailable("timeout") from exc
+    except httpx.HTTPError as exc:
+        raise LlmUnavailable("network_error") from exc
+
+    if response.status_code == 429:
+        raise LlmUnavailable("rate_limited")
+    if response.status_code in (401, 403):
+        raise LlmUnavailable("auth_failed")
+    if response.status_code == 404:
+        # e.g. a preview model that Groq has retired
+        raise LlmUnavailable("model_not_found")
+    if response.status_code != 200:
+        raise LlmUnavailable(f"http_{response.status_code}")
+
+    try:
+        return json.loads(response.json()["choices"][0]["message"]["content"])
+    except (ValueError, KeyError, IndexError, TypeError) as exc:
+        raise LlmUnavailable("malformed_response") from exc
+
+
 class GroqExtractor:
     def __init__(
         self,
@@ -183,11 +219,7 @@ class GroqExtractor:
         transport: httpx.BaseTransport | None = None,
     ) -> None:
         self.model = model
-        self._client = httpx.Client(
-            headers={"Authorization": f"Bearer {api_key}"},
-            timeout=timeout,
-            transport=transport,
-        )
+        self._client = groq_client(api_key, timeout, transport)
 
     def _response_format(self) -> dict[str, Any]:
         if self.model in STRICT_SCHEMA_MODELS:
@@ -208,26 +240,7 @@ class GroqExtractor:
             "messages": build_messages(text, secrets.token_hex(8)),
             "response_format": self._response_format(),
         }
-        try:
-            response = self._client.post(GROQ_CHAT_URL, json=body)
-        except httpx.TimeoutException as exc:
-            raise LlmUnavailable("timeout") from exc
-        except httpx.HTTPError as exc:
-            raise LlmUnavailable("network_error") from exc
-
-        if response.status_code == 429:
-            raise LlmUnavailable("rate_limited")
-        if response.status_code in (401, 403):
-            raise LlmUnavailable("auth_failed")
-        if response.status_code != 200:
-            raise LlmUnavailable(f"http_{response.status_code}")
-
-        try:
-            content = response.json()["choices"][0]["message"]["content"]
-            data = json.loads(content)
-        except (ValueError, KeyError, IndexError, TypeError) as exc:
-            raise LlmUnavailable("malformed_response") from exc
-        return parse_llm_output(data)
+        return parse_llm_output(groq_chat_json(self._client, body))
 
 
 class CachedExtractor:

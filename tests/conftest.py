@@ -34,10 +34,43 @@ def settings(tmp_path) -> Settings:
 
 @pytest.fixture
 def make_service(settings):
-    """AnalysisService on a temporary database, with an optional fake LLM."""
+    """AnalysisService on a temporary database, with an optional fake LLM / transcriber."""
 
-    def factory(llm=None) -> AnalysisService:
-        return AnalysisService.from_settings(settings, llm=llm)
+    def factory(llm=None, transcriber=None) -> AnalysisService:
+        return AnalysisService.from_settings(settings, llm=llm, transcriber=transcriber)
+
+    return factory
+
+
+class FakeTranscriber:
+    """Stands in for the vision model: returns fixed text, or raises LlmUnavailable."""
+
+    model = "fake-vision"
+
+    def __init__(self, text: str = "", error: str | None = None):
+        self.text = text
+        self.error = error
+        self.images: list[tuple[bytes, str]] = []
+
+    def transcribe(self, image: bytes, mime: str) -> str:
+        self.images.append((image, mime))
+        if self.error:
+            raise LlmUnavailable(self.error)
+        return self.text
+
+
+@pytest.fixture
+def fake_transcriber():
+    return FakeTranscriber
+
+
+@pytest.fixture
+def image_client(settings):
+    """TestClient whose service uses a given fake transcriber."""
+
+    def factory(transcriber) -> TestClient:
+        service = AnalysisService.from_settings(settings, transcriber=transcriber)
+        return TestClient(create_app(settings, service), base_url="http://127.0.0.1:8000")
 
     return factory
 

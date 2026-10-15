@@ -13,7 +13,7 @@ The MVP is done when someone can run ScamSentinel on their own computer, send it
 | M2 | Message analyzer (rules first, then Groq LLM) + verification layer | ✅ Done |
 | M3 | Risk aggregator + `POST /v1/analyze` (text, URL, email) | ✅ Done |
 | M4 | Security hardening: upload guard, prompt-injection suite, no-fetch test, log redaction | ✅ Done |
-| M5 | Screenshot OCR (Tesseract) | |
+| M5 | Screenshot analysis (Groq vision transcription) | ✅ Done |
 | M6 | Evaluation dataset + precision/recall/F1/FPR report | |
 
 ## In scope (MVP)
@@ -93,5 +93,5 @@ Built in this order, only after the MVP works end to end. Details in [`architect
 ## Assumptions
 - English-language US taxpayer context.
 - One person running ScamSentinel on their own computer in a Python virtual environment, using the API from the command line at `http://127.0.0.1:8000`.
-- Tesseract is installed for screenshot OCR (M5). Without it, screenshot analysis reports `degraded: ocr_unavailable`.
+- Screenshot analysis needs a `GROQ_API_KEY`: a Groq vision model reads the text, and the sanitized image (metadata removed) is sent to Groq. Without a key, screenshot requests return 503. Only use synthetic or public screenshots, never ones showing real people's personal data.
 - An LLM API key is available for the selected provider (Groq by default, free tier). Without one, the system runs rules-only.

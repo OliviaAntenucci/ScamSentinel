@@ -83,15 +83,30 @@
               <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.8" y="4.2" width="14.4" height="11.6" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m4 5.5 6 4.8 6-4.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
               Email
             </button>
+            <button class="input-tab" type="button" role="tab" aria-selected="false" data-mode="image">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.8" y="3.8" width="14.4" height="12.4" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="7.2" cy="8" r="1.4" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="m3.5 14.5 4.3-4 3 2.6 2.4-2 3.3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Screenshot
+            </button>
           </div>
 
           <form id="analysis-form">
             <label class="input-label" id="content-label" for="content-input">Paste the suspicious message</label>
-            <div class="input-shell">
-              <textarea id="content-input" name="content" rows="7" maxlength="20000" placeholder="Example: Your package is on hold. Pay a small redelivery fee now to avoid having it returned..." required></textarea>
+            <div class="input-shell" id="text-shell">
+              <textarea id="content-input" name="content" rows="7" maxlength="20000" placeholder="Example: Your package is on hold. Pay a small redelivery fee now to avoid having it returned..."></textarea>
               <div class="input-footer">
                 <span class="input-hint" id="input-hint">Text stays on this computer unless an LLM provider is configured.</span>
                 <span class="character-count"><span id="char-count">0</span> / 20,000</span>
+              </div>
+            </div>
+            <div class="input-shell image-shell" id="image-shell" hidden>
+              <input class="image-input" id="image-input" type="file" accept="image/png,image/jpeg,image/webp">
+              <label class="image-drop" for="image-input">
+                <img class="image-preview" id="image-preview" alt="Selected screenshot" hidden>
+                <span class="image-drop-text" id="image-drop-text">Choose a screenshot or drop it here<small>PNG, JPEG or WebP · up to 5 MB</small></span>
+              </label>
+              <div class="input-footer">
+                <span class="input-hint">The screenshot is sent to Groq’s vision model to read its text. Location and other metadata are removed first.</span>
+                <span class="character-count" id="image-meta"></span>
               </div>
             </div>
             <div class="form-actions">
@@ -117,6 +132,7 @@
               <li><span class="list-icon">Aa</span> Texts and social messages</li>
               <li><span class="list-icon">↗</span> Suspicious links and domains</li>
               <li><span class="list-icon">✉</span> Raw email content</li>
+              <li><span class="list-icon">▣</span> Screenshots of messages</li>
             </ul>
           </div>
           <div class="privacy-card">

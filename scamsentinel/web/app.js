@@ -8,8 +8,18 @@ const analyzeButton = document.querySelector("#analyze-button");
 const errorBox = document.querySelector("#form-error");
 const resultSection = document.querySelector("#result-section");
 const resultCard = document.querySelector("#result-card");
+const textShell = document.querySelector("#text-shell");
+const imageShell = document.querySelector("#image-shell");
+const imageInput = document.querySelector("#image-input");
+const imagePreview = document.querySelector("#image-preview");
+const imageDropText = document.querySelector("#image-drop-text");
+const imageMeta = document.querySelector("#image-meta");
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
 let mode = "text";
 let llmConfigured = false;
+let selectedImage = null;
+let previewUrl = null;
 
 const modes = {
   text: {
@@ -30,6 +40,9 @@ const modes = {
     hint: "For best results, include the From, Reply-To, and Subject headers.",
     maxLength: 2097152,
   },
+  image: {
+    label: "Upload a screenshot of the message",
+  },
 };
 
 function updatePrivacyHint() {
@@ -48,13 +61,62 @@ function setMode(nextMode) {
     tab.setAttribute("aria-selected", String(selected));
   }
   const config = modes[mode];
+  const imageMode = mode === "image";
+  textShell.hidden = imageMode;
+  imageShell.hidden = !imageMode;
   contentLabel.textContent = config.label;
+  contentLabel.htmlFor = imageMode ? "image-input" : "content-input";
+  if (imageMode) return;
   content.placeholder = config.placeholder;
   content.maxLength = config.maxLength;
   hint.textContent = config.hint;
   counter.textContent = content.value.length.toLocaleString();
   updatePrivacyHint();
 }
+
+function formatBytes(bytes) {
+  return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`;
+}
+
+function selectImage(file) {
+  if (previewUrl) URL.revokeObjectURL(previewUrl);
+  previewUrl = null;
+  selectedImage = null;
+  imagePreview.hidden = true;
+  imagePreview.removeAttribute("src");
+  imageDropText.hidden = false;
+  imageMeta.textContent = "";
+  errorBox.hidden = true;
+  if (!file) return;
+  if (!IMAGE_TYPES.includes(file.type)) {
+    errorBox.textContent = "Please choose a PNG, JPEG or WebP image.";
+    errorBox.hidden = false;
+    return;
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    errorBox.textContent = `That image is ${formatBytes(file.size)}; the limit is 5 MB.`;
+    errorBox.hidden = false;
+    return;
+  }
+  selectedImage = file;
+  previewUrl = URL.createObjectURL(file);
+  imagePreview.src = previewUrl;
+  imagePreview.hidden = false;
+  imageDropText.hidden = true;
+  imageMeta.textContent = formatBytes(file.size);
+}
+
+imageInput.addEventListener("change", () => selectImage(imageInput.files[0]));
+imageShell.addEventListener("dragover", (event) => {
+  event.preventDefault();
+  imageShell.classList.add("dragging");
+});
+imageShell.addEventListener("dragleave", () => imageShell.classList.remove("dragging"));
+imageShell.addEventListener("drop", (event) => {
+  event.preventDefault();
+  imageShell.classList.remove("dragging");
+  selectImage(event.dataTransfer.files[0]);
+});
 
 for (const tab of tabs) {
   tab.addEventListener("click", () => setMode(tab.dataset.mode));
@@ -124,14 +186,16 @@ function renderResult(result) {
   const [label, title, tone] = verdicts[result.verdict] ?? ["Analysis complete", "Review the evidence below", "suspicious"];
   resultCard.className = `result-card ${tone}`;
   const ring = document.querySelector("#score-ring");
-  const scoreColor = result.risk_score >= 70 ? "#d65f6a" : result.risk_score >= 35 ? "#e3a64f" : "#65b68e";
+  // Same thresholds as the verdict bands in config/scoring.yaml (60 / 30).
+  const scoreColor = result.risk_score >= 60 ? "#d65f6a" : result.risk_score >= 30 ? "#e3a64f" : "#65b68e";
   ring.style.setProperty("--score", `${Math.max(0, Math.min(100, result.risk_score))}%`);
   ring.style.setProperty("--score-color", scoreColor);
   document.querySelector("#risk-score").textContent = result.risk_score;
   document.querySelector("#verdict-pill").textContent = label;
   document.querySelector("#result-title").textContent = title;
+  const inputName = { text: "Message", url: "Link", email: "Email", image: "Screenshot" }[result.input_type] ?? "Content";
   document.querySelector("#result-summary").textContent =
-    `${result.input_type[0].toUpperCase()}${result.input_type.slice(1)} analyzed${result.llm_used ? " with AI-assisted signal extraction" : " with local detection rules"}.`;
+    `${inputName} analyzed${result.llm_used ? " with AI-assisted signal extraction" : " with local detection rules"}.`;
   const created = new Date(result.created_at);
   document.querySelector("#result-meta").textContent =
     Number.isNaN(created.getTime()) ? "" : created.toLocaleString();
@@ -155,22 +219,33 @@ form.addEventListener("submit", async (event) => {
   event.preventDefault();
   errorBox.hidden = true;
   errorBox.textContent = "";
-  if (!content.value.trim()) {
-    errorBox.textContent = "Paste some content to analyze.";
+  const imageMode = mode === "image";
+  if (imageMode ? !selectedImage : !content.value.trim()) {
+    errorBox.textContent = imageMode ? "Choose a screenshot to analyze." : "Paste some content to analyze.";
     errorBox.hidden = false;
-    content.focus();
+    (imageMode ? imageInput : content).focus();
     return;
   }
   analyzeButton.disabled = true;
   analyzeButton.classList.add("loading");
   analyzeButton.querySelector(".button-label").textContent = "Analyzing...";
   try {
-    const key = { text: "text", url: "url", email: "email_raw" }[mode];
-    const response = await fetch("/v1/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [key]: content.value.trim() }),
-    });
+    let response;
+    if (imageMode) {
+      // Raw image body with an image/* Content-Type, as /v1/analyze/image expects.
+      response = await fetch("/v1/analyze/image", {
+        method: "POST",
+        headers: { "Content-Type": selectedImage.type },
+        body: selectedImage,
+      });
+    } else {
+      const key = { text: "text", url: "url", email: "email_raw" }[mode];
+      response = await fetch("/v1/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [key]: content.value.trim() }),
+      });
+    }
     const body = await response.json();
     if (!response.ok) throw new Error(explainError(body, response.status));
     renderResult(body);

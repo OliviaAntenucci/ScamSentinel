@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     llm_provider: Literal["groq", "anthropic"] = "groq"
     llm_model: str | None = None  # None -> DEFAULT_LLM_MODELS[llm_provider]
     llm_timeout_seconds: float = 20.0
+    # Screenshot transcription (M5). Groq's only vision model is a *preview* model (checked
+    # 2026-10-14) and may be retired at short notice; change it here when that happens.
+    vision_model: str = "qwen/qwen3.8-27b"
+    vision_timeout_seconds: float = 30.0
     groq_api_key: SecretStr | None = Field(
         default=None,
         validation_alias=AliasChoices("GROQ_API_KEY", "SCAMSENTINEL_GROQ_API_KEY"),

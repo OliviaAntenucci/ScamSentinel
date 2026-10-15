@@ -1,14 +1,16 @@
-"""S3: malicious uploads (SECURITY.md T3, AC-5).
-
-Header-level checks run now (M4). Re-encoding and OCR checks need Pillow/Tesseract (M5).
-"""
+"""S3: malicious uploads (SECURITY.md T3, AC-5)."""
 
 import struct
 
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
+from imagefixtures import EXIF_SAMPLE, ZIP_SIGNATURE, jpeg_segment
+from imagefixtures import jpeg as fixture_jpeg
+from imagefixtures import png as fixture_png
 
+from scamsentinel.ocr.vision import OcrUnavailable
+from scamsentinel.security.image_sanitize import sanitize_image
 from scamsentinel.security.upload_guard import (
     PNG_SIGNATURE,
     ImageInfo,
@@ -153,19 +155,21 @@ def test_arbitrary_bytes_never_crash(prefix, tail):
     assert info.width * info.height <= LIMITS["max_pixels"]
 
 
-# --- M5: need Pillow / Tesseract --------------------------------------------------------
+# --- after validation: sanitizing and transcription (M5) ---------------------------------
 
 
-@pytest.mark.skip(reason="M5: re-encoding needs Pillow")
-def test_polyglot_png_zip_neutralized_by_reencode():
-    raise NotImplementedError("re-encoded bytes contain no ZIP signature")
+def test_polyglot_png_zip_neutralized():
+    data = fixture_png() + ZIP_SIGNATURE + b"\x14\x00evil.html<script>alert(1)</script>"
+    assert ZIP_SIGNATURE not in sanitize_image(data, "image/png")
 
 
-@pytest.mark.skip(reason="M5: re-encoding needs Pillow")
 def test_exif_gps_stripped():
-    raise NotImplementedError("re-encoded image has no EXIF")
+    data = fixture_jpeg(extra_segments=[jpeg_segment(0xE1, EXIF_SAMPLE)])
+    assert b"GPS" not in sanitize_image(data, "image/jpeg")
 
 
-@pytest.mark.skip(reason="M5: OCR")
-def test_ocr_timeout_returns_degraded():
-    raise NotImplementedError("tesseract killed after OCR_TIMEOUT_SECONDS -> degraded")
+def test_vision_timeout_is_an_error_not_a_verdict(make_service, fake_transcriber):
+    service = make_service(transcriber=fake_transcriber(error="timeout"))
+    with pytest.raises(OcrUnavailable) as exc:
+        service.analyze_image(fixture_png())
+    assert exc.value.reason == "timeout"

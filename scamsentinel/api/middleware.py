@@ -13,6 +13,19 @@ SECURITY_HEADERS = {
 }
 
 
+# Strict CSP for the bundled frontend: same-origin scripts, styles and API calls only;
+# screenshot previews use blob: URLs. Not applied to /docs, whose Swagger UI loads from
+# a CDN and serves JSON-only API responses anyway.
+FRONTEND_CSP = (
+    "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; "
+    "connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+)
+
+
+def _is_frontend(path: str) -> bool:
+    return path == "/" or path.startswith("/static/")
+
+
 class SecurityHeadersMiddleware:
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
@@ -27,6 +40,8 @@ class SecurityHeadersMiddleware:
                 headers = MutableHeaders(scope=message)
                 for name, value in SECURITY_HEADERS.items():
                     headers[name] = value
+                if _is_frontend(scope["path"]):
+                    headers["Content-Security-Policy"] = FRONTEND_CSP
             await send(message)
 
         await self.app(scope, receive, send_with_headers)

@@ -37,7 +37,8 @@ This is a portfolio project that runs locally. Out of scope: reports about third
  Untrusted                          │  Trusted (one local Python process)
 ────────────────────────────────────┼──────────────────────────────────────────────
  user input (text / URL / eml / img)│→ API: Host check, size caps, schema validation
- uploaded image bytes               │→ upload guard → re-encode → tesseract subprocess
+ uploaded image bytes               │→ upload guard → byte-level sanitize → Groq vision
+ vision transcription               │→ treated exactly like an untrusted pasted message
  LLM output (Groq / Claude)         │→ strict schema + span grounding → rules decide
  requests from other local programs │→ Host-header allowlist, no CORS
 ```
@@ -76,6 +77,7 @@ Variants: zero-width characters, instructions inside HTML email bodies or commen
 4. **Separate data from instructions.** The system prompt states that the content is untrusted data to analyze, not instructions to follow. Content goes inside a randomly named delimiter (`<untrusted_content_9f3a...>`) that the attacker can't predict or close early. Input is length-capped.
 5. **Validate output strictly.** The JSON is validated with Pydantic. Unknown fields, out-of-range values, and malformed output are rejected, and the system falls back to rules-only. Every extracted signal must quote a span that literally appears in the input, so made-up "evidence" is dropped.
 6. **Least privilege.** The LLM call has no tools (no browsing, no DB writes). It sees only the content under analysis, never secrets or other data.
+7. **Screenshots: the vision model only transcribes.** Its prompt says the image is data and must be transcribed, not obeyed. Its JSON reply may contain only `{"text": …}`, and that text then goes through the same rules, grounding and scoring as a pasted message. A malicious image can at most persuade the transcriber to *leave text out* (lowering recall). It can't add a verdict, and any injection phrases it does transcribe are scored as evidence.
 
 **Tests:** `tests/security/test_prompt_injection.py`
 - Paired corpus: each scam sample is tested with and without about 30 injection variants (plain, HTML, zero-width, fake JSON, screenshot text, other languages). **Assertion: the verdict band never drops** (AC-4).
@@ -102,16 +104,16 @@ Without containers, the image is parsed by the same process that runs the API, s
 
 1. **Size limits.** The whole request body is capped at 6 MB by `BodySizeLimitMiddleware`: a declared `Content-Length` over the cap gets 413 immediately, and chunked bodies are counted while they stream in. The image itself is capped at 5 MB.
 2. **Allowlist by magic bytes.** Accept only PNG, JPEG, and WebP, detected from file signatures (`security/upload_guard.py`). The client's `Content-Type` and filename are ignored.
-3. **Pixel limits before decoding.** Width and height are read straight from the PNG `IHDR`, JPEG start-of-frame, or WebP `VP8`/`VP8L`/`VP8X` header with plain byte parsing, and checked against 25 MP. A 60-byte PNG claiming 100,000 × 100,000 pixels is rejected before any image decoder runs. Pillow's `MAX_IMAGE_PIXELS` will be set to the same limit as a second check (M5).
-4. **Decode and re-encode.** The image is decoded and written out again as a fresh PNG with no metadata. This strips EXIF (including GPS) and appended polyglot payloads. Only the re-encoded image goes to OCR.
-5. **OCR in a separate process with a timeout.** `pytesseract` runs the Tesseract binary as a child process. A pathological image gets killed after a fixed timeout, and the API returns `degraded: ocr_timeout` instead of hanging.
+3. **Pixel limits before decoding.** Width and height are read straight from the PNG `IHDR`, JPEG start-of-frame, or WebP `VP8`/`VP8L`/`VP8X` header with plain byte parsing, and checked against 25 MP. A 60-byte PNG claiming 100,000 × 100,000 pixels is rejected before anything else happens.
+4. **No local decoding; byte-level sanitizing instead** (`security/image_sanitize.py`). ScamSentinel never decodes the image, so image-library parser bugs can't reach it. The file is rebuilt from only the chunks needed to display it: PNG chunks are CRC-checked and text/`eXIf`/`iCCP`/unknown chunks dropped; JPEG `APP1`–`APP13`, `APP15` and comments dropped; WebP `EXIF`/`XMP`/`ICCP` chunks dropped and the matching `VP8X` flags cleared. Copying stops at the end-of-image marker, so anything appended (a ZIP polyglot, a script) is discarded. This also keeps GPS location and other metadata from reaching the third-party vision model.
+5. **Bounded transcription.** The vision call has a 30-second timeout. A timeout, rate limit, retired model or missing key returns `503 screenshot analysis unavailable`, never a verdict, and never a hang.
 6. **Never written, never executed, never served.** Uploads are processed in memory and never saved to disk, so client filenames are never used as paths. Uploaded images are never sent back to the user.
-7. **Keep dependencies patched.** Pillow is pinned to a minimum version, and `pip-audit` runs in CI.
+7. **Keep dependencies patched.** No image library is installed at all. Other dependencies are pinned to minimum versions, and `pip-audit` runs in CI.
 8. **Email (.eml) handling.** Parsed with Python's `email` package. HTML bodies are converted to text with an HTML parser, never rendered. Attachments are listed by name/type/size and **never opened**.
 
 **Tests:** `tests/security/test_uploads.py`
 - Passing (M4): rejects `.exe`/`.html`/`.svg`/PDF/ZIP/GIF bytes, an empty file, and a 6 MB file. Rejects decompression bombs in all five header formats (each under 200 bytes, up to 10 billion pixels). Rejects truncated and malformed headers with a clean `malformed_header` reason. A `hypothesis` fuzz test feeds random bytes after each magic prefix and only ever gets a result or `UploadRejected`, never a crash.
-- Planned (M5): a polyglot PNG+ZIP has no ZIP signature after re-encoding, EXIF GPS is removed, and an OCR timeout returns `degraded`, not a hang.
+- Passing (M5): `test_image_sanitize.py` checks that PNG/JPEG/WebP metadata (EXIF GPS, XMP, text, ICC) and appended ZIP payloads are removed, clean files pass through unchanged, bad CRCs and truncated structures are rejected, and fuzzed files never crash. `test_api_image.py` checks that the bytes sent to the vision model are the sanitized ones, a mislabeled file is caught by magic bytes, bombs never reach the model, and a vision timeout is a 503.
 
 ---
 
@@ -138,7 +140,8 @@ Without containers, the image is parsed by the same process that runs the API, s
 | Threat | Defense |
 |---|---|
 | Cost/DoS via the LLM | Input caps, SQLite cache keyed by content hash, at most one LLM call per input, 30 analyses/minute rate limit |
-| PII sent to a third-party LLM (Groq free tier / Anthropic) | Only the input text is sent, never secrets or other data. Operators are told to submit only synthetic or public samples. Rules-only mode keeps everything local |
+| PII sent to a third-party LLM (Groq free tier / Anthropic) | Only the input text (or the sanitized screenshot, with metadata such as GPS removed) is sent, never secrets or other data. Operators are told to submit only synthetic or public samples. Rules-only mode keeps text analysis local; screenshots always need the vision model |
+| XSS in the browser UI (reasons quote scammer-written text) | The UI renders everything with `textContent`, never `innerHTML` (a test scans `app.js` for HTML sinks), and `/` and `/static/*` are served with a strict CSP: same-origin scripts/styles/requests only, no inline script, no framing |
 | PII in results, storage and logs | SSN-like numbers (valid area/group/serial ranges) and Luhn-valid card numbers are replaced with `[REDACTED-SSN]` / `[REDACTED-CARD]` in every reason before the result is returned or stored (`security/redaction.py`). A logging filter on the root handler redacts every log message and traceback, including uvicorn's. The pipeline logs only metadata (id, verdict, score), never content. The raw input is never stored, only its hash. Analyses and cached LLM features expire after 7 days. Phone numbers are deliberately kept, because they are evidence |
 | Secret leakage | API keys live only in `.env` (gitignored), are loaded as `SecretStr`, and never appear in prompts, logs or responses |
 | Allowlist bypass (`turbotax.com.evil.net`, `irs.gov-refund.com`) | The allowlist matches the **registrable domain** from the Public Suffix List, never a substring or prefix |
@@ -149,7 +152,9 @@ Without containers, the image is parsed by the same process that runs the API, s
 
 - **Planted mitigating evidence.** A scammer can include a genuine `irs.gov` link to earn the "official link" mitigation (−15) and possibly the 40-point cap. That only applies when no check failed, no sensitive data or payment is requested, and no AI instructions are present. So the planted link can soften a vague message (e.g. "your account is locked, reply now") but not a credential or payment scam.
 - **Rules are English and phrase-based.** Paraphrases the rules don't know rely on the LLM. Obfuscated injections (leetspeak, homoglyphs, other languages) aren't detected as injections by the rules, but they still can't lower a verdict, because the LLM has no say over it.
-- **The LLM cache holds unredacted spans** for up to 7 days on the local disk, because grounding has to compare them against the original text.
+- **The LLM cache holds unredacted spans and transcriptions** for up to 7 days on the local disk, because grounding has to compare them against the original text.
+- **Screenshots depend on a preview model.** Groq's only vision model (`qwen/qwen3.8-27b`) is listed as preview and may be retired without notice. If that happens, screenshot analysis fails closed with `503 … model_not_found` until `SCAMSENTINEL_VISION_MODEL` is updated.
+- **Transcription can be manipulated to omit text.** See T2, defense 7.
 
 ---
 
@@ -178,7 +183,7 @@ The payload list and test file already exist (`tests/security/ssrf_payloads.txt`
 |---|---|---|---|
 | S1 | `test_no_fetch.py` | Analyzing any URL makes no DNS lookup or connection; the only outbound request is to the LLM provider | Passing |
 | S2 | `test_prompt_injection.py`, `test_message_features.py`, `test_llm.py` | 30-variant paired corpus × 3 samples: injection never lowers the verdict band; injection is scored as evidence; an LLM that obeys the injection can't clear a scam; LLM output can't carry a verdict; malformed output → rules-only; ungrounded spans dropped | Passing |
-| S3 | `test_uploads.py` | Hostile files rejected before decoding (type, size, bombs, malformed headers, fuzzing) | Header checks passing; re-encode/OCR checks in M5 |
+| S3 | `test_uploads.py`, `test_image_sanitize.py`, `test_api_image.py` | Hostile files rejected before anything else (type, size, bombs, malformed headers, fuzzing); metadata and polyglot payloads stripped before the vision model; vision failures are errors, not verdicts | Passing |
 | S4 | `test_local_api.py` | Loopback only; foreign `Host` rejected; no CORS; security headers; local CSRF refused; body size cap; rate limit | Passing |
 | S7 | `test_redaction.py` | SSN/card numbers removed from responses, storage and logs | Passing |
 | S5 | `test_allowlist.py` | Subdomain/suffix tricks never match the official allowlist | Passing |
