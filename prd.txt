@@ -1,0 +1,231 @@
+================================================================================
+ScamSentinel: Product Requirements Document
+================================================================================
+Version: 0.1 (draft)
+Date:    2026-10-14
+Status:  Design
+
+--------------------------------------------------------------------------------
+1. SUMMARY
+--------------------------------------------------------------------------------
+ScamSentinel takes a suspicious SMS, email, URL, or screenshot and decides
+whether it is a scam targeting taxpayers. It focuses on impersonation of
+TurboTax, QuickBooks, Credit Karma, and the IRS. Every verdict comes with
+human-readable, evidence-backed reasons.
+
+Design principle: "The LLM extracts, the rules decide." No verdict depends on
+an opaque model output alone.
+
+--------------------------------------------------------------------------------
+2. PROBLEM
+--------------------------------------------------------------------------------
+- Tax season brings a spike in phishing that impersonates the IRS and tax
+  software vendors: refund "verification" links, account-suspension texts,
+  and fake payment demands.
+- Most consumers can't tell irs.gov from irs-gov-refund.com, or turbotax.com
+  from turb0tax.com.
+- Generic spam filters give a score with no explanation. Users and analysts
+  need to know WHY something is a scam so they can trust the result and
+  learn from it.
+- Lookalike domains often get TLS certificates before any campaign begins.
+  Certificate Transparency logs offer an early-warning signal that most
+  consumer tools ignore.
+
+--------------------------------------------------------------------------------
+3. USERS & USE CASES
+--------------------------------------------------------------------------------
+U1. Taxpayer: "I got a text saying my refund is on hold. Is this real?"
+    -> Paste text, get a verdict and plain-English reasons.
+U2. Security analyst / SOC: "Triage this reported phishing email."
+    -> Submit a raw .eml or URL, get a detonation report (screenshot,
+       redirects, forms) and structured JSON for a ticket.
+U3. Threat-intel researcher: "What new lookalikes of TurboTax appeared
+    this week?"
+    -> Query the CT watcher's feed of scored candidate domains.
+U4. Developer / evaluator: "How accurate is this?"
+    -> Run the eval harness and get precision, recall, F1, and FPR.
+
+--------------------------------------------------------------------------------
+4. GOALS / NON-GOALS
+--------------------------------------------------------------------------------
+Goals
+  G1. Correctly classify tax-themed scams across text, email, URL, and image
+      inputs.
+  G2. 100% of verdicts include at least one evidence-backed reason (or an
+      explicit "no risk signals found").
+  G3. The tool resists SSRF, prompt injection, and malicious uploads, and
+      tests demonstrate each defense.
+  G4. Measured, reproducible accuracy on a held-out labeled test set.
+  G5. Proactive discovery of new lookalike domains through CT logs.
+
+Non-goals: see SCOPE.md.
+
+--------------------------------------------------------------------------------
+5. FUNCTIONAL REQUIREMENTS
+--------------------------------------------------------------------------------
+Input handling
+  FR-1   Accept plain text (SMS / chat), up to 20,000 characters.
+  FR-2   Accept a raw email (.eml, RFC 5322) up to 2 MB. Parse headers
+         (From, Reply-To, Return-Path, Authentication-Results), text/plain
+         and text/html bodies. Never render HTML. Never open attachments.
+  FR-3   Accept a URL (http/https only).
+  FR-4   Accept an image screenshot (PNG/JPEG/WebP) up to 5 MB and 25 MP.
+  FR-5   Extract all URLs and domains from text/email/OCR output, including
+         defanged forms (hxxp://, example[.]com), and analyze each.
+
+Lookalike-domain engine
+  FR-6   Reduce every host to its registrable domain using the Public Suffix
+         List. "turbotax.com.evil.net" must resolve to "evil.net" with
+         "turbotax" flagged as a subdomain brand token.
+  FR-7   Decode IDN/punycode (xn--) and compute a Unicode confusables
+         skeleton (UTS #39), plus ASCII substitutions (0->o, 1->l, 5->s,
+         rn->m, vv->w).
+  FR-8   Compute normalized edit distance (Levenshtein + Damerau
+         transposition) between the label and each protected brand token.
+  FR-9   Detect brand-token containment plus keyword stuffing (verify,
+         secure, refund, claim, login, account, update, support, irs, tax,
+         etc.) and hyphenated compounds.
+  FR-10  Exact matches against the official allowlist (e.g. irs.gov,
+         intuit.com, turbotax.intuit.com, creditkarma.com) return
+         "official" and score 0 for the domain module.
+  FR-11  Output: score 0-100, matched brand, technique(s) fired, and the
+         normalized form, for explainability.
+
+Certificate Transparency watcher
+  FR-12  Poll crt.sh on a configurable interval (default 6h) for each brand
+         token (e.g. %turbotax%, %irs%, %creditkarma%, %quickbooks%).
+  FR-13  De-duplicate by certificate ID and SAN name. Store first_seen.
+  FR-14  Score every new name with the domain engine. Persist candidates
+         that score >= 50.
+  FR-15  Expose GET /v1/ct/candidates?since=&min_score= .
+  FR-16  Back off on errors and rate limits. Never hammer crt.sh.
+
+Message analyzer
+  FR-17  The LLM returns a strict JSON schema: urgency (0-10 + quoted
+         spans), impersonated_entity, payment_methods[], sensitive_requests[]
+         (SSN, bank, password, MFA code, card, ID photo), claimed_urls[],
+         call_to_action, and injection_attempt_detected (bool + span).
+  FR-18  Each extracted signal must quote a verbatim span from the input.
+         Signals whose span does not appear in the input are discarded
+         (hallucination guard).
+  FR-19  A deterministic keyword/regex extractor runs in parallel. If the
+         LLM is unavailable, the system degrades to rules-only and says so
+         in the response.
+
+Verification layer
+  FR-20  Check claims against a curated trusted-facts store, including:
+         - Official domains per brand.
+         - "IRS does not initiate contact by email, text, or social media
+            to request personal or financial information."
+         - "IRS does not demand payment by gift card, crypto, or wire."
+         - Official phone numbers (IRS, Intuit support) where published.
+  FR-21  Each check yields {claim, verified: true|false|unknown, source}.
+
+URL detonator
+  FR-22  Visit the URL in headless Chromium inside an isolated container.
+         Capture: final URL, full redirect chain, HTTP status, screenshot
+         (PNG), sanitized DOM text, forms and input fields, page title,
+         favicon hash, and TLS issuer/age where available.
+  FR-23  Flag: password/SSN/card/MFA inputs; brand terms or logos on a
+         non-official domain; more than 2 cross-domain redirects; forms
+         that post to a third-party domain; very new certificates.
+  FR-24  Hard limits: 20 s total, 10 redirects, 10 MB transfer, no
+         downloads, no permission prompts, no form submission.
+
+Screenshot OCR
+  FR-25  Validate, re-encode, OCR (Tesseract), then pass the text through
+         FR-5 and FR-17.
+
+Aggregation & output
+  FR-26  Combine module scores with configurable weights, renormalized over
+         the modules that ran. Critical overrides (e.g. credential form on
+         a lookalike domain) set a minimum score floor.
+  FR-27  Verdict bands: 0-29 likely_legitimate, 30-59 suspicious,
+         60-100 likely_scam.
+  FR-28  Response includes verdict, risk_score, per-module scores,
+         reasons[] {module, signal, detail, evidence, points}, modules_run,
+         degraded flags, and analysis_id.
+
+Evaluation
+  FR-29  The dataset has train/dev/test splits with fixed seeds. Test is
+         never used to tune weights, thresholds, or prompts.
+  FR-30  Report precision, recall, F1, FPR, and the confusion matrix,
+         overall and per input type and per brand.
+  FR-31  Report ablations: rules-only vs. LLM+rules; with and without the
+         sandbox.
+
+--------------------------------------------------------------------------------
+6. NON-FUNCTIONAL REQUIREMENTS
+--------------------------------------------------------------------------------
+  NFR-1  Explainability: every point in risk_score traces to a reason.
+  NFR-2  Latency (p95): text-only < 4 s; with URL detonation < 25 s.
+  NFR-3  Security: see SECURITY.md. All SSRF/upload/injection tests pass
+         in CI.
+  NFR-4  Privacy: inputs are kept for at most 7 days by default. SSN-like
+         and card-like numbers are redacted before logging. Nothing is
+         sent to the LLM beyond the input text.
+  NFR-5  Determinism: given the same LLM features, scoring is fully
+         deterministic and unit-testable.
+  NFR-6  Cost: at most one LLM call per input; responses are cached by
+         content hash.
+  NFR-7  Abuse resistance: per-IP rate limits (e.g. 30 analyses/min,
+         5 detonations/min).
+  NFR-8  Portability: the full stack runs with `docker compose up` on a
+         laptop.
+
+--------------------------------------------------------------------------------
+7. API (MVP)
+--------------------------------------------------------------------------------
+  POST /v1/analyze           JSON {text | url | email_raw} or multipart image
+  GET  /v1/analysis/{id}     Fetch result (with sandbox artifacts)
+  GET  /v1/domain/score?d=   Domain engine only
+  GET  /v1/ct/candidates     CT watcher feed
+  GET  /healthz
+
+--------------------------------------------------------------------------------
+8. SUCCESS METRICS / ACCEPTANCE CRITERIA
+--------------------------------------------------------------------------------
+  AC-1  Held-out test set: F1 >= 0.85 and FPR <= 5% on legitimate tax
+        messages. (These are targets. README reports the measured values,
+        whatever they turn out to be.)
+  AC-2  Domain engine: >= 95% recall on a generated lookalike suite
+        (homoglyph, typo, keyword-stuffed, subdomain-abuse, IDN) and 0
+        false positives on the official allowlist.
+  AC-3  All SSRF payloads in tests/security/ssrf_payloads.txt are blocked,
+        including DNS-rebinding and redirect-to-internal cases.
+  AC-4  Prompt-injection suite: no injected sample lowers its verdict band
+        compared with the same sample without the injection.
+  AC-5  Upload suite: all malformed/hostile files are rejected or safely
+        processed with no crash and no resource exhaustion.
+  AC-6  100% of responses contain >= 1 reason.
+
+--------------------------------------------------------------------------------
+9. MILESTONES
+--------------------------------------------------------------------------------
+  M0  Docs & repo skeleton (this document, architecture, security, scope)
+  M1  Domain engine + unit/property tests + allowlist
+  M2  Message analyzer (rules-only first, then LLM) + verification layer
+  M3  Aggregator + FastAPI + response schema
+  M4  Security hardening: URL guard, upload pipeline, injection suite
+  M5  URL detonator in isolated container
+  M6  OCR pipeline
+  M7  CT watcher
+  M8  Eval dataset + harness + published metrics
+  M9  Minimal web UI (optional)
+
+--------------------------------------------------------------------------------
+10. RISKS & OPEN QUESTIONS
+--------------------------------------------------------------------------------
+  R1  Public phishing feeds (PhishTank, OpenPhish) are mostly URLs with few
+      tax-themed message bodies. Synthetic data fills the gap but may
+      inflate scores. Mitigation: report results on real vs. synthetic
+      samples separately.
+  R2  crt.sh is free and sometimes slow or unavailable. Mitigation:
+      retries, caching, and an optional Certstream source.
+  R3  Live phishing URLs go offline quickly. Mitigation: store detonation
+      snapshots and evaluate the sandbox on archived captures.
+  R4  LLM cost/latency. Mitigation: caching and rules-only fallback.
+  Q1  Should the UI ship in the MVP, or API/CLI only?
+  Q2  Is VirusTotal / Google Safe Browsing enrichment worth the API
+      dependency?
+================================================================================
