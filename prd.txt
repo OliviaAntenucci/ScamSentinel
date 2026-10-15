@@ -3,7 +3,7 @@ ScamSentinel: Product Requirements Document
 ================================================================================
 Version: 0.2
 Date:    2026-10-14
-Status:  MVP in progress (M0, M1, M2 done)
+Status:  MVP in progress (M0-M3 done)
 
 --------------------------------------------------------------------------------
 1. SUMMARY
@@ -201,7 +201,7 @@ MVP
   M0  Docs, repo skeleton, API skeleton, test harness          (done)
   M1  Lookalike-domain engine + unit/property tests             (done)
   M2  Message analyzer (rules first, then Groq) + verification  (done)
-  M3  Aggregator + POST /v1/analyze (text, URL, email) + storage
+  M3  Aggregator + POST /v1/analyze (text, URL, email) + storage  (done)
   M4  Security hardening: upload guard, prompt-injection suite,
       no-fetch test, log redaction, rate limit
   M5  Screenshot OCR (Tesseract)

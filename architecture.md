@@ -166,7 +166,7 @@ Regex and phrase lists from `keywords.yaml`: urgency phrases ("within 24 hours",
 
   There is no verdict or score field, and the schema rejects unknown fields.
 - **Grounding check:** each `span` must appear in the normalized input (case/whitespace-insensitive). Features that fail the check are dropped and counted.
-- **Caching (M3):** results will be keyed on `sha256(provider + model + prompt_version + normalized_text)` in SQLite.
+- **Caching:** successful extractions are cached in SQLite (`CachedExtractor`), keyed on `sha256(provider + model + prompt_version + whitespace-normalized text)`. Failures aren't cached. Cached features are re-grounded against each input like fresh ones.
 
 ### 5.3 Merge
 
@@ -201,8 +201,8 @@ Output: `[{check, claim, verified: true|false|null, source, detail}]`. Checks th
 | Input | Handling |
 |---|---|
 | Text (`text`) | Up to 20,000 characters. URLs and domains extracted, including defanged forms |
-| URL (`url`) | Scored by the domain engine and checked by the verification layer. **Never fetched** |
-| Email (`email_raw`) | Parsed with Python's `email` package. HTML bodies converted to text with an HTML parser, never rendered. Attachments listed by name/type/size, never opened |
+| URL (`url`) | Scored by the domain engine only (running the message analyzer on the URL string would count the same evidence twice). **Never fetched** |
+| Email (`email_raw`) | Parsed with Python's `email` package. HTML bodies converted to text with an HTML parser, never rendered; link `href` targets are collected separately. Attachments listed by name/type/size, never opened. The domain module scores body links, link targets, and the From / Reply-To domains |
 | Screenshot (multipart `image`) | Upload guard → OCR (§8) → treated as text |
 
 ---
@@ -223,7 +223,7 @@ Tesseract must be installed on the machine (Windows installer, `brew install tes
 ## 9. Risk aggregator
 
 ### Module scores
-Each module produces `score ∈ [0,100]` and `reasons[]` (each with `points`). Verification has no module score of its own. Its reasons add points to the message module.
+Each module produces `score ∈ [0,100]` and `reasons[]` (each with `points`). Verification has no module score of its own. Its reasons add points to the message module. When an input has several links, the domain module's score is the worst (highest) domain's score, and reasons are listed for up to 5 flagged domains. At most 20 domains are scored per input.
 
 ### Weighted combination with renormalization
 Default weights: `domain 0.55, message 0.45`. Only modules that **ran** count, and their weights are renormalized:
@@ -245,7 +245,9 @@ High-confidence combinations set a minimum score, regardless of averaging:
 | Homoglyph domain of a protected brand | 80 |
 | Injection attempt detected **and** any other scam signal | 70 |
 
-A mitigating cap also applies: if every URL is official, no sensitive data is requested, and there's no payment demand, the score is capped at 40. This keeps real IRS and Intuit notices out of `likely_scam`.
+A mitigating cap also applies: if the input has at least one link, every link is official, and nothing sensitive, no payment and no AI instructions are requested, the score is capped at 40. This keeps real IRS and Intuit notices out of `likely_scam`. The cap is applied first, then the floors.
+
+The aggregator explains itself: it appends `aggregate` reasons (0 points) showing the weighting math (`Weighted score: domain 70 × 0.55 + message 100 × 0.45 = 84`) and every cap or floor that changed the result.
 
 ### Verdict bands
 `0–29 likely_legitimate · 30–59 suspicious · 60–100 likely_scam`
@@ -254,11 +256,14 @@ A mitigating cap also applies: if every URL is official, no sensitive data is re
 
 ```json
 {
-  "analysis_id": "an_01J…",
+  "analysis_id": "an_3f1c…",
+  "created_at": "2026-10-14T21:05:11Z",
+  "input_type": "text",
   "verdict": "likely_scam",
   "risk_score": 90,
-  "module_scores": { "domain": 70, "message": 82 },
-  "modules_run": ["domain", "message", "verify"],
+  "module_scores": { "domain": 70, "message": 100 },
+  "modules_run": ["domain", "message"],
+  "llm_used": true,
   "degraded": [],
   "reasons": [
     {
@@ -267,9 +272,14 @@ A mitigating cap also applies: if every URL is official, no sensitive data is re
       "detail": "'irs-refund-secure' combines the IRS name with trust keywords: refund, secure",
       "evidence": "irs-refund-secure.com",
       "points": 70
-    }
+    },
+    { "module": "message", "signal": "sensitive_request", "detail": "Asks for a Social Security number: \"SSN\"", "points": 25 },
+    { "module": "verify", "signal": "contact_channel", "detail": "The IRS does not initiate contact … [source: https://www.irs.gov/…]", "points": 25 },
+    { "module": "aggregate", "signal": "weighted_score", "detail": "Weighted score: domain 70 × 0.55 + message 100 × 0.45 = 84", "points": 0 },
+    { "module": "aggregate", "signal": "floor:sensitive_request_with_lookalike", "detail": "Raised to at least 90: asks for sensitive information and links to a lookalike domain", "points": 0 }
   ],
-  "overrides_applied": ["sensitive_request_with_lookalike"]
+  "overrides_applied": ["sensitive_request_with_lookalike"],
+  "disagreements": []
 }
 ```
 
@@ -306,12 +316,12 @@ Every record: `{id, input_type, content (URLs defanged), label, brand, source, s
 ## 11. Data model (SQLite)
 
 ```
-analyses(id, created_at, input_type, input_hash, verdict, risk_score, result_json, expires_at)
-llm_cache(key PK, provider, model, prompt_version, features_json, created_at)
+analyses(id PK, created_at, expires_at, input_type, input_hash, verdict, risk_score, result_json)
+llm_cache(key PK, provider, model, features_json, created_at)   -- key = sha256(provider, model, prompt version, normalized text)
 ct_candidates(...)   -- post-MVP (P1)
 ```
 
-Uploaded images are processed in memory and never written to disk. Analyses older than `expires_at` (7 days by default) are purged on startup and daily.
+`scamsentinel/store.py` opens a fresh connection per call (safe under FastAPI's thread pool). The raw input is never stored, only its SHA-256 hash and the result. Expired analyses are hidden immediately and deleted on startup. Cached LLM features quote the analyzed text, so they expire on the same 7-day schedule. Uploaded images are processed in memory and never written to disk.
 
 ---
 

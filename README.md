@@ -19,7 +19,7 @@ Send it a suspicious text message, email, URL, or screenshot. ScamSentinel decid
 
 No black-box answers. The LLM only **extracts features**. Deterministic rules produce the verdict, and every rule that fires appears in `reasons`.
 
-> **Status:** MVP in progress. M0 (skeleton), M1 (lookalike-domain engine, `GET /v1/domain/score`) and M2 (message analyzer + verification layer) are done. `POST /v1/analyze` returns `501 Not Implemented` until M3 wires everything together. See [MVP roadmap](#mvp-roadmap).
+> **Status:** MVP in progress. M0–M3 are done: text, URL and email analysis work end to end (`POST /v1/analyze`). Screenshots (M5) and evaluation numbers (M6) are next. See [MVP roadmap](#mvp-roadmap).
 
 ---
 
@@ -44,7 +44,7 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 2. **Message analyzer** ✅: keyword rules plus an LLM (Groq by default) extract urgency, impersonation, payment-method, and sensitive-data-request signals as structured JSON.
 3. **Verification layer** ✅ (VerifyVault-style): checks claims against trusted facts, such as "is this an official IRS domain?" or "does the IRS start contact by SMS?"
 4. **Screenshot OCR**: Tesseract extracts the text, which then goes through the message analyzer.
-5. **Risk aggregator**: combines module scores into one score, verdict, and list of reasons.
+5. **Risk aggregator** ✅: combines module scores into one score, verdict, and list of reasons.
 6. **Evaluation harness**: a labeled set of synthetic and public samples, reporting precision, recall, F1, and false-positive rate.
 
 **Post-MVP:** Certificate Transparency monitoring, page fetching, a Playwright sandbox, and Docker packaging. See [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
@@ -58,7 +58,7 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 | M0 | Docs, skeleton, API, test harness | ✅ |
 | M1 | Lookalike-domain engine | ✅ |
 | M2 | Message analyzer + verification layer | ✅ |
-| M3 | Risk aggregator + `POST /v1/analyze` | |
+| M3 | Risk aggregator + `POST /v1/analyze` | ✅ |
 | M4 | Security hardening (uploads, prompt injection, no-fetch, redaction) | |
 | M5 | Screenshot OCR | |
 | M6 | Evaluation + metrics | |
@@ -111,16 +111,23 @@ In a second terminal:
 ```bash
 curl -s http://127.0.0.1:8000/healthz
 
-# Score a domain (works now)
+# Score a domain
 curl -s "http://127.0.0.1:8000/v1/domain/score?d=turb0tax-refund.com"
 
-# Analyze a text message (M3)
+# Analyze a text message
 curl -s http://127.0.0.1:8000/v1/analyze -H 'content-type: application/json' \
   -d '{"text": "IRS ALERT: Your refund is suspended. Verify at irs-refund-secure.com"}'
 
-# Analyze a URL; it is scored, never visited (M3)
+# Analyze a URL; it is scored, never visited
 curl -s http://127.0.0.1:8000/v1/analyze -H 'content-type: application/json' \
   -d '{"url": "https://turb0tax-verify.example"}'
+
+# Analyze a saved email (.eml), JSON-encoded with jq
+jq -Rs '{email_raw: .}' suspicious.eml | \
+  curl -s http://127.0.0.1:8000/v1/analyze -H 'content-type: application/json' -d @-
+
+# Fetch a stored result again (kept for 7 days)
+curl -s http://127.0.0.1:8000/v1/analysis/<analysis_id>
 
 # Analyze a screenshot (M5; needs Tesseract installed)
 curl -s http://127.0.0.1:8000/v1/analyze -F 'image=@suspicious.png'
