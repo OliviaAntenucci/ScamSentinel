@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from scamsentinel import __version__
@@ -12,6 +16,8 @@ from scamsentinel.api.middleware import SecurityHeadersMiddleware
 from scamsentinel.api.routes import router
 from scamsentinel.config import Settings, get_settings
 from scamsentinel.pipeline import AnalysisService
+
+WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
 
 def create_app(
@@ -34,4 +40,10 @@ def create_app(
 
     install_error_handlers(app)
     app.include_router(router)
+    app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
+
+    @app.get("/", include_in_schema=False)
+    def frontend() -> FileResponse:
+        return FileResponse(WEB_DIR / "index.html")
+
     return app

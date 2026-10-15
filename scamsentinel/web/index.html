@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f7f8fc">
+    <meta name="description" content="Check suspicious messages, links, and emails with ScamSentinel.">
+    <title>ScamSentinel — Know before you click</title>
+    <link rel="stylesheet" href="/static/app.css">
+    <script src="/static/app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="ScamSentinel home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none">
+            <path d="M16 3.5 27 8v7.4c0 7.1-4.7 11.5-11 13.5-6.3-2-11-6.4-11-13.5V8l11-4.5Z" stroke="currentColor" stroke-width="2.2"/>
+            <path d="m11.2 16.1 3.2 3.2 6.7-7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <span>Scam<span class="brand-light">Sentinel</span></span>
+      </a>
+      <nav class="topnav" aria-label="Main navigation">
+        <a class="nav-link active" href="#analyzer">Analyzer</a>
+        <a class="nav-link" href="#how-it-works">How it works</a>
+        <a class="nav-link docs-link" href="/docs" target="_blank" rel="noreferrer">API docs <span aria-hidden="true">↗</span></a>
+      </nav>
+      <div class="local-status" id="api-status" role="status">
+        <span class="status-dot"></span><span>Connecting to local API</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" id="analyzer">
+        <div class="hero-copy">
+          <div class="eyebrow"><span class="eyebrow-line"></span> YOUR PERSONAL SCAM CHECK</div>
+          <h1>Pause. Paste.<br><span>Know what you’re looking at.</span></h1>
+          <p class="hero-description">Suspicious text, unexpected email, or a link that feels off? Get a clear risk assessment and see exactly what raised the flag.</p>
+          <div class="hero-assurance">
+            <span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 13.5 4v3.7c0 3.2-2.4 5.3-5.5 6.8-3.1-1.5-5.5-3.6-5.5-6.8V4L8 1.5Z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="m5.5 7.8 1.6 1.6 3.5-3.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg> Private by design</span>
+            <span class="assurance-separator">·</span>
+            <span>Links are analyzed, never opened</span>
+            <span class="assurance-separator">·</span>
+            <span>Evidence, not guesswork</span>
+          </div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="orbit orbit-one"></div>
+          <div class="orbit orbit-two"></div>
+          <div class="hero-shield">
+            <svg viewBox="0 0 100 112" fill="none">
+              <path d="M50 5 91 21v28c0 28-17.5 46-41 58C26.5 95 9 77 9 49V21L50 5Z" fill="url(#shieldFill)" stroke="#7D78DD" stroke-width="2"/>
+              <path d="m32 54 12 12 25-27" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+              <defs><linearGradient id="shieldFill" x1="15" y1="8" x2="87" y2="101" gradientUnits="userSpaceOnUse"><stop stop-color="#9692F1"/><stop offset="1" stop-color="#625BD1"/></linearGradient></defs>
+            </svg>
+          </div>
+          <span class="art-spark spark-one">✳</span><span class="art-spark spark-two">✦</span>
+          <div class="floating-note"><span class="note-check">✓</span> Clear answers, backed by evidence</div>
+        </div>
+      </section>
+
+      <section class="workspace" aria-label="Scam analysis workspace">
+        <div class="analyzer-card">
+          <div class="card-heading">
+            <div>
+              <div class="section-label">START WITH THE MESSAGE</div>
+              <h2>What would you like to check?</h2>
+              <p>Choose a format, then paste the content below.</p>
+            </div>
+            <div class="step-badge"><span>01</span> ANALYZE</div>
+          </div>
+
+          <div class="input-tabs" role="tablist" aria-label="Content type">
+            <button class="input-tab selected" type="button" role="tab" aria-selected="true" data-mode="text">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4.5h12M10 4.5v11m-3 0h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+              Message
+            </button>
+            <button class="input-tab" type="button" role="tab" aria-selected="false" data-mode="url">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.1 11.9 6.7 13.3a3.1 3.1 0 0 1-4.4-4.4l3-3a3.1 3.1 0 0 1 4.4 0m2.2 2.2 1.4-1.4a3.1 3.1 0 0 1 4.4 4.4l-3 3a3.1 3.1 0 0 1-4.4 0m-4-1.9 7.4-7.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              Link
+            </button>
+            <button class="input-tab" type="button" role="tab" aria-selected="false" data-mode="email">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.8" y="4.2" width="14.4" height="11.6" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m4 5.5 6 4.8 6-4.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Email
+            </button>
+          </div>
+
+          <form id="analysis-form">
+            <label class="input-label" id="content-label" for="content-input">Paste the suspicious message</label>
+            <div class="input-shell">
+              <textarea id="content-input" name="content" rows="7" maxlength="20000" placeholder="Example: Your package is on hold. Pay a small redelivery fee now to avoid having it returned..." required></textarea>
+              <div class="input-footer">
+                <span class="input-hint" id="input-hint">Text stays on this computer unless an LLM provider is configured.</span>
+                <span class="character-count"><span id="char-count">0</span> / 20,000</span>
+              </div>
+            </div>
+            <div class="form-actions">
+              <span class="secure-note"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M5.2 7V4.8a2.8 2.8 0 0 1 5.6 0V7" fill="none" stroke="currentColor" stroke-width="1.3"/></svg> Sent to local API</span>
+              <button class="analyze-button" id="analyze-button" type="submit">
+                <span class="button-label">Analyze content</span>
+                <span class="button-spinner" aria-hidden="true"></span>
+                <svg class="button-arrow" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12m-5-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+            <p class="form-error" id="form-error" role="alert" hidden></p>
+          </form>
+        </div>
+
+        <aside class="side-column">
+          <div class="guide-card">
+            <div class="guide-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 21 7v5.5c0 5-3.8 8.1-9 10.5-5.2-2.4-9-5.5-9-10.5V7l9-4Z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.5 12.2 11 14.7l5-5.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <h3>Made for the moments you’re unsure</h3>
+            <p>Scam messages often look convincing. Get a second opinion before you reply, pay, or click.</p>
+            <div class="guide-divider"></div>
+            <div class="guide-list-title">YOU CAN ANALYZE</div>
+            <ul class="supported-list">
+              <li><span class="list-icon">Aa</span> Texts and social messages</li>
+              <li><span class="list-icon">↗</span> Suspicious links and domains</li>
+              <li><span class="list-icon">✉</span> Raw email content</li>
+            </ul>
+          </div>
+          <div class="privacy-card">
+            <span class="privacy-icon"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2 17 5v4.3c0 3.9-3 6.3-7 8.2-4-1.9-7-4.3-7-8.2V5l7-3Z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m7.3 9.8 1.8 1.8 3.7-3.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+            <span><strong>Your safety comes first</strong><small>We never visit links you submit.</small></span>
+          </div>
+        </aside>
+      </section>
+
+      <section class="result-section" id="result-section" aria-live="polite" hidden>
+        <div class="result-heading">
+          <div>
+            <div class="section-label">YOUR ANALYSIS</div>
+            <h2>Here’s what we found</h2>
+          </div>
+          <button class="text-button" id="new-analysis" type="button">← New analysis</button>
+        </div>
+        <div class="result-card" id="result-card">
+          <div class="score-panel">
+            <div class="score-ring" id="score-ring">
+              <div class="score-inner"><strong id="risk-score">0</strong><span>of 100</span></div>
+            </div>
+            <span class="score-caption">RISK SCORE</span>
+          </div>
+          <div class="result-content">
+            <div class="verdict-row"><span class="verdict-pill" id="verdict-pill"></span><span class="result-meta" id="result-meta"></span></div>
+            <h3 id="result-title"></h3>
+            <p class="result-summary" id="result-summary"></p>
+            <div class="result-notes" id="result-notes" hidden></div>
+            <div class="evidence-heading"><span>Signals detected</span><span id="signal-count"></span></div>
+            <div class="evidence-list" id="evidence-list"></div>
+            <div class="result-footer"><span id="analysis-id"></span><span>Use your judgment; this is an aid, not a guarantee.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="how-section" id="how-it-works">
+        <div class="how-intro">
+          <div class="section-label">A CLEARER PICTURE</div>
+          <h2>Not just a score.<br><span>A reason for every flag.</span></h2>
+        </div>
+        <div class="how-step"><span class="how-number">01</span><div><h3>We look for warning signs</h3><p>Urgency, suspicious links, impersonation, and requests for sensitive information.</p></div></div>
+        <div class="how-step"><span class="how-number">02</span><div><h3>We check the evidence</h3><p>Signals are grounded in the content you pasted and trusted reference facts.</p></div></div>
+        <div class="how-step"><span class="how-number">03</span><div><h3>You decide what to do next</h3><p>See the reasons behind the result, then verify through an official channel.</p></div></div>
+      </section>
+    </main>
+
+    <footer class="page-footer"><a class="footer-brand" href="/">ScamSentinel</a><span>Built to help you stop, check, and stay safe.</span><a href="/docs" target="_blank" rel="noreferrer">Local API reference ↗</a></footer>
+  </body>
+</html>

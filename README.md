@@ -94,7 +94,7 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 
 ## Getting started
 
-ScamSentinel is **API-only**, with no web UI. You run it on your own computer and talk to it from the command line. The API listens on `127.0.0.1:8000` only, so other machines on your network can't reach it.
+ScamSentinel includes a lightweight browser UI for analyzing messages, URLs, and raw emails. The UI and API are served together at `http://127.0.0.1:8000`, so the browser talks to the local backend without a separate frontend server. The API listens on `127.0.0.1` only, so other machines on your network can't reach it.
 
 ```bash
 python -m venv .venv
@@ -107,7 +107,9 @@ pytest                             # unit + security tests (later-milestone test
 python -m scamsentinel             # API on http://127.0.0.1:8000
 ```
 
-In a second terminal:
+Open `http://127.0.0.1:8000` in your browser to use the analyzer. The API reference is at `http://127.0.0.1:8000/docs`.
+
+For command-line use, the API also supports:
 
 ```bash
 curl -s http://127.0.0.1:8000/healthz

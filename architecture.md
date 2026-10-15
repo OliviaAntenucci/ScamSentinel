@@ -49,7 +49,7 @@ This document describes the **MVP**. Features planned for after the MVP are summ
 
 ### Interface
 
-ScamSentinel is **API-only**. There is no web UI. It runs on the user's own computer with `python -m scamsentinel`, and the user calls the HTTP API from the command line (e.g. `curl`) at `http://127.0.0.1:8000`. Results come back as JSON. FastAPI's auto-generated OpenAPI page at `/docs` serves as the API reference.
+ScamSentinel serves a lightweight browser UI and its HTTP API from the same local FastAPI process. Run `python -m scamsentinel` and open `http://127.0.0.1:8000`; the UI submits to the same-origin API, so CORS is not needed. The API remains available to command-line clients, and FastAPI's auto-generated OpenAPI page at `/docs` serves as the API reference. The server binds to loopback only. If an LLM provider is configured, message text may be sent to that provider; otherwise analysis uses local rules.
 
 ### Runtime
 

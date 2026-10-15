@@ -19,6 +19,14 @@ def test_healthz(client):
     assert body["llm"].startswith("missing_api_key")
 
 
+def test_frontend_is_served_with_static_assets(client):
+    page = client.get("/")
+    assert page.status_code == 200
+    assert "ScamSentinel" in page.text
+    assert client.get("/static/app.css").status_code == 200
+    assert client.get("/static/app.js").status_code == 200
+
+
 @pytest.mark.parametrize(
     "payload",
     [
