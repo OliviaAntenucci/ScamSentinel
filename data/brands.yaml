@@ -1,21 +1,27 @@
 # Protected brands (SCOPE.md).
 # official_domains are REGISTRABLE domains (Public Suffix List) and are matched exactly,
 # never by substring or prefix, so turbotax.com.evil.net or irs.gov-refund.com never match.
+# boundary_tokens only match as whole words: "irs" must not fire on "first" or "shirts",
+# and "intuit" must not fire on "intuition".
 
 brands:
   - name: IRS
     tokens: [irs]
-    short_token: true # 3 letters: only matches as a whole token or next to tax keywords
+    boundary_tokens: [irs]
     official_domains: [irs.gov]
     sources: [https://www.irs.gov/]
 
+  # "intuit" (the parent company) is a token of both Intuit brands; a match is reported
+  # under the first brand that lists it.
   - name: TurboTax
-    tokens: [turbotax]
+    tokens: [turbotax, intuit]
+    boundary_tokens: [intuit]
     official_domains: [turbotax.com, intuit.com]
     sources: [https://turbotax.intuit.com/]
 
   - name: QuickBooks
-    tokens: [quickbooks]
+    tokens: [quickbooks, intuit]
+    boundary_tokens: [intuit]
     official_domains: [quickbooks.com, intuit.com]
     sources: [https://quickbooks.intuit.com/]
 

@@ -31,9 +31,10 @@ domain_points:
   brand_plus_keywords_per_keyword: 10
   brand_plus_keywords_cap: 90
   brand_in_subdomain: 75
+  brand_in_label: 50 # brand token plus unrecognized words, e.g. myturbotaxfiling.com
   tld_swap: 65
   idn_mixed_script_bonus: 15
-  new_registration_bonus: 10
+  new_registration_bonus: 10 # not applied yet: needs RDAP/certificate-age enrichment
 
 # Sandbox signal points (architecture.md §8).
 sandbox_points:

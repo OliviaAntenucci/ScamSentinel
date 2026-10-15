@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from scamsentinel.api.app import create_app
 from scamsentinel.config import Settings
+from scamsentinel.domain.engine import DomainEngine, get_engine
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -28,3 +29,8 @@ def settings() -> Settings:
 @pytest.fixture
 def client(settings: Settings) -> TestClient:
     return TestClient(create_app(settings), base_url="http://127.0.0.1:8000")
+
+
+@pytest.fixture(scope="session")
+def engine() -> DomainEngine:
+    return get_engine(REPO_ROOT / "data", REPO_ROOT / "config")

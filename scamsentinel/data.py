@@ -23,11 +23,19 @@ def load_yaml(path: Path) -> Any:
 class Brand(BaseModel):
     name: str
     tokens: list[str]
-    # Short tokens (e.g. "irs") only match as a whole token or next to tax keywords.
-    short_token: bool = False
+    # Tokens that only match as a whole word, e.g. "irs" (not inside "first") or
+    # "intuit" (not inside "intuition"). Their neighbors must be other known words.
+    boundary_tokens: list[str] = []
     # Registrable domains (Public Suffix List), matched exactly, never by substring.
     official_domains: list[str]
     sources: list[str] = []
+
+    @model_validator(mode="after")
+    def _boundary_tokens_are_tokens(self) -> Brand:
+        unknown = set(self.boundary_tokens) - set(self.tokens)
+        if unknown:
+            raise ValueError(f"boundary_tokens not in tokens: {sorted(unknown)}")
+        return self
 
     @field_validator("official_domains")
     @classmethod

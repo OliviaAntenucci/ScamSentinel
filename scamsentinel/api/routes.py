@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from scamsentinel import __version__, pipeline
 from scamsentinel.api.schemas import AnalyzeRequest
 from scamsentinel.ct.store import CtCandidate, list_candidates
-from scamsentinel.domain.engine import DomainResult, score_domain
+from scamsentinel.domain.engine import DomainResult, get_engine
+from scamsentinel.domain.normalize import InvalidHost
 from scamsentinel.models import AnalysisResult
 
 router = APIRouter()
@@ -38,8 +39,14 @@ def get_analysis(analysis_id: str) -> AnalysisResult:
 
 
 @router.get("/v1/domain/score")
-def domain_score(d: Annotated[str, Query(min_length=1, max_length=253)]) -> DomainResult:
-    return score_domain(d)
+def domain_score(
+    request: Request, d: Annotated[str, Query(min_length=1, max_length=2_048)]
+) -> DomainResult:
+    settings = request.app.state.settings
+    try:
+        return get_engine(settings.data_dir, settings.config_dir).score(d)
+    except InvalidHost as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/v1/ct/candidates")

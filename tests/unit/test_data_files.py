@@ -11,7 +11,12 @@ def test_brands_load(settings):
     brands = {b.name: b for b in load_brands(settings.data_dir)}
     assert set(brands) == {"IRS", "TurboTax", "QuickBooks", "Credit Karma"}
     assert "irs.gov" in brands["IRS"].official_domains
-    assert brands["IRS"].short_token
+    assert brands["IRS"].boundary_tokens == ["irs"]
+
+
+def test_boundary_tokens_must_be_tokens():
+    with pytest.raises(ValidationError):
+        Brand(name="X", tokens=["x"], boundary_tokens=["y"], official_domains=["x.com"])
 
 
 @pytest.mark.parametrize(

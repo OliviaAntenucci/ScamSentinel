@@ -118,26 +118,29 @@ docker/
 2. **Split with the Public Suffix List** (`tldextract`): `subdomain`, `domain` (the label), `suffix`.
    - Example: `turbotax.com.refund-help.co.uk` → subdomain `turbotax.com`, label `refund-help`, suffix `co.uk`.
 3. **Allowlist check.** If `label.suffix` matches an official registrable domain in `brands.yaml`, the result is `official=true, score=0` and processing stops.
-4. **Normalize to a skeleton.**
-   - Unicode confusables → ASCII (UTS #39 skeleton): `tսrbotax` (Armenian `ս`) → `turbotax`.
-   - ASCII lookalikes: `0→o, 1→l, 3→e, 5→s, 7→t, rn→m, vv→w, cl→d`.
+4. **Normalize to a skeleton** (`domain/normalize.py`).
+   - NFKC + casefold (folds fullwidth and math-alphanumeric forms).
+   - Unicode confusables → ASCII from `data/confusables.txt` (a curated UTS #39 subset): `tսrbotax` (Armenian `ս`) → `turbotax`.
+   - Strip combining marks: `türbotax` → `turbotax`.
+   - ASCII lookalike *classes*, applied to both the input and the brand tokens: `0→o, 1→l, i→l, 3→e, 4→a, 5→s, 7→t, 8→b, rn→m, vv→w, cl→d`. Because `i`, `l` and `1` all collapse to `l`, `1rs` and `lrs` match `irs`.
    - Strip separators to get the compact form: `turbo-tax` → `turbotax`.
-5. **Tokenize** the label on `-`, digits, and dictionary word boundaries (a greedy split over brand tokens + keywords).
+5. **Match tokens.** Long tokens (`turbotax`, `quickbooks`, `creditkarma`) match as substrings of the compact skeleton. **Boundary tokens** (`irs`, `intuit`) only match as whole words. Their neighbors must split entirely into other brand tokens or stuffing keywords (dynamic-programming segmentation), and the label is also split on digits. So `irsgov` and `irs2024-refund` match, while `first`, `theirs` and `intuition` don't.
 6. **Run the detectors:**
 
 | Technique | How | Example | Points (initial) |
 |---|---|---|---|
-| `exact_brand_unofficial` | Skeleton/compact equals a brand token, but the domain isn't official | `turbotax.net`, `turbo-tax.com` | 70 |
-| `homoglyph` | Raw ≠ skeleton, and the skeleton matches a brand | `turb0tax.com`, `ιrs.gov` | 85 |
-| `typosquat` | Normalized Damerau-Levenshtein ≤ 0.2 to a brand token (min length 4) | `turbotxa.com`, `quickbook.com` | 60–80 (scaled by similarity) |
-| `brand_plus_keywords` | Contains a brand token + ≥1 stuffing keyword | `turbotax-refund-secure.com` | 50 + 10 per keyword (cap 90) |
-| `brand_in_subdomain` | Brand token or official domain appears in the subdomain of an unrelated registrable domain | `irs.gov.refund-claim.net` | 75 |
-| `tld_swap` | Brand label on a different/odd TLD | `irs.gov.co`, `creditkarma.support` | 65 |
+| `homoglyph` | The skeleton contains a brand token, but the literal label doesn't | `turb0tax.com`, `іrs-refund.com` (Cyrillic `і`) | 85 |
+| `brand_plus_keywords` | Brand token + ≥1 stuffing keyword | `turbotax-refund-secure.com` | 50 + 10 per keyword (cap 90) |
+| `tld_swap` | Label equals an official label, under a different suffix | `irs.gov.co`, `turbotax.net` | 65 |
+| `exact_brand_unofficial` | Compact label equals a brand token, but it isn't an official label | `turbo-tax.com`, `credit-karma.com` | 70 |
+| `brand_in_label` | Brand token plus unrecognized words | `myturbotaxfiling.com` | 50 |
+| `typosquat` | Normalized Damerau-Levenshtein ≤ 0.2 between a brand token (min length 4) and any part, or sliding window, of the label | `turbotxa.com`, `quickbook.com` | 60–80 (scaled by similarity), +10 per keyword |
+| `brand_in_subdomain` | Brand token appears in the subdomain of an unrelated registrable domain | `turbotax.com.evil.net`, `irs.gov.refund-claim.net` | 75 |
 | `idn_mixed_script` | Label mixes scripts (Latin + Cyrillic) | `сreditkarma.com` | +15 bonus |
 
-The domain score is the maximum over techniques, plus capped bonuses. Every technique that fires becomes a reason. Short tokens like `irs` (three letters) need extra care: `irs` only fires when it appears as a whole token (`irs-refund`, `irsgov`) or next to tax keywords. This stops false positives on words like `first` or `shirts`.
+The domain score is the maximum over techniques plus bonuses, capped at 100. Every technique that fires becomes a reason carrying its own points. Domains that resemble nothing return a single `no_lookalike_signals` reason, and IP-address hosts return `ip_address_host` (score 0). The PSL split uses tldextract's bundled snapshot (no network, no disk cache) with PSL private domains enabled, so `irs-refund.netlify.app` is analyzed by its attacker-controlled label.
 
-7. **Enrichment (optional):** domain age from RDAP and certificate age from the sandbox TLS info. Domains registered less than 30 days ago get +10.
+7. **Enrichment (not yet implemented):** domain age from RDAP and certificate age from the sandbox TLS info. Domains registered less than 30 days ago get +10 (`new_registration_bonus`).
 
 ### Testing
 - A generated suite with every technique × every brand (target ≥95% recall, AC-2).

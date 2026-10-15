@@ -19,7 +19,7 @@ Paste a suspicious text message, email, URL, or screenshot. ScamSentinel decides
 
 No black-box answers. The LLM only **extracts features**. Deterministic rules produce the verdict, and every rule that fires appears in `reasons`.
 
-> **Status:** scaffolding (M0). The API skeleton, config, data files, Docker setup, and test harness are in place. Analysis modules are typed stubs that return `501 Not Implemented` until their milestone in [`prd.txt`](prd.txt) lands.
+> **Status:** M1 done. The lookalike-domain engine works (`GET /v1/domain/score`). The other analysis modules are typed stubs that return `501 Not Implemented` until their milestone in [`prd.txt`](prd.txt) lands.
 
 ---
 

@@ -88,13 +88,19 @@ injection_phrases:
   - system prompt
   - "risk score: 0"
 
-# ASCII lookalike substitutions applied after the Unicode confusables skeleton.
+# ASCII lookalike classes applied after the Unicode confusables skeleton. They are applied
+# to BOTH the input and the brand tokens, so they act as visual-equivalence classes:
+# i, l and 1 all collapse to "l", which makes "1rs" and "lrs" match "irs".
+# Multi-character entries are applied before single characters.
 ascii_substitutions:
-  "0": o
-  "1": l
-  "3": e
-  "5": s
-  "7": t
   rn: m
   vv: w
   cl: d
+  "0": o
+  "1": l
+  i: l
+  "3": e
+  "4": a
+  "5": s
+  "7": t
+  "8": b
