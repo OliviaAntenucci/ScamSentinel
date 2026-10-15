@@ -80,4 +80,5 @@ ScamSentinel touches live attacker infrastructure and public services. These rul
 ## Assumptions
 - English-language US taxpayer context.
 - One operator running the stack on their own computer via Docker Compose, using the API from the command line at `http://127.0.0.1:8000`.
-- An Anthropic API key is available. Without one, the system runs rules-only.
+- An LLM API key is available for the selected provider (Groq by default, free tier). Without one, the system runs rules-only.
+- Groq's free tier sends input text to a third party. Only analyze synthetic or public samples with it. Never send real victims' personal data.

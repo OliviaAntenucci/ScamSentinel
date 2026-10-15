@@ -24,7 +24,7 @@ This is a portfolio project with no production deployment. Out of scope: reports
 ## Assets & trust boundaries
 
 **Assets to protect**
-1. The host and cloud environment: instance metadata, internal services, credentials (`ANTHROPIC_API_KEY`).
+1. The host and cloud environment: instance metadata, internal services, credentials (`GROQ_API_KEY` / `ANTHROPIC_API_KEY`).
 2. The integrity of verdicts. An attacker must not be able to make a scam score as "safe."
 3. User-submitted data, which may contain victims' PII.
 4. Availability of the service.
@@ -163,6 +163,7 @@ Variants: hidden text on a page (`display:none`, white-on-white, zero-width char
 | A malicious website in the user's own browser calling `http://127.0.0.1:8000` (DNS rebinding / cross-origin requests to localhost) | Reject requests whose `Host` header isn't `127.0.0.1:8000` or `localhost:8000`; no CORS headers; POST endpoints require `Content-Type: application/json` or `multipart/form-data` |
 | Captured page content interpreted as HTML (no UI, but a user might open an artifact in a browser) | API responds only with `application/json` or `image/png`; captured DOM text is returned as JSON strings, never as HTML; `X-Content-Type-Options: nosniff` on every response |
 | Leaking PII in logs | Redaction of SSN/card/phone patterns before logging; 7-day retention |
+| PII sent to a third-party LLM (Groq free tier / Anthropic) | Only the input text is sent, never other users' data or secrets; operators are told to submit only synthetic/public samples; rules-only mode keeps everything local |
 | Secret leakage | API key only in the API container env; never sent to workers, LLM prompts, or logs |
 | Poisoning the CT feed | CT results are leads only; they never auto-allowlist or affect user verdicts except via the same domain scoring |
 | Allowlist bypass (`turbotax.com.evil.net`, `irs.gov-refund.com`) | Allowlist matches the **registrable domain** from the Public Suffix List, never a substring/prefix |

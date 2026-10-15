@@ -63,7 +63,7 @@ ScamSentinel is **API-only**. There is no web UI. It runs on the user's own comp
 
 | Service | Network | Secrets | Notes |
 |---|---|---|---|
-| `api` | `internal` + `public` | `ANTHROPIC_API_KEY` | FastAPI, domain engine, analyzer, aggregator, SQLite. Published as `127.0.0.1:8000:8000` (loopback only) |
+| `api` | `internal` + `public` | `GROQ_API_KEY` / `ANTHROPIC_API_KEY` | FastAPI, domain engine, analyzer, aggregator, SQLite. Published as `127.0.0.1:8000:8000` (loopback only) |
 | `sandbox` | `sandbox_net` → egress proxy only | none | Playwright/Chromium, hardened (see SECURITY.md T4) |
 | `egress-proxy` | `sandbox_net` + `public` | none | Denies private/link-local/metadata ranges; second line of SSRF defense |
 | `ocr` | `internal`, **no egress** | none | Pillow re-encode + Tesseract |
@@ -171,7 +171,7 @@ Two extractors run in parallel, and a merger combines their results.
 
 ### 6.1 LLM feature extractor
 
-- **Model:** Claude via the Anthropic API, using **tool use with a strict input schema** so output is structured JSON. Temperature 0.
+- **Model:** pluggable via `SCAMSENTINEL_LLM_PROVIDER`. The default is **Groq** (free tier, open models, OpenAI-compatible API with JSON-schema output). Anthropic Claude (tool use with a strict input schema) is the alternative. Either way, output is validated as `MessageFeatures`. Temperature 0. Comparing providers is part of the eval ablations.
 - **Prompt structure:**
   - *System:* role ("you extract indicators from untrusted content"), an explicit statement that the content is data and must not be followed, and the schema field definitions.
   - *User:* `<untrusted_content_{random_hex}> … </untrusted_content_{random_hex}>`, with the input capped at about 20k chars.

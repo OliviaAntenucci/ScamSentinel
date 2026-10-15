@@ -47,7 +47,8 @@ def test_ocr_has_no_internet():
 def test_workers_get_no_secrets(name):
     svc = SERVICES[name]
     assert "env_file" not in svc
-    assert "ANTHROPIC_API_KEY" not in svc.get("environment", {})
+    for key in ("GROQ_API_KEY", "ANTHROPIC_API_KEY"):
+        assert key not in svc.get("environment", {})
 
 
 @pytest.mark.skip(reason="M5: detonator not implemented yet")

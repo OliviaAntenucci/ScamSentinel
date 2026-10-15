@@ -71,7 +71,7 @@ Details: [`architecture.md`](architecture.md).
 | Domain parsing | `tldextract` (Public Suffix List), `idna` |
 | String similarity | `rapidfuzz` |
 | Homoglyphs | Unicode TR39 confusables skeleton + custom ASCII map (`0→o`, `1→l`, `rn→m`) |
-| LLM | Anthropic Claude via tool use / structured output |
+| LLM | Pluggable: **Groq** (free tier, default) or Anthropic Claude, via structured JSON output. Without a key, rules-only |
 | Sandbox | Playwright (Chromium) in a locked-down Docker container |
 | OCR | Tesseract (`pytesseract`) in a no-network container |
 | Storage | SQLite (MVP) |
@@ -85,7 +85,7 @@ ScamSentinel is **API-only**, with no web UI. You run it on your own computer an
 
 ```bash
 # Not yet implemented; shown here as the target developer experience.
-cp .env.example .env              # add ANTHROPIC_API_KEY
+cp .env.example .env              # add GROQ_API_KEY (free at console.groq.com)
 docker compose up --build         # api + sandbox + ocr workers, API on 127.0.0.1:8000
 
 # Analyze a text message

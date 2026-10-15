@@ -17,6 +17,8 @@ def settings() -> Settings:
     return Settings(
         _env_file=None,
         env="test",
+        llm_provider="groq",
+        groq_api_key=None,
         anthropic_api_key=None,
         data_dir=REPO_ROOT / "data",
         config_dir=REPO_ROOT / "config",

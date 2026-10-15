@@ -34,5 +34,17 @@ def test_private_targets_refused_in_production():
         make(env="production", allow_private_targets=True)
 
 
+def test_llm_key_follows_provider():
+    s = make(llm_provider="groq", groq_api_key="gsk_test", anthropic_api_key=None)
+    assert s.llm_api_key.get_secret_value() == "gsk_test"
+    s = make(llm_provider="anthropic", groq_api_key="gsk_test", anthropic_api_key=None)
+    assert s.llm_api_key is None
+
+
+def test_llm_model_defaults_per_provider():
+    assert make(llm_provider="groq").resolved_llm_model == "llama-3.3-70b-versatile"
+    assert make(llm_provider="groq", llm_model="other-model").resolved_llm_model == "other-model"
+
+
 def test_private_targets_allowed_outside_production():
     assert make(env="test", allow_private_targets=True).allow_private_targets

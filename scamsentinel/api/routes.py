@@ -21,7 +21,9 @@ def healthz(request: Request) -> dict[str, str]:
     return {
         "status": "ok",
         "version": __version__,
-        "llm": "configured" if settings.anthropic_api_key else "missing_api_key (rules-only)",
+        "llm_provider": settings.llm_provider,
+        "llm_model": settings.resolved_llm_model,
+        "llm": "configured" if settings.llm_api_key else "missing_api_key (rules-only)",
     }
 
 

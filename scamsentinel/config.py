@@ -13,6 +13,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # Host header values the API accepts (SECURITY.md T5: DNS rebinding against localhost).
 LOOPBACK_HOSTNAMES = ("127.0.0.1", "localhost")
 
+# Groq's model lineup changes; check https://console.groq.com/docs/models before M2.
+DEFAULT_LLM_MODELS = {
+    "groq": "llama-3.3-70b-versatile",
+    "anthropic": "claude-sonnet-5-5",
+}
+
 
 def is_loopback_host(host: str) -> bool:
     if host == "localhost":
@@ -41,11 +47,17 @@ class Settings(BaseSettings):
     # Lets the URL guard reach private addresses for local test fixtures. Refused in production.
     allow_private_targets: bool = False
 
+    # LLM feature extractor (M2). Without the selected provider's key: rules-only.
+    llm_provider: Literal["groq", "anthropic"] = "groq"
+    llm_model: str | None = None  # None -> DEFAULT_LLM_MODELS[llm_provider]
+    groq_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("GROQ_API_KEY", "SCAMSENTINEL_GROQ_API_KEY"),
+    )
     anthropic_api_key: SecretStr | None = Field(
         default=None,
         validation_alias=AliasChoices("ANTHROPIC_API_KEY", "SCAMSENTINEL_ANTHROPIC_API_KEY"),
     )
-    llm_model: str = "claude-sonnet-5-5"
 
     sandbox_url: str = "http://sandbox:8100"
     ocr_url: str = "http://ocr:8200"
@@ -65,6 +77,14 @@ class Settings(BaseSettings):
     @property
     def allowed_hosts(self) -> list[str]:
         return list(LOOPBACK_HOSTNAMES)
+
+    @property
+    def llm_api_key(self) -> SecretStr | None:
+        return self.groq_api_key if self.llm_provider == "groq" else self.anthropic_api_key
+
+    @property
+    def resolved_llm_model(self) -> str:
+        return self.llm_model or DEFAULT_LLM_MODELS[self.llm_provider]
 
     @model_validator(mode="after")
     def _enforce_network_policy(self) -> Settings:
