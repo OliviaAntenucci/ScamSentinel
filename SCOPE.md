@@ -14,7 +14,7 @@ The MVP is done when someone can run ScamSentinel on their own computer, send it
 | M3 | Risk aggregator + `POST /v1/analyze` (text, URL, email) | ✅ Done |
 | M4 | Security hardening: upload guard, prompt-injection suite, no-fetch test, log redaction | ✅ Done |
 | M5 | Screenshot analysis (Groq vision transcription) | ✅ Done |
-| M6 | Evaluation dataset + precision/recall/F1/FPR report | |
+| M6 | Evaluation dataset + precision/recall/F1/FPR report | ✅ Done |
 
 ## In scope (MVP)
 

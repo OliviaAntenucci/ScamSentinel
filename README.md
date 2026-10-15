@@ -19,7 +19,7 @@ Send it a suspicious text message, email, URL, or screenshot. ScamSentinel decid
 
 No black-box answers. The LLM only **extracts features**. Deterministic rules produce the verdict, and every rule that fires appears in `reasons`.
 
-> **Status:** MVP in progress. M0–M5 are done: text, URL, email and screenshot analysis work end to end, and the security defenses below are implemented and tested. Evaluation numbers (M6) are next. See [MVP roadmap](#mvp-roadmap).
+> **Status:** MVP complete (M0–M6). Text, URL, email and screenshot analysis work end to end, the security defenses below are implemented and tested, and accuracy is measured on a held-out test split ([Evaluation](#evaluation)). See [MVP roadmap](#mvp-roadmap).
 
 ---
 
@@ -46,7 +46,7 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 3. **Verification layer** ✅ (VerifyVault-style): checks claims against trusted facts, such as "is this an official IRS domain?" or "does the IRS start contact by SMS?"
 4. **Screenshot analysis** ✅: a Groq vision model transcribes the sanitized screenshot, and the text then goes through the message analyzer like any pasted message.
 5. **Risk aggregator** ✅: combines module scores into one score, verdict, and list of reasons.
-6. **Evaluation harness**: a labeled set of synthetic and public samples, reporting precision, recall, F1, and false-positive rate.
+6. **Evaluation harness** ✅: 152 labeled samples with leak-free train/dev/test splits, reporting precision, recall, F1, false-positive rate, per-slice breakdowns and ablations.
 
 **Post-MVP:** Certificate Transparency monitoring, page fetching, a Playwright sandbox, and Docker packaging. See [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
 
@@ -62,7 +62,7 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 | M3 | Risk aggregator + `POST /v1/analyze` | ✅ |
 | M4 | Security hardening (uploads, prompt injection, no-fetch, redaction) | ✅ |
 | M5 | Screenshot analysis (Groq vision) | ✅ |
-| M6 | Evaluation + metrics | |
+| M6 | Evaluation + metrics | ✅ |
 
 ---
 
@@ -136,8 +136,8 @@ curl -s http://127.0.0.1:8000/v1/analysis/<analysis_id>
 curl -s http://127.0.0.1:8000/v1/analyze/image -H 'content-type: image/png' \
   --data-binary @suspicious.png
 
-# Run the evaluation suite (M6)
-python -m scamsentinel.eval --split test
+# Run the evaluation suite (rules only; add --ablation full to use the LLM)
+python -m scamsentinel.eval --split test --report reports/eval-test.md
 ```
 
 Full API reference (auto-generated): `http://127.0.0.1:8000/docs`.
@@ -146,14 +146,24 @@ Full API reference (auto-generated): `http://127.0.0.1:8000/docs`.
 
 ## Evaluation
 
-Results will appear here once the eval harness runs (M6). Numbers are reported only on a held-out test split that was never used for tuning thresholds or prompts. The methodology is in [`architecture.md`](architecture.md#10-evaluation-harness).
+Held-out **test split** (30 samples), rules only (no LLM), measured 2026-10-15. Rules and weights were tuned on the dev split only, and the test split was run once. "Likely scam" counts as a detection:
 
-| Metric | Value |
-|---|---|
-| Precision | _TBD_ |
-| Recall | _TBD_ |
-| F1 | _TBD_ |
-| False-positive rate | _TBD_ |
+| Metric | Test split | 95% interval (Wilson) |
+|---|---|---|
+| Precision | **100%** (14/14) | ~79–100% |
+| Recall | **87.5%** (14/16) | ~64–97% |
+| F1 | **93.3%** | — |
+| False-positive rate | **0%** (0/14) | ~0–22% |
+
+Counting "suspicious" as a detection too (triage), recall rises to 93.8% and FPR to 7.1%. Across all 152 samples (including the dev and train data the rules were shaped on): precision 100%, recall 86.6%, F1 92.8%, FPR 0%.
+
+**Read these numbers with care:**
+- **Small and synthetic.** 152 hand-written samples, 30 in the test split, so the intervals above are wide. The samples were written by the same author as the rules (with deliberate hard negatives and off-vocabulary scams), which likely flatters the results. No real-world phishing corpus has been added yet ([`data/eval/SOURCES.md`](data/eval/SOURCES.md)).
+- **Brandless scams are the blind spot.** Scams that never name the IRS, TurboTax, QuickBooks or Credit Karma (e.g. "send Steam cards to the case agent", `tax-relief-2025.com`) had 0% strict recall (0 of 7), versus 90–100% for branded scams. The domain engine and verification layer are brand-focused by design.
+- **Link shorteners and unbranded domains** can't be judged without visiting the page (post-MVP P2).
+- **Rules only.** The LLM path (`--ablation full`) and screenshots aren't in these numbers.
+
+Reproduce: `python -m scamsentinel.eval --split test --report reports/eval-test.md`. Methodology: [`architecture.md` §10](architecture.md#10-evaluation-harness).
 
 ---
 

@@ -63,14 +63,15 @@ sensitive_requests:
   bank_account: [bank account, routing number, account number]
   password: [password, passcode]
   mfa_code: [verification code, one-time code, one time code, otp, security code, 6-digit code]
-  card: [credit card, debit card, card number, cvv]
+  card: [credit card, debit card, card number, card details, card information, cvv]
   id_photo: [photo of your id, driver's license, drivers license, selfie with]
   dob: [date of birth, birth date]
 
 threats:
   arrest: [arrest, arrested, warrant, police]
   account_suspension: [suspended, suspension, locked, deactivated]
-  refund_loss: [lose your refund, forfeit your refund, refund will be cancelled, refund on hold]
+  refund_loss:
+    [lose your refund, forfeit your refund, refund will be cancelled, refund on hold, refund is on hold]
   penalty: [penalty, penalties, late fee]
   legal_action: [lawsuit, legal action, prosecution]
 

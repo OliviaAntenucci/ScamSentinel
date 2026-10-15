@@ -15,6 +15,8 @@ floors:
   sensitive_request_with_lookalike: 90
   irs_unusual_payment_demand: 85
   homoglyph_brand_domain: 80
+  impersonation_with_lookalike: 80 # claims brand X and links to an X lookalike (added after dev eval)
+  brand_sensitive_request: 75 # claims a protected brand and asks for SSN/card/password/... (dev eval)
   injection_plus_scam_signal: 70
 
 # Max score when every URL is official and nothing sensitive or payment-related is requested.

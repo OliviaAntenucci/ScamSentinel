@@ -136,6 +136,51 @@ def test_no_cap_without_links():
     assert agg.risk_score == 100
 
 
+def test_unremarkable_domain_does_not_dilute_message(engine):
+    # bit.ly scores 0: that's absence of evidence, not evidence of legitimacy.
+    agg = aggregate(
+        domains=[engine.score("bit.ly")], message=message(80), features=MessageFeatures(),
+        config=CONFIG,
+    )
+    assert agg.risk_score == 80
+    assert agg.modules_run == [Module.DOMAIN, Module.MESSAGE]
+    weighted = next(r for r in agg.reasons if r.signal == "weighted_score")
+    assert "not weighted" in weighted.detail
+
+
+def test_url_only_input_still_scores_zero(engine):
+    agg = aggregate(domains=[engine.score("example.org")], message=None, features=None,
+                    config=CONFIG)
+    assert agg.risk_score == 0
+
+
+def test_floor_impersonation_with_same_brand_lookalike(engine):
+    features = MessageFeatures(impersonated_entity=Impersonation(value="TurboTax", span="x"))
+    agg = aggregate(
+        domains=[engine.score("turbotax-claims.com")], message=message(45), features=features,
+        config=CONFIG,
+    )
+    assert agg.risk_score == 80
+    assert "impersonation_with_lookalike" in agg.overrides_applied
+
+    # A lookalike of a *different* brand doesn't trigger this floor.
+    other = aggregate(
+        domains=[engine.score("creditkarma-login.com")], message=message(45),
+        features=features, config=CONFIG,
+    )
+    assert "impersonation_with_lookalike" not in other.overrides_applied
+
+
+def test_floor_brand_sensitive_request():
+    features = MessageFeatures(
+        impersonated_entity=Impersonation(value="TurboTax", span="TurboTax"),
+        sensitive_requests=[SensitiveRequest(type="card", span="card number")],
+    )
+    agg = aggregate(domains=[], message=message(50), features=features, config=CONFIG)
+    assert agg.risk_score == 75
+    assert agg.overrides_applied == ["brand_sensitive_request"]
+
+
 def test_nothing_to_aggregate():
     with pytest.raises(ValueError):
         aggregate(domains=[], message=None, features=None, config=CONFIG)

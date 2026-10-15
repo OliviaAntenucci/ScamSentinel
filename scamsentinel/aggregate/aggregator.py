@@ -66,14 +66,23 @@ def aggregate(
     if not modules:
         raise ValueError("nothing to aggregate")
 
-    weights = {m.module: config.weights.get(m.module, 0.0) for m in modules}
+    # "No link looks like a brand" isn't evidence that a message is legitimate (only
+    # official links are, and those are handled by the mitigating cap). So a domain
+    # module that found nothing doesn't dilute the message score; it's still reported.
+    weighted_modules = [
+        m for m in modules if m.module != Module.DOMAIN or m.score > 0 or message is None
+    ]
+    weights = {m.module: config.weights.get(m.module, 0.0) for m in weighted_modules}
     total_weight = sum(weights.values())
-    weighted = sum(m.score * weights[m.module] / total_weight for m in modules)
+    weighted = sum(m.score * weights[m.module] / total_weight for m in weighted_modules)
     risk = math.floor(weighted + 0.5)
 
     terms = " + ".join(
-        f"{m.module.value} {m.score} × {weights[m.module] / total_weight:.2f}" for m in modules
+        f"{m.module.value} {m.score} × {weights[m.module] / total_weight:.2f}"
+        for m in weighted_modules
     )
+    if len(weighted_modules) < len(modules):
+        terms += " (domain 0 not weighted: no lookalike found)"
     reasons = [r for m in modules for r in m.reasons]
     reasons.append(
         _reason("weighted_score", f"Weighted score: {terms} = {risk}", evidence=None)
@@ -128,7 +137,22 @@ def _floors(
             or features.threats
             or features.urgency.level
         )
+        entity = features.protected_entity
+        same_brand_lookalike = any(
+            not d.official and d.score >= LOOKALIKE_THRESHOLD and d.brand == entity
+            for d in domains
+        )
         floors += [
+            (
+                "impersonation_with_lookalike",
+                entity is not None and same_brand_lookalike,
+                f"claims to be {entity} and links to a lookalike of {entity}'s domain",
+            ),
+            (
+                "brand_sensitive_request",
+                entity is not None and bool(features.sensitive_requests),
+                f"claims to be {entity} and asks for sensitive information",
+            ),
             (
                 "sensitive_request_with_lookalike",
                 bool(features.sensitive_requests) and lookalike,

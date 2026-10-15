@@ -301,27 +301,25 @@ Weights, points, and floors live in `config/scoring.yaml`. They're tuned on the 
 
 ## 10. Evaluation harness
 
-### Dataset (`data/eval/`)
+### Dataset (`data/eval/samples.jsonl`)
 
-| Slice | Source | Label |
-|---|---|---|
-| Phishing URLs / domains | OpenPhish community feed, PhishTank archives (filtered to tax/financial brands where possible), stored defanged | scam |
-| Phishing email bodies | Public phishing corpora (e.g. Nazario corpus), filtered + relabeled | scam |
-| Synthetic tax scams | Hand-written + LLM-generated, then manually reviewed: SMS, email, refund, suspension, payment demands, all 4 brands, with injection variants | scam |
-| Synthetic screenshots | Rendered images of synthetic scam and legitimate messages | scam / legitimate |
-| Legitimate tax comms | Official IRS public pages/notices text, Intuit public help/marketing emails, real legitimate domains | legitimate |
-| Hard negatives | Legit messages that are *urgent* or mention refunds (real deadline reminders, H&R Block/TaxAct domains, banks) | legitimate |
+152 hand-written samples (MVP): 40/35 scam/legitimate texts, 12/10 emails, 30/25 URLs, across all four brands plus brandless scams, with deliberate hard negatives and off-vocabulary scams. Composition, rules and limitations are in [`data/eval/SOURCES.md`](data/eval/SOURCES.md). Real-world corpora (OpenPhish / PhishTank URLs, public phishing-email corpora) are the planned next addition, marked `synthetic: false` and reported separately. Screenshots aren't in the set yet.
 
-Every record: `{id, input_type, content (URLs defanged), label, brand, source, synthetic: bool, split}`. Splits are 60/20/20 with a fixed seed, stratified by `input_type × label × synthetic`. Near-duplicates are clustered **before** splitting so templates can't leak across splits.
+Every record: `{id, group?, input_type, label, brand, content (scam URLs defanged), source, synthetic, notes?}`. Validated by `eval/dataset.py` (unique ids, known fields), and tests enforce that scam links are defanged.
 
-### Metrics
-- Precision, recall, F1, FPR, and confusion matrix, treating `likely_scam` as positive. `suspicious` is reported as a separate "triage" rate.
-- Broken down by input type, brand, and real vs. synthetic.
-- **Ablations:** rules-only · LLM+rules · ±verification · Groq vs. Claude (optional).
-- **Robustness:** the injection-paired set (verdict-band stability).
+### Splits (`eval/dataset.py`)
+60/20/20 train/dev/test, **stratified** by `input_type × label` and **grouped**: variants of one template share a `group`, and whole groups are ordered by a seeded SHA-256 hash and cut by position, so a template never straddles two splits and the assignment is deterministic.
+
+**Protocol:** rules, weights and floors are tuned on **dev** only. **Test** is run once per release for the reported numbers, and its errors are reported, not fixed. (M6 example: the dev run exposed a dilution bug and two missing floors, which were fixed. The test run was then made once, and its misses, brandless scams, are documented as limitations.)
+
+### Metrics (`eval/metrics.py`, `eval/report.py`)
+- Precision, recall, F1, FPR and confusion counts with scam as the positive class: **strict** counts `likely_scam` only; **triage** also counts `suspicious`.
+- Broken down by input type, brand, and synthetic vs. real; a verdicts-by-label table; and every misclassified sample with its score and signals.
+- **Ablations** (`--ablation`): `rules_only` (default, no API calls), `full` (rules + LLM when `GROQ_API_KEY` is set; results cached in `var/eval.db`), `no_verify` (verification contributes 0 points).
+- **Robustness** is tested separately: the 30-variant prompt-injection paired corpus (`tests/security/test_prompt_injection.py`).
 
 ### Running
-`python -m scamsentinel.eval --split test --report reports/eval-YYYYMMDD.md` writes a markdown report and JSON metrics. The README table is copied from the latest test-split report.
+`python -m scamsentinel.eval --split test --report reports/eval-test.md --json reports/eval-test.json` writes a markdown report and JSON metrics plus predictions (`reports/` is gitignored). The README table is copied from the latest test-split report.
 
 ---
 

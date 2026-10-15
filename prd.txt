@@ -3,7 +3,7 @@ ScamSentinel: Product Requirements Document
 ================================================================================
 Version: 0.2
 Date:    2026-10-14
-Status:  MVP in progress (M0-M5 done)
+Status:  MVP complete (M0-M6 done)
 
 --------------------------------------------------------------------------------
 1. SUMMARY
@@ -186,7 +186,9 @@ Evaluation
 --------------------------------------------------------------------------------
   AC-1  Held-out test set: F1 >= 0.85 and FPR <= 5% on legitimate tax
         messages. (These are targets. README reports the measured values,
-        whatever they turn out to be.)
+        whatever they turn out to be.) Measured 2026-10-15, rules only, on
+        the 30-sample synthetic test split: F1 93.3%, FPR 0%. Met, with the
+        caveat that the data is small and hand-written (see README).
   AC-2  Domain engine: >= 95% recall on a generated lookalike suite
         (homoglyph, typo, keyword-stuffed, subdomain-abuse, IDN) and 0
         false positives on the official allowlist. (Met: 100% on the
@@ -210,7 +212,7 @@ MVP
   M4  Security hardening: upload guard, prompt-injection suite,
       no-fetch test, log redaction, rate limit                  (done)
   M5  Screenshot analysis (Groq vision transcription)          (done)
-  M6  Eval dataset + harness + published metrics
+  M6  Eval dataset + harness + published metrics               (done)
 
 Post-MVP (in order, only after M6)
   P1  Certificate Transparency watcher (crt.sh) + GET /v1/ct/candidates
