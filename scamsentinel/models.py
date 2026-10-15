@@ -58,6 +58,17 @@ class Scenario(BaseModel):
     matched_on: list[str] = []
 
 
+class Resource(BaseModel):
+    """A curated "learn more" link: an article about the type of scam, or the impersonated
+    organization's own help page. Always from data/resources.yaml, never from the message."""
+
+    kind: Literal["scam_type", "official_help"]
+    title: str
+    publisher: str
+    url: str
+    last_reviewed: date
+
+
 class NextStep(BaseModel):
     """One piece of advice (E1). Built from fixed templates and data files only, never from
     the analyzed content, so it can't repeat a scammer's link or phone number."""
@@ -112,3 +123,6 @@ class AnalysisResult(BaseModel):
     # The named scenario the message follows (E4). Only on suspicious or likely-scam
     # results that contain a message.
     scenario: Scenario | None = None
+    # Where to read more: about this type of scam, and the impersonated organization's
+    # own help pages.
+    resources: list[Resource] = []

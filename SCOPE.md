@@ -65,6 +65,7 @@ Job: fake recruiters and offers, upfront fees or equipment payments, fake checks
 ### Outputs
 - Verdict (`likely_scam` / `suspicious` / `likely_legitimate`), a 0–100 score, per-module scores, and an itemized list of evidence-backed reasons
 - "What should I do next?": up to seven cautious next steps (`next_steps`), each with the source of any official contact it gives
+- A "Learn more" reading list (`resources`): an article about the type of scam and the impersonated organization's own help pages, all curated in `data/resources.yaml`
 - The named scenario a flagged message follows (`scenario`), such as "Refund lure" or "Fake virus warning": a sourced plain-language description, what it matched on, and its own next step
 - For each lookalike link, how it imitates the brand (`domain_explanations`): swapped characters, misspelling, added trust words, real owner, changed ending
 - A fact-check table (`fact_checks`): each claim, the trusted fact it was compared with (source and review date), and whether it matches, conflicts or can't be verified

@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import yaml
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
@@ -271,6 +272,90 @@ class ScenariosFile(BaseModel):
         if len(set(ids)) != len(ids):
             raise ValueError("scenario ids must be unique")
         return self
+
+
+def _https_url(value: str) -> str:
+    if not value.startswith("https://"):
+        raise ValueError(f"must be an https:// URL: {value!r}")
+    return value
+
+
+class Article(BaseModel):
+    """A page about a type of scam, on a trusted consumer-protection site."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str
+    publisher: str
+    url: str
+    reviewed: date
+
+    @field_validator("url")
+    @classmethod
+    def _https(cls, value: str) -> str:
+        return _https_url(value)
+
+
+class HelpPage(BaseModel):
+    """An organization's own help page; `scenarios` limits it to some scenarios."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str
+    url: str
+    reviewed: date
+    scenarios: list[str] = []
+
+    @field_validator("url")
+    @classmethod
+    def _https(cls, value: str) -> str:
+        return _https_url(value)
+
+
+class ScamTypeReading(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    scenarios: dict[str, list[str]] = {}
+    categories: dict[str, list[str]] = {}
+    default: list[str] = []
+
+
+class ResourcesFile(BaseModel):
+    """data/resources.yaml: the curated "learn more" links of an analysis."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    trusted_domains: list[str]
+    articles: dict[str, Article]
+    scam_types: ScamTypeReading
+    official_help: dict[str, list[HelpPage]] = {}
+
+    @model_validator(mode="after")
+    def _consistent(self) -> ResourcesFile:
+        used = [
+            *(a for ids in self.scam_types.scenarios.values() for a in ids),
+            *(a for ids in self.scam_types.categories.values() for a in ids),
+            *self.scam_types.default,
+        ]
+        unknown = set(used) - set(self.articles)
+        if unknown:
+            raise ValueError(f"unknown article ids: {sorted(unknown)}")
+        if not self.scam_types.default:
+            raise ValueError("scam_types.default needs at least one article")
+        for article_id, article in self.articles.items():
+            if not url_on_domains(article.url, self.trusted_domains):
+                raise ValueError(f"article {article_id!r} is not on a trusted domain")
+        return self
+
+
+def url_on_domains(url: str, domains: list[str]) -> bool:
+    """True if the URL's host is one of `domains` or a subdomain of one."""
+    host = (urlsplit(url).hostname or "").lower()
+    return any(host == d or host.endswith(f".{d}") for d in domains)
+
+
+def load_resources(data_dir: Path) -> ResourcesFile:
+    return ResourcesFile.model_validate(load_yaml(data_dir / "resources.yaml"))
 
 
 def load_scenarios(data_dir: Path) -> list[ScenarioRule]:

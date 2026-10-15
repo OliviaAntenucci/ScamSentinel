@@ -94,6 +94,7 @@ data/
   facts.yaml      # trusted facts for verification (with sources)
   guidance.yaml   # E1 next-step templates and their references
   scenarios.yaml  # E4 named scenarios: rules, descriptions, sources, own next step
+  resources.yaml  # "Learn more" links: scam-type articles, organizations' help pages
   confusables.txt # curated Unicode TR39 confusables subset
   eval/           # labeled samples + SOURCES.md
 tests/
@@ -745,3 +746,39 @@ Results (rules only, 2026-10-15): test split 16/21 (76%), **16/17 when detected 
 - **Phrases are English and from the same author as the samples**, so recognition on real-world messages is likely lower than measured. 5 of the 21 scenarios have only 1–2 labeled samples. *Tax debt relief offer* has one, and that sample is scored likely legitimate, so the scenario is untested on a real detection.
 - **Wording overlaps.** "Suspended" and "login attempts" are shared by several stories; the measured wrong picks come from exactly those words.
 - **No scenario without a detection.** That keeps legitimate messages from being labeled, but scams scored likely legitimate get no explanation of their story either.
+
+---
+
+## 22. "Learn more" reading list
+
+Each result carries `resources[]`: links where the reader can learn about the type of scam they're facing, and the impersonated organization's own guidance. It changes no score.
+
+```json
+"resources": [
+  { "kind": "scam_type", "title": "How To Recognize and Avoid Phishing Scams",
+    "publisher": "Federal Trade Commission", "url": "https://consumer.ftc.gov/articles/how-recognize-and-avoid-phishing-scams",
+    "last_reviewed": "2026-10-15" },
+  { "kind": "official_help", "title": "If your Apple Account is locked, not active, or disabled",
+    "publisher": "Apple", "url": "https://support.apple.com/en-us/102640", "last_reviewed": "2026-10-15" },
+  { "kind": "official_help", "title": "Recognize and avoid social engineering schemes including phishing messages, phony support calls, and other scams",
+    "publisher": "Apple", "url": "https://support.apple.com/en-us/102568", "last_reviewed": "2026-10-15" }
+]
+```
+(for *"Apple: Your Apple ID has been locked. Verify your identity at appleid-unlock-support.com within 24 hours."*, scenario *Account locked or suspended*)
+
+| Kind | Chosen by | Shown |
+|---|---|---|
+| `scam_type` (up to 2) | the named scenario (§21), else the category of the claimed or linked brand, else the FTC phishing guide | suspicious and likely-scam results |
+| `official_help` (up to 2) | the brand the next steps name (§18); pages marked for the current scenario first (Apple's locked-account page for *Account locked*, the IRS refund tracker for *Refund lure*), then the brand's general pages | every result with a known brand, including likely legitimate, where they help verify the message |
+
+**Data:** `data/resources.yaml` lists 11 articles (FTC, IRS, USPIS) and help pages for 11 of the 12 brands. Credit Karma has none, because no current official scam-help page was found. Every page was opened and checked on its `reviewed` date.
+
+**Safety.** These are the only clickable links ScamSentinel shows, so they're locked down:
+- They come only from the data file, never from the analyzed message.
+- Load-time checks require `https://`, scam-type articles on `trusted_domains` (`ftc.gov`, `irs.gov`, `uspis.gov`), and an organization's help pages on that brand's official domains from `brands.yaml`. They also reject unknown brands, categories, scenarios and article ids.
+- The UI builds each link with `createElement`, links only `https://` URLs, and opens them with `rel="noopener noreferrer"`.
+- A test runs every eval sample and checks that each link is a curated URL and never one that appears in the input.
+
+**Tests:** `tests/unit/test_resources.py`.
+
+**Limitations:** links can go stale or be renamed (the IRS consumer-alerts page is now titled "Recognize tax scams and fraud"), so they need re-checking like facts. The pages are US English.

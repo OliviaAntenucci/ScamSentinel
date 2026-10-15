@@ -223,6 +223,32 @@ function renderScenario(scenario, verdict) {
       .join(" — ");
 }
 
+function renderResources(resources) {
+  const box = document.querySelector("#resources");
+  const list = document.querySelector("#resource-list");
+  list.replaceChildren();
+  // These are the only links on the page. They come from data/resources.yaml, never from
+  // the analyzed message, and anything that isn't https:// is shown as text only.
+  const safe = resources.filter((r) => typeof r.url === "string" && r.url.startsWith("https://"));
+  box.hidden = !safe.length;
+  for (const resource of safe) {
+    const item = document.createElement("li");
+    item.className = "resource";
+    const kind = resource.kind === "official_help"
+      ? `From ${resource.publisher}`
+      : `About this type of scam · ${resource.publisher}`;
+    addText(item, "span", "resource-kind", kind);
+    const link = document.createElement("a");
+    link.className = "resource-link";
+    link.href = resource.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = resource.title;
+    item.append(link);
+    list.append(item);
+  }
+}
+
 const FACT_OUTCOMES = {
   conflicts: ["Conflicts", "conflicts"],
   cannot_verify: ["Can't verify", "unverified"],
@@ -302,6 +328,7 @@ function renderResult(result) {
   }
   renderScenario(result.scenario ?? null, result.verdict);
   renderNextSteps(result.next_steps ?? []);
+  renderResources(result.resources ?? []);
   renderDomainExplanations(result.domain_explanations ?? []);
   renderFactChecks(result.fact_checks ?? []);
   renderEvidence(result.reasons ?? []);

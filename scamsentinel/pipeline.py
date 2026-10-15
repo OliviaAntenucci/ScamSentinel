@@ -218,6 +218,16 @@ class AnalysisService:
             domain_explanations=_explanations(domains),
             fact_checks=fact_checks(message.checks) if message else [],
             scenario=scenario,
+            resources=(
+                self._guide.resources(
+                    verdict=result.verdict,
+                    features=message.features if message else None,
+                    domains=domains,
+                    scenario=scenario,
+                )
+                if self._guide
+                else []
+            ),
         )
         # SSN/card numbers quoted as evidence never reach the response, disk or logs.
         analysis = redact_result(analysis)

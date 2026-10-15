@@ -161,6 +161,12 @@ textarea::placeholder { color: #b2b3bf; }
 .next-steps-list { margin: 0; padding: 10px 0 0 18px; color: var(--ink); font-size: 11px; line-height: 1.55; }
 .next-step { padding: 3px 0 3px 2px; overflow-wrap: anywhere; }
 .next-step::marker { color: var(--purple); font-weight: 700; }
+.resources { margin-bottom: 18px; }
+.resource-list { margin: 0; padding: 6px 0 0; list-style: none; }
+.resource { padding: 6px 0; border-bottom: 1px solid #f1f1f5; }
+.resource-kind { display: block; color: #a0a1ae; font-size: 9px; }
+.resource-link { color: #6964c7; font-size: 11px; font-weight: 600; text-decoration: none; overflow-wrap: anywhere; }
+.resource-link:hover, .resource-link:focus { text-decoration: underline; }
 .domain-explanations { margin-bottom: 18px; }
 .domain-explanation { padding: 10px 0 2px; }
 .domain-name { display: block; color: var(--ink); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; font-weight: 700; overflow-wrap: anywhere; }

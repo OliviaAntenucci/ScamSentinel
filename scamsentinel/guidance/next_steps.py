@@ -19,18 +19,21 @@ from scamsentinel.data import (
     Brand,
     Fact,
     Guidance,
+    ResourcesFile,
     ScenarioRule,
     load_brands,
     load_facts,
     load_guidance,
     load_keywords,
+    load_resources,
     load_scenarios,
 )
 from scamsentinel.domain.engine import DomainResult
+from scamsentinel.guidance.resources import ReadingList
 from scamsentinel.guidance.scenarios import ScenarioMatcher
 from scamsentinel.ingest.phones import normalize_phone
 from scamsentinel.message.features import OTHER_ENTITY, UNUSUAL_PAYMENT_METHODS, MessageFeatures
-from scamsentinel.models import InputType, NextStep, Scenario, Verdict
+from scamsentinel.models import InputType, NextStep, Resource, Scenario, Verdict
 from scamsentinel.verify.checks import CheckResult
 
 # The report step is always kept; when there are more steps than this, "already acted"
@@ -84,6 +87,7 @@ class NextStepsGuide:
         facts: list[Fact],
         scenarios: Sequence[ScenarioRule] = (),
         negations: Sequence[str] = (),
+        resources: ResourcesFile | None = None,
     ) -> None:
         missing = REQUIRED_STEPS - set(guidance.steps)
         if missing:
@@ -104,6 +108,11 @@ class NextStepsGuide:
         }
         self._scenarios = ScenarioMatcher(scenarios, negations)
         self._scenario_steps = {s.id: s.step for s in scenarios}
+        self._reading = (
+            ReadingList(resources, brands, [s.id for s in scenarios])
+            if resources is not None
+            else None
+        )
 
     @classmethod
     def from_files(cls, data_dir: Path) -> NextStepsGuide:
@@ -113,6 +122,26 @@ class NextStepsGuide:
             load_facts(data_dir),
             load_scenarios(data_dir),
             load_keywords(data_dir).negations,
+            load_resources(data_dir),
+        )
+
+    def resources(
+        self,
+        *,
+        verdict: Verdict,
+        features: MessageFeatures | None,
+        domains: list[DomainResult],
+        scenario: Scenario | None,
+    ) -> list[Resource]:
+        """Where to read more: the type of scam, and the claimed brand's own help pages."""
+        if self._reading is None:
+            return []
+        entity = self._entity(features or MessageFeatures(), domains)
+        return self._reading.build(
+            verdict=verdict,
+            entity=entity,
+            category=self._categories.get(entity) if entity else None,
+            scenario=scenario,
         )
 
     def scenario(

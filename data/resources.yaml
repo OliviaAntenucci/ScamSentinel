@@ -1,0 +1,180 @@
+# "Learn more" reading list for an analysis (architecture.md §22).
+#
+# Two kinds of links, both curated here and never taken from the analyzed message:
+#   - scam_type:     an article about the kind of scam (FTC, IRS, USPIS consumer pages),
+#                    chosen by the named scenario (scenarios.yaml), else by the category
+#                    of the claimed brand, else the default.
+#   - official_help: the impersonated organization's own help pages ("If your Apple
+#                    Account is locked", "Avoid & report phishing emails"). A page can be
+#                    limited to some scenarios; pages without `scenarios` always apply.
+#
+# Rules (checked at load time): https only; scam-type articles must be on one of
+# `trusted_domains`; an organization's help pages must be on that brand's official
+# domains (brands.yaml). Every page was opened and checked on the review date.
+
+trusted_domains: [ftc.gov, irs.gov, uspis.gov]
+
+articles:
+  ftc_phishing:
+    title: How To Recognize and Avoid Phishing Scams
+    publisher: Federal Trade Commission
+    url: https://consumer.ftc.gov/articles/how-recognize-and-avoid-phishing-scams
+    reviewed: 2026-10-15
+  ftc_tech_support:
+    title: How To Spot, Avoid, and Report Tech Support Scams
+    publisher: Federal Trade Commission
+    url: https://consumer.ftc.gov/articles/how-spot-avoid-and-report-tech-support-scams
+    reviewed: 2026-10-15
+  ftc_job_scams:
+    title: Job Scams
+    publisher: Federal Trade Commission
+    url: https://consumer.ftc.gov/articles/job-scams
+    reviewed: 2026-10-15
+  ftc_never_move_money:
+    title: Never move your money to "protect it." That's a scam
+    publisher: Federal Trade Commission
+    url: https://consumer.ftc.gov/consumer-alerts/2024/03/never-move-your-money-protect-it-thats-scam
+    reviewed: 2026-10-15
+  ftc_bank_fraud_call:
+    title: Got a call about fraud activity on your bank account? It could be a scammer
+    publisher: Federal Trade Commission
+    url: https://consumer.ftc.gov/consumer-alerts/2024/06/got-call-about-fraud-activity-your-bank-account-it-could-be-scammer
+    reviewed: 2026-10-15
+  ftc_verification_code:
+    title: What's a verification code and why would someone ask me for it?
+    publisher: Federal Trade Commission
+    url: https://consumer.ftc.gov/consumer-alerts/2024/03/whats-verification-code-why-would-someone-ask-me-it
+    reviewed: 2026-10-15
+  ftc_tax_relief:
+    title: Trouble Paying Your Taxes?
+    publisher: Federal Trade Commission
+    url: https://consumer.ftc.gov/articles/tax-relief-companies
+    reviewed: 2026-10-15
+  irs_tax_scams:
+    title: Recognize tax scams and fraud
+    publisher: Internal Revenue Service
+    url: https://www.irs.gov/newsroom/tax-scams-consumer-alerts
+    reviewed: 2026-10-15
+  irs_really_irs:
+    title: How to know it's really the IRS calling or knocking on your door
+    publisher: Internal Revenue Service
+    url: https://www.irs.gov/newsroom/how-to-know-its-really-the-irs-calling-or-knocking-on-your-door
+    reviewed: 2026-10-15
+  irs_eip:
+    title: Economic impact payments
+    publisher: Internal Revenue Service
+    url: https://www.irs.gov/coronavirus/economic-impact-payments
+    reviewed: 2026-10-15
+  uspis_smishing:
+    title: "Smishing: Package Tracking Text Scams"
+    publisher: U.S. Postal Inspection Service
+    url: https://www.uspis.gov/news/scam-article/smishing
+    reviewed: 2026-10-15
+
+scam_types:
+  scenarios:
+    remote_access: [ftc_tech_support]
+    fake_check_job: [ftc_job_scams]
+    job_upfront_fee: [ftc_job_scams]
+    job_data_harvest: [ftc_job_scams]
+    safe_account_transfer: [ftc_never_move_money]
+    tax_relief_offer: [ftc_tax_relief]
+    back_taxes_threat: [irs_really_irs, irs_tax_scams]
+    stimulus_payment: [irs_eip, irs_tax_scams]
+    refund_lure: [irs_tax_scams, ftc_phishing]
+    redelivery_fee: [uspis_smishing]
+    incomplete_address: [uspis_smishing]
+    package_on_hold: [uspis_smishing]
+    fake_charge_callback: [ftc_tech_support]
+    fake_virus_alert: [ftc_tech_support]
+    verification_code_theft: [ftc_verification_code]
+    fake_sign_in_alert: [ftc_phishing]
+    fake_fraud_alert: [ftc_bank_fraud_call]
+    billing_problem: [ftc_phishing]
+    account_deletion: [ftc_phishing]
+    account_locked: [ftc_phishing]
+    identity_verification: [ftc_phishing]
+  # When no scenario matched: by the category of the claimed brand.
+  categories:
+    tax: [irs_tax_scams]
+    delivery: [uspis_smishing]
+    bank: [ftc_bank_fraud_call]
+    account_takeover: [ftc_phishing]
+    tech_support: [ftc_tech_support]
+    job: [ftc_job_scams]
+  default: [ftc_phishing]
+
+# Credit Karma has no entry: no current official scam-help page was found (2026-10-15).
+official_help:
+  IRS:
+    - title: Report fake IRS, Treasury or tax-related emails and messages
+      url: https://www.irs.gov/privacy-disclosure/report-phishing
+      reviewed: 2026-10-15
+    - title: Refunds (check your refund status)
+      url: https://www.irs.gov/wheres-my-refund
+      reviewed: 2026-10-15
+      scenarios: [refund_lure]
+    - title: How to know it's really the IRS calling or knocking on your door
+      url: https://www.irs.gov/newsroom/how-to-know-its-really-the-irs-calling-or-knocking-on-your-door
+      reviewed: 2026-10-15
+      scenarios: [back_taxes_threat]
+  TurboTax:
+    - title: Tax Time Scams You Should Avoid
+      url: https://turbotax.intuit.com/tax-tips/security/tax-time-scams-you-should-avoid/L0rtre77W
+      reviewed: 2026-10-15
+    - title: Identify suspicious activity and phishing scams
+      url: https://quickbooks.intuit.com/learn-support/en-us/help-article/fraud/identify-suspicious-activity-phishing-scams-fraud/L2NzZQnZu_US_en_US
+      reviewed: 2026-10-15
+  QuickBooks:
+    - title: Identify suspicious activity and phishing scams
+      url: https://quickbooks.intuit.com/learn-support/en-us/help-article/fraud/identify-suspicious-activity-phishing-scams-fraud/L2NzZQnZu_US_en_US
+      reviewed: 2026-10-15
+  USPS:
+    - title: "Smishing: Package Tracking Text Scams"
+      url: https://www.uspis.gov/news/scam-article/smishing
+      reviewed: 2026-10-15
+  Chase:
+    - title: How to spot scams
+      url: https://www.chase.com/digital/resources/privacy-security/security/how-to-spot-scams
+      reviewed: 2026-10-15
+    - title: How to report fraud
+      url: https://www.chase.com/digital/resources/privacy-security/security/report-fraud
+      reviewed: 2026-10-15
+  Bank of America:
+    - title: Learn About the Latest Scams
+      url: https://web.bankofamerica.com/en/security/library/review-scam-alert
+      reviewed: 2026-10-15
+    - title: Report Suspicious Activity & Help Protect Your Accounts
+      url: https://web.bankofamerica.com/en/security/report-suspicious-activity
+      reviewed: 2026-10-15
+  Wells Fargo:
+    - title: "Report Phishing: How to Identify & Report Suspicious Emails"
+      url: https://www.wellsfargo.com/privacy-security/fraud/report/phish/
+      reviewed: 2026-10-15
+  Google:
+    - title: Avoid & report phishing emails (Gmail Help)
+      url: https://support.google.com/mail/answer/8253?hl=en
+      reviewed: 2026-10-15
+    - title: '"Suspicious sign in prevented" email (Google Account Help)'
+      url: https://support.google.com/accounts/answer/6063333?hl=en
+      reviewed: 2026-10-15
+      scenarios: [fake_sign_in_alert, verification_code_theft, account_locked, account_deletion]
+  Apple:
+    - title: Recognize and avoid social engineering schemes including phishing messages, phony support calls, and other scams
+      url: https://support.apple.com/en-us/102568
+      reviewed: 2026-10-15
+    - title: If your Apple Account is locked, not active, or disabled
+      url: https://support.apple.com/en-us/102640
+      reviewed: 2026-10-15
+      scenarios: [account_locked, account_deletion]
+  Microsoft:
+    - title: Avoid and report Microsoft technical support scams
+      url: https://support.microsoft.com/en-us/security/avoid-and-report-microsoft-technical-support-scams
+      reviewed: 2026-10-15
+    - title: Protect yourself from phishing
+      url: https://support.microsoft.com/en-us/security/protect-yourself-from-phishing
+      reviewed: 2026-10-15
+  Indeed:
+    - title: Guidelines for a Safe Job Search
+      url: https://www.indeed.com/help/job-seekers/articles/216354123-guidelines-for-a-safe-job-search?hl=en&co=US
+      reviewed: 2026-10-15
