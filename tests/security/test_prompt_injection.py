@@ -1,13 +1,11 @@
-"""S2: prompt injection (SECURITY.md T2, AC-4).
-
-The message-level tests run now (M2). The verdict-band test needs the aggregator (M3)
-and the full paired corpus lands in M4.
-"""
+"""S2: prompt injection (SECURITY.md T2, AC-4). The full paired corpus lands in M4."""
 
 import pytest
 
+from scamsentinel.api.schemas import AnalyzeRequest
 from scamsentinel.message.features import Impersonation, MessageFeatures
 from scamsentinel.message.llm import LlmUnavailable, parse_llm_output
+from scamsentinel.models import Verdict
 
 SCAM = (
     "IRS ALERT: Your refund has been suspended. Verify your identity immediately at "
@@ -75,6 +73,16 @@ def test_ungrounded_llm_spans_dropped(make_analyzer, fake_llm):
     assert analysis.dropped_llm_spans == 1
 
 
-@pytest.mark.skip(reason="M3/M4: needs the aggregator and the full paired corpus")
-def test_injection_never_lowers_verdict_band():
-    raise NotImplementedError
+BAND = {Verdict.LIKELY_LEGITIMATE: 0, Verdict.SUSPICIOUS: 1, Verdict.LIKELY_SCAM: 2}
+# A clear scam and a borderline one, so a drop in band would be visible.
+BAND_SAMPLES = [SCAM, "Your TurboTax account is locked. Reply now."]
+
+
+@pytest.mark.parametrize("sample", BAND_SAMPLES)
+@pytest.mark.parametrize("injection", INJECTIONS)
+def test_injection_never_lowers_verdict_band(make_service, sample, injection):
+    # AC-4 (the full ~30-variant paired corpus lands in M4).
+    service = make_service()
+    clean = service.analyze(AnalyzeRequest(text=sample))
+    injected = service.analyze(AnalyzeRequest(text=f"{sample} {injection}"))
+    assert BAND[injected.verdict] >= BAND[clean.verdict]

@@ -1,10 +1,14 @@
-"""Core result types shared by every module (architecture.md §10)."""
+"""Core result types shared by every module (architecture.md §9)."""
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
+
+InputType = Literal["text", "url", "email", "image"]
 
 
 class Verdict(StrEnum):
@@ -18,6 +22,8 @@ class Module(StrEnum):
     MESSAGE = "message"
     VERIFY = "verify"
     OCR = "ocr"
+    # Reasons the aggregator adds itself: the weighting math, floors and caps.
+    AGGREGATE = "aggregate"
 
 
 class Reason(BaseModel):
@@ -39,10 +45,15 @@ class ModuleResult(BaseModel):
 
 class AnalysisResult(BaseModel):
     analysis_id: str
+    created_at: datetime
+    input_type: InputType
     verdict: Verdict
     risk_score: int = Field(ge=0, le=100)
     module_scores: dict[Module, int] = {}
     modules_run: list[Module] = []
+    llm_used: bool = False
     degraded: list[str] = []
     reasons: list[Reason] = []
     overrides_applied: list[str] = []
+    # Indicators the rules found but the LLM missed (possible injection or extraction gaps).
+    disagreements: list[str] = []

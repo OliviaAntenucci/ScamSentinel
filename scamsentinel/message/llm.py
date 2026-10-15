@@ -8,6 +8,7 @@ rules-only (FR-15).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import secrets
 from typing import Any, Protocol
@@ -17,6 +18,7 @@ from pydantic import ValidationError
 
 from scamsentinel.config import Settings
 from scamsentinel.message.features import MessageFeatures
+from scamsentinel.store import Store
 
 PROMPT_VERSION = "v1"
 GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -226,6 +228,32 @@ class GroqExtractor:
         except (ValueError, KeyError, IndexError, TypeError) as exc:
             raise LlmUnavailable("malformed_response") from exc
         return parse_llm_output(data)
+
+
+class CachedExtractor:
+    """Caches successful extractions in SQLite, keyed by provider, model, prompt version
+    and whitespace-normalized text (NFR-6). Failures aren't cached. Cached features are
+    re-grounded against each new input by the analyzer, like fresh ones."""
+
+    def __init__(self, inner: FeatureExtractor, store: Store, provider: str, model: str) -> None:
+        self._inner = inner
+        self._store = store
+        self._provider = provider
+        self._model = model
+
+    def key(self, text: str) -> str:
+        normalized = " ".join(text.split())
+        material = "\x00".join([self._provider, self._model, PROMPT_VERSION, normalized])
+        return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+    def extract(self, text: str) -> MessageFeatures:
+        key = self.key(text)
+        cached = self._store.get_llm_features(key)
+        if cached is not None:
+            return MessageFeatures.model_validate_json(cached)
+        features = self._inner.extract(text)
+        self._store.put_llm_features(key, self._provider, self._model, features.model_dump_json())
+        return features
 
 
 class _UnsupportedProvider:

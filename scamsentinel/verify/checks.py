@@ -16,8 +16,7 @@ from scamsentinel.domain.normalize import InvalidHost
 from scamsentinel.ingest.email import ParsedEmail
 from scamsentinel.ingest.phones import normalize_phone
 from scamsentinel.message.features import MessageFeatures
-
-InputType = Literal["text", "url", "email", "image"]
+from scamsentinel.models import InputType
 
 CheckName = Literal[
     "official_domain",

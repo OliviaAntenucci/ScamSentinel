@@ -12,13 +12,14 @@ from scamsentinel.domain.engine import DomainEngine, get_engine
 from scamsentinel.message.analyzer import MessageAnalyzer
 from scamsentinel.message.features import MessageFeatures
 from scamsentinel.message.llm import LlmUnavailable
+from scamsentinel.pipeline import AnalysisService
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 @pytest.fixture
-def settings() -> Settings:
-    # _env_file=None: tests never pick up a developer's local .env.
+def settings(tmp_path) -> Settings:
+    # _env_file=None: tests never pick up a developer's local .env (or its API key).
     return Settings(
         _env_file=None,
         env="test",
@@ -27,7 +28,18 @@ def settings() -> Settings:
         anthropic_api_key=None,
         data_dir=REPO_ROOT / "data",
         config_dir=REPO_ROOT / "config",
+        db_path=tmp_path / "scamsentinel.db",
     )
+
+
+@pytest.fixture
+def make_service(settings):
+    """AnalysisService on a temporary database, with an optional fake LLM."""
+
+    def factory(llm=None) -> AnalysisService:
+        return AnalysisService.from_settings(settings, llm=llm)
+
+    return factory
 
 
 @pytest.fixture

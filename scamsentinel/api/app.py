@@ -10,13 +10,17 @@ from scamsentinel.api.errors import install_error_handlers
 from scamsentinel.api.middleware import SecurityHeadersMiddleware
 from scamsentinel.api.routes import router
 from scamsentinel.config import Settings, get_settings
+from scamsentinel.pipeline import AnalysisService
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None, service: AnalysisService | None = None
+) -> FastAPI:
     settings = settings or get_settings()
 
     app = FastAPI(title="ScamSentinel", version=__version__)
     app.state.settings = settings
+    app.state.service = service or AnalysisService.from_settings(settings)
 
     # Reject foreign Host headers so a website open in the user's browser can't
     # reach this API via DNS rebinding. No CORS middleware on purpose.

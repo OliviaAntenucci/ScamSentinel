@@ -27,8 +27,8 @@ from scamsentinel.message.grounding import ground
 from scamsentinel.message.llm import FeatureExtractor, LlmUnavailable, build_extractor
 from scamsentinel.message.rules import RuleExtractor
 from scamsentinel.message.scoring import score_message
-from scamsentinel.models import ModuleResult
-from scamsentinel.verify.checks import CheckResult, InputType, Verifier
+from scamsentinel.models import InputType, ModuleResult
+from scamsentinel.verify.checks import CheckResult, Verifier
 
 
 class MessageAnalysis(BaseModel):

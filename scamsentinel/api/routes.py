@@ -1,18 +1,25 @@
-"""HTTP routes (prd.txt §7)."""
+"""HTTP routes (prd.txt §8)."""
 
 from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Path, Query, Request
 
-from scamsentinel import __version__, pipeline
+from scamsentinel import __version__
 from scamsentinel.api.schemas import AnalyzeRequest
 from scamsentinel.domain.engine import DomainResult, get_engine
 from scamsentinel.domain.normalize import InvalidHost
 from scamsentinel.models import AnalysisResult
+from scamsentinel.pipeline import AnalysisService
 
 router = APIRouter()
+
+ANALYSIS_ID_PATTERN = r"^an_[0-9a-f]{32}$"
+
+
+def _service(request: Request) -> AnalysisService:
+    return request.app.state.service
 
 
 @router.get("/healthz")
@@ -28,13 +35,21 @@ def healthz(request: Request) -> dict[str, str]:
 
 
 @router.post("/v1/analyze")
-def analyze(body: AnalyzeRequest) -> AnalysisResult:
-    return pipeline.analyze(body)
+def analyze(request: Request, body: AnalyzeRequest) -> AnalysisResult:
+    try:
+        return _service(request).analyze(body)
+    except InvalidHost as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/v1/analysis/{analysis_id}")
-def get_analysis(analysis_id: str) -> AnalysisResult:
-    return pipeline.get_analysis(analysis_id)
+def get_analysis(
+    request: Request, analysis_id: Annotated[str, Path(pattern=ANALYSIS_ID_PATTERN)]
+) -> AnalysisResult:
+    result = _service(request).get_analysis(analysis_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="analysis not found or expired")
+    return result
 
 
 @router.get("/v1/domain/score")
