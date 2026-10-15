@@ -18,6 +18,7 @@ def post_image(client, data, content_type="image/png", **headers):
 @pytest.mark.parametrize(
     ("data", "content_type"),
     [(png(), "image/png"), (jpeg(), "image/jpeg"), (webp(), "image/webp")],
+    ids=["png", "jpeg", "webp"],
 )
 def test_screenshot_of_scam(image_client, fake_transcriber, data, content_type):
     client = image_client(fake_transcriber(text=SCAM_TEXT))
@@ -26,8 +27,9 @@ def test_screenshot_of_scam(image_client, fake_transcriber, data, content_type):
     body = r.json()
     assert body["input_type"] == "image"
     assert body["verdict"] == "likely_scam"
-    assert body["reasons"][0]["module"] == "ocr"
-    assert body["reasons"][0]["signal"] == "transcribed"
+    ocr = [r for r in body["reasons"] if r["module"] == "ocr"]
+    assert [r["signal"] for r in ocr] == ["transcribed"]
+    assert "64×32" in ocr[0]["detail"]
     assert client.get(f"/v1/analysis/{body['analysis_id']}").json() == body
 
 
