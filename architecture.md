@@ -55,11 +55,15 @@
    └────────────────────┘
 ```
 
+### Interface
+
+ScamSentinel is **API-only**. There is no web UI. It runs on the user's own computer, and the user calls the HTTP API from the command line (e.g. `curl`) at `http://127.0.0.1:8000`. Results come back as JSON. Sandbox screenshots download as PNG files from `/v1/analysis/{id}/screenshot.png`. FastAPI's auto-generated OpenAPI schema at `/docs` serves as the API reference.
+
 ### Deployment (Docker Compose)
 
 | Service | Network | Secrets | Notes |
 |---|---|---|---|
-| `api` | `internal` + `public` | `ANTHROPIC_API_KEY` | FastAPI, domain engine, analyzer, aggregator, SQLite |
+| `api` | `internal` + `public` | `ANTHROPIC_API_KEY` | FastAPI, domain engine, analyzer, aggregator, SQLite. Published as `127.0.0.1:8000:8000` (loopback only) |
 | `sandbox` | `sandbox_net` → egress proxy only | none | Playwright/Chromium, hardened (see SECURITY.md T4) |
 | `egress-proxy` | `sandbox_net` + `public` | none | Denies private/link-local/metadata ranges; second line of SSRF defense |
 | `ocr` | `internal`, **no egress** | none | Pillow re-encode + Tesseract |

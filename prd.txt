@@ -172,12 +172,18 @@ Evaluation
          5 detonations/min).
   NFR-8  Portability: the full stack runs with `docker compose up` on a
          laptop.
+  NFR-9  Interface: API-only, no web UI. The API listens on
+         127.0.0.1:8000 by default and isn't reachable from other
+         machines. Users interact from the command line (curl or
+         similar). Responses are JSON; sandbox screenshots are fetched
+         as PNG files from an artifact endpoint.
 
 --------------------------------------------------------------------------------
 7. API (MVP)
 --------------------------------------------------------------------------------
   POST /v1/analyze           JSON {text | url | email_raw} or multipart image
-  GET  /v1/analysis/{id}     Fetch result (with sandbox artifacts)
+  GET  /v1/analysis/{id}     Fetch result (JSON, with artifact links)
+  GET  /v1/analysis/{id}/screenshot.png   Sandbox screenshot (re-encoded)
   GET  /v1/domain/score?d=   Domain engine only
   GET  /v1/ct/candidates     CT watcher feed
   GET  /healthz
@@ -211,7 +217,6 @@ Evaluation
   M6  OCR pipeline
   M7  CT watcher
   M8  Eval dataset + harness + published metrics
-  M9  Minimal web UI (optional)
 
 --------------------------------------------------------------------------------
 10. RISKS & OPEN QUESTIONS
@@ -225,7 +230,6 @@ Evaluation
   R3  Live phishing URLs go offline quickly. Mitigation: store detonation
       snapshots and evaluate the sandbox on archived captures.
   R4  LLM cost/latency. Mitigation: caching and rules-only fallback.
-  Q1  Should the UI ship in the MVP, or API/CLI only?
-  Q2  Is VirusTotal / Google Safe Browsing enrichment worth the API
+  Q1  Is VirusTotal / Google Safe Browsing enrichment worth the API
       dependency?
 ================================================================================

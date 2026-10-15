@@ -41,6 +41,8 @@ The allowlist lives in `data/brands.yaml`. It is versioned, and each entry recor
 | Not doing | Why |
 |---|---|
 | Brands other than the four above | Keeps the allowlist, eval set, and rules focused; adding a brand is a config change later |
+| Web UI or browser front end | API-only: run locally and use it from the command line. Keeps the attack surface small (no XSS/CSRF surface to defend) |
+| Remote/hosted deployment | The API binds to `127.0.0.1` only; exposing it to a network isn't a supported configuration |
 | Real-time inbox/SMS integration or blocking | ScamSentinel is an analyzer, not a filter or gateway |
 | Takedown requests, abuse reports, registrar contact | Out of scope for an educational tool; may be considered later with manual review |
 | Malware / executable analysis | The detonator observes phishing pages; it does not run downloads. Downloads are blocked |
@@ -64,7 +66,7 @@ ScamSentinel touches live attacker infrastructure and public services. These rul
 
 ### CT watcher
 1. Query crt.sh politely: low frequency (default every 6 h), sequential requests, exponential backoff, and a descriptive User-Agent.
-2. CT candidates are **unverified leads**, not accusations. A certificate containing "irs" is not evidence of fraud. The UI and API label these "candidate lookalikes."
+2. CT candidates are **unverified leads**, not accusations. A certificate containing "irs" is not evidence of fraud. The API labels these "candidate lookalikes."
 3. CT candidates are not auto-detonated in the MVP. Detonation stays on-demand.
 
 ### Data handling
@@ -77,5 +79,5 @@ ScamSentinel touches live attacker infrastructure and public services. These rul
 
 ## Assumptions
 - English-language US taxpayer context.
-- One operator running the stack locally or on a single VM via Docker Compose.
+- One operator running the stack on their own computer via Docker Compose, using the API from the command line at `http://127.0.0.1:8000`.
 - An Anthropic API key is available. Without one, the system runs rules-only.

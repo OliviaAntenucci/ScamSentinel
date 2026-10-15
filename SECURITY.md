@@ -124,7 +124,7 @@ Variants: hidden text on a page (`display:none`, white-on-white, zero-width char
 3. **Pixel limits.** Pillow `Image.MAX_IMAGE_PIXELS = 25_000_000`, with decompression-bomb warnings treated as errors. Dimensions are checked from the header before a full decode.
 4. **Decode and re-encode.** The image is decoded and written out again as a fresh PNG with no metadata. This strips EXIF (including GPS) and appended polyglot payloads. Only the re-encoded file moves on to OCR.
 5. **Isolate the parser.** Decoding and OCR run in a separate container with no network, a read-only root filesystem, a non-root user, dropped capabilities, seccomp's default profile, and CPU/memory/pids limits. Each job has a timeout, and the worker is killed on overrun.
-6. **Never execute, never serve raw.** Uploads are stored under random UUID names outside any web root. User filenames are never used for paths. Originals are never served back to the user. If the UI shows the image, it serves the re-encoded copy with `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`.
+6. **Never execute, never serve raw.** Uploads are stored under random UUID names outside any web root. User filenames are never used for paths. Originals are never served back to the user. Artifact endpoints serve only re-encoded PNGs, with `Content-Type: image/png`, `Content-Disposition: attachment`, and `X-Content-Type-Options: nosniff`.
 7. **Keep dependencies patched.** Pillow and Tesseract are pinned, and Dependabot / `pip-audit` runs in CI.
 8. **Email (.eml) handling.** Parsed with Python's `email` package in policy-strict mode. HTML bodies are converted to text with an HTML parser, never rendered. Attachments are listed by name/type/size and **never opened**.
 
@@ -159,7 +159,9 @@ Variants: hidden text on a page (`display:none`, white-on-white, zero-width char
 |---|---|
 | Abuse as an attack proxy (using the detonator to scan or flood third parties) | Per-IP rate limits, one navigation per job, no form submission, no custom headers/methods/bodies from users |
 | Cost/DoS via LLM | Input caps, content-hash cache, one LLM call per input, per-IP quotas |
-| Stored XSS (detonated page title/DOM shown in UI) | All captured content is HTML-escaped; strict CSP on the UI; screenshots served as images only |
+| API exposed beyond the local machine | Uvicorn and the Docker port mapping bind to `127.0.0.1` only (`127.0.0.1:8000:8000`); startup refuses `0.0.0.0` unless explicitly overridden for tests |
+| A malicious website in the user's own browser calling `http://127.0.0.1:8000` (DNS rebinding / cross-origin requests to localhost) | Reject requests whose `Host` header isn't `127.0.0.1:8000` or `localhost:8000`; no CORS headers; POST endpoints require `Content-Type: application/json` or `multipart/form-data` |
+| Captured page content interpreted as HTML (no UI, but a user might open an artifact in a browser) | API responds only with `application/json` or `image/png`; captured DOM text is returned as JSON strings, never as HTML; `X-Content-Type-Options: nosniff` on every response |
 | Leaking PII in logs | Redaction of SSN/card/phone patterns before logging; 7-day retention |
 | Secret leakage | API key only in the API container env; never sent to workers, LLM prompts, or logs |
 | Poisoning the CT feed | CT results are leads only; they never auto-allowlist or affect user verdicts except via the same domain scoring |
@@ -177,6 +179,6 @@ Variants: hidden text on a page (`display:none`, white-on-white, zero-width char
 | S3 | `test_uploads.py` | Hostile files rejected or neutralized; no crash or exhaustion | AC-5 |
 | S4 | `test_sandbox_policy.py` | Container hardening and browser policy enforced | — |
 | S5 | `test_allowlist.py` | Subdomain/suffix tricks never match the official allowlist | AC-2 |
-| S6 | `test_output_escaping.py` | Captured page content can't execute in the UI | — |
+| S6 | `test_local_api.py` | API binds to loopback only; foreign `Host` headers rejected; responses are JSON/PNG with `nosniff` | NFR-9 |
 
 All security tests run in CI on every push. A failing security test blocks merge.
