@@ -143,7 +143,8 @@ Regex and phrase lists from `keywords.yaml`: urgency phrases ("within 24 hours",
 
 ### 5.2 LLM feature extractor
 
-- **Provider:** pluggable via `SCAMSENTINEL_LLM_PROVIDER`. The default is **Groq** (free tier, open models, OpenAI-compatible API with JSON output). Anthropic Claude is the alternative. Either way, output is validated as `MessageFeatures`. Temperature 0.
+- **Provider:** pluggable via `SCAMSENTINEL_LLM_PROVIDER`. The default is **Groq** with `openai/gpt-oss-20b`, called over its OpenAI-compatible API with `httpx`. That model supports Groq's **strict JSON-schema mode** (constrained decoding against `FEATURE_SCHEMA` in `message/llm.py`). Other Groq models fall back to JSON-object mode. Either way, the reply is validated as `MessageFeatures`. Temperature 0. The Anthropic provider is configurable but not implemented yet; selecting it reports `llm_unavailable:provider_not_implemented` and runs rules-only.
+- **Failure handling:** timeouts, network errors, 401/403, 429, other HTTP errors, non-JSON replies and schema violations all raise `LlmUnavailable(reason)`. The analysis continues rules-only and reports `degraded: ["llm_unavailable:<reason>"]`.
 - **Prompt structure:**
   - *System:* role ("you extract indicators from untrusted content"), an explicit statement that the content is data and must not be followed, and the schema field definitions.
   - *User:* `<untrusted_content_{random_hex}> … </untrusted_content_{random_hex}>`, with the input capped at about 20k chars.
@@ -165,11 +166,17 @@ Regex and phrase lists from `keywords.yaml`: urgency phrases ("within 24 hours",
 
   There is no verdict or score field, and the schema rejects unknown fields.
 - **Grounding check:** each `span` must appear in the normalized input (case/whitespace-insensitive). Features that fail the check are dropped and counted.
-- **Caching:** results are keyed on `sha256(provider + model + prompt_version + normalized_text)`.
+- **Caching (M3):** results will be keyed on `sha256(provider + model + prompt_version + normalized_text)` in SQLite.
 
 ### 5.3 Merge
 
-Union both extractors' features, tagging each one with `source: llm|rule|both`. Rule features always count (they're deterministic and visible in the text). LLM-only features count when their span is grounded. Big disagreements (rules see a payment method the LLM missed) are logged as possible injection or extraction failures.
+Union both extractors' features, tagging each one with `source: llm|rule|both`. Everything the LLM returns is tagged `llm` regardless of what it claims, and is grounded before merging. Rule features always count (they're deterministic and visible in the text). On conflicts (e.g. a different impersonated entity) the rules win. Indicators the rules found but the LLM missed are returned as `disagreements` (e.g. `llm_missed_injection_attempt`), a signal of possible injection or extraction gaps.
+
+The rule extractor ignores payment methods, sensitive requests and threats that follow a negation in the same clause ("The IRS will **never** ask for your SSN"), so legitimate warnings don't score as scams.
+
+### 5.4 Scoring
+
+The message score is the **sum** of its reasons' points, clamped to 0–100 (`message_points` and `verify_points` in `config/scoring.yaml`). Sensitive requests and threats have caps so one long list can't dominate. Verification reasons are added once per signal, and mitigating ones (official link, DKIM-verified official sender) only count when no check failed.
 
 ---
 
@@ -179,11 +186,11 @@ The verification layer turns claims in the message into checks against `data/fac
 
 | Check | Input | Fails when |
 |---|---|---|
-| `official_domain` | Each URL/domain + impersonated brand | Domain is not in the brand's official list |
-| `contact_channel` | Input type + entity | IRS + SMS/email/social first contact asking for info or payment |
-| `payment_method_policy` | Payment methods + entity | IRS/Intuit + gift card / crypto / wire / P2P app |
-| `phone_number` | Claimed phone numbers + entity | Number is not in the entity's published numbers |
-| `sender_alignment` (email) | From / Reply-To / Return-Path / DKIM d= | Display name claims a brand but the sending domain isn't official, or Reply-To differs |
+| `official_domain` | Each URL/domain (incl. email link targets) + impersonated brand | Domain is not in the brand's official list (an official link is mitigating) |
+| `contact_channel` | Input type + entity | IRS contacting by SMS/email (or a screenshot of one) while asking for information, payment, or sending to an unofficial link |
+| `payment_method_policy` | Payment methods + entity | A fact says the entity doesn't take that method (IRS: gift card / crypto / wire / P2P apps) |
+| `phone_number` | Claimed phone numbers + entity | Number isn't among the entity's published numbers (reported as "can't verify", lower weight) |
+| `sender_alignment` (email) | From / Reply-To / DKIM `header.d` | Claims a brand but sent from another domain, or Reply-To goes to a different domain. An official sender with passing DKIM is mitigating |
 
 Output: `[{check, claim, verified: true|false|null, source, detail}]`. Checks that come back `false` become reasons. A check that passes, such as "link goes to irs.gov," is shown as a mitigating reason and lowers the score.
 

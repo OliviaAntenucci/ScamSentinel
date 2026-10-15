@@ -19,7 +19,7 @@ Send it a suspicious text message, email, URL, or screenshot. ScamSentinel decid
 
 No black-box answers. The LLM only **extracts features**. Deterministic rules produce the verdict, and every rule that fires appears in `reasons`.
 
-> **Status:** MVP in progress. M0 (skeleton) and M1 (lookalike-domain engine, `GET /v1/domain/score`) are done. The other analysis endpoints return `501 Not Implemented` until their milestone lands. See [MVP roadmap](#mvp-roadmap).
+> **Status:** MVP in progress. M0 (skeleton), M1 (lookalike-domain engine, `GET /v1/domain/score`) and M2 (message analyzer + verification layer) are done. `POST /v1/analyze` returns `501 Not Implemented` until M3 wires everything together. See [MVP roadmap](#mvp-roadmap).
 
 ---
 
@@ -41,8 +41,8 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 ## Components (MVP)
 
 1. **Lookalike-domain engine** ✅: scores a domain against the protected brands using Public Suffix List parsing, Unicode/IDN homoglyph normalization, edit distance, and keyword-stuffing detection (`turbotax-refund-secure.com`).
-2. **Message analyzer**: keyword rules plus an LLM (Groq by default) extract urgency, impersonation, payment-method, and sensitive-data-request signals as structured JSON.
-3. **Verification layer** (VerifyVault-style): checks claims against trusted facts, such as "is this an official IRS domain?" or "does the IRS start contact by SMS?"
+2. **Message analyzer** ✅: keyword rules plus an LLM (Groq by default) extract urgency, impersonation, payment-method, and sensitive-data-request signals as structured JSON.
+3. **Verification layer** ✅ (VerifyVault-style): checks claims against trusted facts, such as "is this an official IRS domain?" or "does the IRS start contact by SMS?"
 4. **Screenshot OCR**: Tesseract extracts the text, which then goes through the message analyzer.
 5. **Risk aggregator**: combines module scores into one score, verdict, and list of reasons.
 6. **Evaluation harness**: a labeled set of synthetic and public samples, reporting precision, recall, F1, and false-positive rate.
@@ -57,7 +57,7 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 |---|---|---|
 | M0 | Docs, skeleton, API, test harness | ✅ |
 | M1 | Lookalike-domain engine | ✅ |
-| M2 | Message analyzer + verification layer | |
+| M2 | Message analyzer + verification layer | ✅ |
 | M3 | Risk aggregator + `POST /v1/analyze` | |
 | M4 | Security hardening (uploads, prompt injection, no-fetch, redaction) | |
 | M5 | Screenshot OCR | |

@@ -68,11 +68,23 @@ sensitive_requests:
   dob: [date of birth, birth date]
 
 threats:
-  arrest: [arrest, warrant, police]
+  arrest: [arrest, arrested, warrant, police]
   account_suspension: [suspended, suspension, locked, deactivated]
   refund_loss: [lose your refund, forfeit your refund, refund will be cancelled, refund on hold]
-  penalty: [penalty, penalties, fine, late fee]
-  legal_action: [lawsuit, legal action, court, prosecution]
+  penalty: [penalty, penalties, late fee]
+  legal_action: [lawsuit, legal action, prosecution]
+
+# Mentions of a protected brand in message text. Keys must match names in brands.yaml.
+entity_mentions:
+  IRS: [irs, internal revenue service]
+  TurboTax: [turbotax, turbo tax, intuit]
+  QuickBooks: [quickbooks, quick books]
+  Credit Karma: [credit karma, creditkarma]
+
+# A payment method, sensitive request or threat is ignored when one of these words appears
+# shortly before it in the same clause ("The IRS will never ask for your password").
+# Quoted: in YAML a bare `no` means false.
+negations: ["never", "not", "no", "don't", "won't", "doesn't", "cannot", "can't"]
 
 # Instructions aimed at an AI classifier. Their presence is itself a scam signal (SECURITY.md T2).
 injection_phrases:

@@ -37,8 +37,12 @@ def test_llm_key_follows_provider():
     assert s.llm_api_key is None
 
 
+def test_empty_api_key_counts_as_missing():
+    assert make(llm_provider="groq", groq_api_key="  ").llm_api_key is None
+
+
 def test_llm_model_defaults_per_provider():
-    assert make(llm_provider="groq").resolved_llm_model == "llama-3.3-70b-versatile"
+    assert make(llm_provider="groq").resolved_llm_model == "openai/gpt-oss-20b"
     assert make(llm_provider="groq", llm_model="other-model").resolved_llm_model == "other-model"
 
 

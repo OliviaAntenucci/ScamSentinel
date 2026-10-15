@@ -34,3 +34,29 @@ domain_points:
   tld_swap: 65
   idn_mixed_script_bonus: 15
   new_registration_bonus: 10 # not applied yet: needs RDAP/certificate-age enrichment
+
+# Message signal points (architecture.md §5). The message score is the sum, clamped to 0-100.
+message_points:
+  impersonation: 20
+  urgency_high: 15 # urgency level >= 7
+  urgency_medium: 10 # level >= 4
+  urgency_low: 5 # level >= 1
+  sensitive_request: 25 # per kind of data requested
+  sensitive_request_cap: 50
+  unusual_payment_method: 30
+  threat: 10 # per kind of threat
+  threat_cap: 20
+  call_to_action: 5
+  injection_attempt: 30
+
+# Verification points (architecture.md §6), added to the message score.
+# Negative values are mitigating evidence.
+verify_points:
+  official_domain_mismatch: 20
+  official_domain_match: -15
+  contact_channel: 25
+  payment_method_policy: 25
+  phone_number_unknown: 10
+  sender_brand_mismatch: 25
+  reply_to_mismatch: 15
+  sender_verified: -10

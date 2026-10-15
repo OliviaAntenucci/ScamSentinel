@@ -65,6 +65,8 @@ class Keywords(BaseModel):
     threats: dict[str, list[str]]
     injection_phrases: list[str]
     ascii_substitutions: dict[str, str]
+    entity_mentions: dict[str, list[str]]
+    negations: list[str]
 
 
 def load_keywords(data_dir: Path) -> Keywords:
@@ -111,6 +113,8 @@ class ScoringConfig(BaseModel):
     floors: dict[str, int]
     mitigating_cap: int
     domain_points: dict[str, int]
+    message_points: dict[str, int]
+    verify_points: dict[str, int]
 
     @field_validator("weights")
     @classmethod

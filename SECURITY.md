@@ -171,7 +171,7 @@ The payload list and test file already exist (`tests/security/ssrf_payloads.txt`
 | ID | Test file | Proves | Status |
 |---|---|---|---|
 | S1 | pipeline no-fetch test (M4) | Analyzing any URL makes no outbound connection | Planned (M4) |
-| S2 | `test_prompt_injection.py`, `test_message_features.py` | Injection never lowers a verdict band; LLM output can't carry a verdict; malformed output → rules-only | Schema tests passing; rest planned (M4) |
+| S2 | `test_prompt_injection.py`, `test_message_features.py`, `test_llm.py` | Injection never lowers the message score and is scored as evidence; an LLM that obeys the injection can't clear a scam; LLM output can't carry a verdict; malformed output → rules-only; ungrounded spans dropped | Passing (M2); verdict-band test + full paired corpus in M3/M4 |
 | S3 | `test_uploads.py` | Hostile files rejected or neutralized; no crash, hang or exhaustion | Planned (M4/M5) |
 | S4 | `test_local_api.py` | Loopback only; foreign `Host` rejected; no CORS; security headers | Passing |
 | S5 | `test_allowlist.py` | Subdomain/suffix tricks never match the official allowlist | Passing |

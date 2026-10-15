@@ -54,6 +54,9 @@ class InjectionAttempt(_Strict):
     span: str = ""
 
 
+PROTECTED_ENTITIES = ("IRS", "TurboTax", "QuickBooks", "Credit Karma")
+
+
 class MessageFeatures(_Strict):
     impersonated_entity: Impersonation | None = None
     urgency: Urgency = Urgency(level=0)
@@ -64,3 +67,27 @@ class MessageFeatures(_Strict):
     call_to_action: CallToAction | None = None
     threats: list[Threat] = []
     injection_attempt: InjectionAttempt = InjectionAttempt()
+
+    @property
+    def protected_entity(self) -> str | None:
+        """The protected brand the message claims to be from, if any."""
+        entity = self.impersonated_entity
+        return entity.value if entity and entity.value in PROTECTED_ENTITIES else None
+
+    def with_source(self, source: Source) -> MessageFeatures:
+        """Copy with every span-bearing feature tagged as coming from `source`."""
+
+        def tag(items):
+            return [item.model_copy(update={"source": source}) for item in items]
+
+        return self.model_copy(
+            update={
+                "impersonated_entity": tag([self.impersonated_entity])[0]
+                if self.impersonated_entity
+                else None,
+                "payment_methods": tag(self.payment_methods),
+                "sensitive_requests": tag(self.sensitive_requests),
+                "threats": tag(self.threats),
+                "call_to_action": tag([self.call_to_action])[0] if self.call_to_action else None,
+            }
+        )

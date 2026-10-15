@@ -10,7 +10,7 @@ The MVP is done when someone can run ScamSentinel on their own computer, send it
 |---|---|---|
 | M0 | Docs, repo skeleton, API skeleton, test harness | ✅ Done |
 | M1 | Lookalike-domain engine | ✅ Done |
-| M2 | Message analyzer (rules first, then Groq LLM) + verification layer | |
+| M2 | Message analyzer (rules first, then Groq LLM) + verification layer | ✅ Done |
 | M3 | Risk aggregator + `POST /v1/analyze` (text, URL, email) | |
 | M4 | Security hardening: upload guard, prompt-injection suite, no-fetch test, log redaction | |
 | M5 | Screenshot OCR (Tesseract) | |

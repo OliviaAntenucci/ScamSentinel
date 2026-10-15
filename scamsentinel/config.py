@@ -13,9 +13,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # Host header values the API accepts (SECURITY.md T5: DNS rebinding against localhost).
 LOOPBACK_HOSTNAMES = ("127.0.0.1", "localhost")
 
-# Groq's model lineup changes; check https://console.groq.com/docs/models before M2.
+# openai/gpt-oss-20b supports Groq's strict JSON-schema output (checked 2026-10-14,
+# https://console.groq.com/docs/structured-outputs). Other models fall back to JSON mode.
 DEFAULT_LLM_MODELS = {
-    "groq": "llama-3.3-70b-versatile",
+    "groq": "openai/gpt-oss-20b",
     "anthropic": "claude-sonnet-5-5",
 }
 
@@ -49,6 +50,7 @@ class Settings(BaseSettings):
     # LLM feature extractor (M2). Without the selected provider's key: rules-only.
     llm_provider: Literal["groq", "anthropic"] = "groq"
     llm_model: str | None = None  # None -> DEFAULT_LLM_MODELS[llm_provider]
+    llm_timeout_seconds: float = 20.0
     groq_api_key: SecretStr | None = Field(
         default=None,
         validation_alias=AliasChoices("GROQ_API_KEY", "SCAMSENTINEL_GROQ_API_KEY"),
@@ -76,7 +78,9 @@ class Settings(BaseSettings):
 
     @property
     def llm_api_key(self) -> SecretStr | None:
-        return self.groq_api_key if self.llm_provider == "groq" else self.anthropic_api_key
+        key = self.groq_api_key if self.llm_provider == "groq" else self.anthropic_api_key
+        # An empty `GROQ_API_KEY=` line in .env counts as no key.
+        return key if key is not None and key.get_secret_value().strip() else None
 
     @property
     def resolved_llm_model(self) -> str:

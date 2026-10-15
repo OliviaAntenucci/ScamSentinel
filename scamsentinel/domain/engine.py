@@ -16,7 +16,6 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-import tldextract
 from pydantic import BaseModel, Field
 from rapidfuzz.distance import DamerauLevenshtein
 
@@ -29,6 +28,7 @@ from scamsentinel.domain.normalize import (
     load_confusables,
     scripts_in,
 )
+from scamsentinel.domain.psl import get_psl_extractor
 from scamsentinel.models import Module, Reason
 
 TYPO_MAX_NORMALIZED_DISTANCE = 0.2
@@ -103,10 +103,7 @@ class DomainEngine:
         self._vocab = set(self._keywords) | {t.skel for t in self._tokens}
         self._max_vocab_len = max(map(len, self._vocab))
 
-        # Bundled PSL snapshot: no network fetch, no disk cache (works in a read-only container).
-        self._extract = tldextract.TLDExtract(
-            cache_dir=None, suffix_list_urls=(), include_psl_private_domains=True
-        )
+        self._extract = get_psl_extractor()
 
     @classmethod
     def from_files(cls, data_dir: Path, config_dir: Path) -> DomainEngine:
