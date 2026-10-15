@@ -81,7 +81,8 @@ scamsentinel/
   ocr/            # vision.py: Groq vision transcriber + cache
   web/            # browser UI (index.html, app.js, app.css), served at / and /static
   aggregate/      # weights, floors, verdict bands, reason assembly
-  guidance/       # E1: next_steps.py, "what should I do next?" chosen from the evidence
+  guidance/       # E1: next_steps.py, "what should I do next?" chosen from the evidence;
+                  #   E4: scenarios.py, named scam scenarios from data/scenarios.yaml
   security/       # upload_guard.py, image_sanitize.py, redaction.py (url_guard.py is post-MVP)
   ct/             # P1: crt.sh client, CT watcher (python -m scamsentinel.ct), candidate store
   eval/           # dataset loader, runner, metrics, ablations, report
@@ -92,6 +93,7 @@ data/
   keywords.yaml   # stuffing keywords, urgency phrases, payment methods
   facts.yaml      # trusted facts for verification (with sources)
   guidance.yaml   # E1 next-step templates and their references
+  scenarios.yaml  # E4 named scenarios: rules, descriptions, sources, own next step
   confusables.txt # curated Unicode TR39 confusables subset
   eval/           # labeled samples + SOURCES.md
 tests/
@@ -368,7 +370,7 @@ The CT tables (`ct/store.py`) live in the same file. They hold public certificat
 
 ## 14. Post-MVP roadmap
 
-Built only after the MVP works end to end and has evaluation numbers. Done: P1 (CT watcher), G1 (brand-agnostic core + delivery category), G2 (bank impersonation), E1 (next steps), E2 (domain explanations), E3 (fact-check summary), G3 (account takeover, tech support, job scams). Next: E4, then P2 → P3 → P4.
+Built only after the MVP works end to end and has evaluation numbers. Done: P1 (CT watcher), G1 (brand-agnostic core + delivery category), G2 (bank impersonation), E1 (next steps), E2 (domain explanations), E3 (fact-check summary), G3 (account takeover, tech support, job scams), E4 (named scenarios). Next: P2 → P3 → P4.
 
 ### Scam categories (G1 ✅, G2 ✅, G3 ✅)
 
@@ -383,7 +385,7 @@ ScamSentinel's angle is being an explainable checker that runs locally and shows
 | **E1** ✅ | **"What should I do next?"** (built: see [§18](#18-what-should-i-do-next-e1)) | Each result gets a short, cautious `next_steps[]` list, chosen from fixed templates by the evidence that fired. Examples: a sensitive-data request → "Don't reply with personal information"; an IRS or brand impersonation → "Contact the agency using a number from its official website or your paperwork, not the one in the message"; a gift-card or crypto demand → "The IRS doesn't take payment this way. Don't pay." Official contact details come only from `data/facts.yaml`, with sources. **Links and phone numbers found in the analyzed message are never repeated, opened or recommended.** Advice is worded cautiously and never promises safety; a `likely_legitimate` verdict still says to verify through a channel you already trust. Shown in the UI below the verdict. |
 | **E2** ✅ | **Richer domain explanations** (built: see [§19](#19-richer-domain-explanations-e2)) | Before E2, each domain technique carried only a one-line `detail`. Add a structured explanation of *what* differs from the real brand: the swapped characters (`0` for `o`, Cyrillic `і` for `i`), the misspelling (`turbotxa` vs. `turbotax`), the misleading extra words (`-refund-secure`), or the real owner of a brand-in-subdomain URL. Built from data the engine already computes (skeleton, edit operations, keywords, PSL split). |
 | **E3** ✅ | **Fact-check summary** (built: see [§20](#20-fact-check-summary-e3)) | The verification layer already evaluates every check as matched / conflicts / can't verify (`CheckResult.verified`), but only failures and mitigations reach the response, as reasons. Expose the full list as `fact_checks[]`: each claim in the message, the trusted fact it was compared with, the outcome, and the fact's source and last-reviewed date. Shown in the UI as a matches / conflicts table. |
-| **E4** | **Named scenarios per category** | Recognize named scenarios, such as (tax) refund delay or "refund on hold", balance due or payment demand, identity verification, fake tax-prep or "IRS agent" offers, and (delivery) "package on hold", incomplete address, redelivery fee. Each scenario is a rule over existing signals in a new `data/scenarios.yaml` with a plain-language description and its own E1 next steps. Reported as `scenario` on the result (0 points: it explains the score and doesn't change it). New scenarios are added over time as data, each with eval samples. |
+| **E4** ✅ | **Named scenarios per category** (built: see [§21](#21-named-scenarios-e4)) | Recognize named scenarios, such as (tax) refund delay or "refund on hold", balance due or payment demand, identity verification, fake tax-prep or "IRS agent" offers, and (delivery) "package on hold", incomplete address, redelivery fee. Each scenario is a rule over existing signals in a new `data/scenarios.yaml` with a plain-language description and its own E1 next steps. Reported as `scenario` on the result (0 points: it explains the score and doesn't change it). New scenarios are added over time as data, each with eval samples. |
 
 E1–E4 change no scores, so evaluation numbers stay comparable. Each needs tests that the advice and explanations never quote a URL or phone number from the input, and that every result still has at least one reason (AC-6).
 
@@ -504,7 +506,7 @@ LLM features: impersonated_entity = "other", span "Acme Bank"  (grounded: verbat
 
 ## 18. "What should I do next?" (E1)
 
-A verdict tells you how worried to be; it doesn't tell you what to do. Every result also carries `next_steps[]`: up to six short, cautious steps, most important first, chosen by the evidence that fired. It changes no scores.
+A verdict tells you how worried to be; it doesn't tell you what to do. Every result also carries `next_steps[]`: up to seven short, cautious steps, most important first, chosen by the evidence that fired. It changes no scores. The report step is always kept: when there are too many steps, `already_acted` is dropped first, then the list is cut before the report step.
 
 ```
 verdict + input type + merged features + domain results + verification checks
@@ -528,6 +530,7 @@ A `likely_legitimate` result gets one step: `verify_brand` ("go to irs.gov by ty
 | `dont_share` | Sensitive data was requested ("your Social Security number and your date of birth") | Fixed labels per request type |
 | `dont_pay_policy` / `dont_pay` | An unusual payment method was demanded. The policy version is used when the brand's own payment fact failed ("IRS says it doesn't take payment by gift card") | Brand name, source of its payment fact |
 | `dont_call` | A phone number in the message isn't a published one, or the message says to call without giving a known number | — |
+| `scenario_<id>` (E4) | The message matches a named scenario (§21). It may stand in for the generic "don't" steps it covers (`replaces`) | `scenarios.yaml`, with a source |
 | `contact_brand_with_phone` / `contact_brand` / `contact_unknown_org` / `contact_sender` | Always one of these: the brand's official site and first published number (or "a number from your own paperwork"), a generic "the organization it claims to be from", or "check with the sender through a channel you already trust" | `brands.yaml` official domain, `facts.yaml` phone numbers |
 | `already_acted` | `likely_scam` and data or payment was requested | — |
 | `report_brand_text` / `report_brand` / `report_text` / `report` | Always last: the brand's published report address (plus 7726 for texts), or 7726 / ReportFraud.ftc.gov | `facts.yaml` `report_to`, `guidance.yaml` references |
@@ -640,3 +643,105 @@ Claims quote the message (URLs, phone numbers, sender addresses), so rows go thr
 - A check only runs when its trigger fires. "IRS contacting you by text" appears only when the message also asks for something, because the fact is about unsolicited requests.
 - The same claim can appear twice with different outcomes. For example, "IRS asking for SSN" is *can't verify* against request policies (the IRS has none in `facts.yaml`) while "IRS contacting you by text and asking you to act" *conflicts*. Each row answers a different question.
 - A phone number that isn't published is *can't verify*, not *conflicts*: only a short list of numbers is known.
+
+---
+
+## 21. Named scenarios (E4)
+
+Reasons say *what* was found ("asks for a Social Security number", "threatens arrest"). A scenario says which **story** the message tells: *Refund lure*, *Back taxes, audit or arrest threat*, *Fake bank fraud alert*. It explains it in plain language, with a source, and adds one next step written for that story. It changes no score.
+
+```json
+"scenario": {
+  "id": "back_taxes_threat", "name": "Back taxes, audit or arrest threat", "category": "tax",
+  "description": "Claims you owe taxes or are under audit and pushes you to pay right away, ... The IRS mails a bill first, lets you question what you owe, and doesn't threaten arrest or demand a specific payment method.",
+  "source": "https://www.irs.gov/newsroom/how-to-know-its-really-the-irs-calling-or-knocking-on-your-door",
+  "matched_on": ["phrase: \"you owe\"", "threat: arrest"]
+}
+```
+
+```
+pipeline: aggregate() ─▶ verdict
+  verdict != likely_legitimate and there's a message?
+    ─▶ NextStepsGuide.scenario()   (guidance/scenarios.py)
+         brand + category (as for next steps), merged features, links, message text
+         ─▶ data/scenarios.yaml, top to bottom: first rule whose conditions hold
+    ─▶ result.scenario (0 points) + the scenario's step in next_steps
+```
+
+### The catalog
+
+21 scenarios in `data/scenarios.yaml`, tried in file order; the first match is reported. More specific stories come first, so a job offer that sends a check is *Fake check job* rather than *Pay-to-work*, and a sign-in alert that asks for a code is *Verification-code request*.
+
+| Category | Scenarios |
+|---|---|
+| Tax | Tax debt relief offer · Back taxes, audit or arrest threat · Stimulus or relief payment · Refund lure |
+| Delivery | Redelivery fee or card request · Incomplete-address notice · Package on hold |
+| Bank | "Move your money to protect it" · Fake bank fraud alert |
+| Account takeover | Verification-code request · Fake sign-in alert · Password expiry or account deletion |
+| Tech support | Remote-access request · Fake charge or renewal ("call to cancel") · Fake virus or locked-computer warning |
+| Job | Fake check job · Pay-to-work job offer · Job offer that asks for your ID or bank details |
+| Shared | Payment problem or overdue invoice · Account locked or suspended · Identity verification request |
+
+Every description and step paraphrases a cited FTC, IRS or USPIS page (reviewed 2026-10-15). For example, *Verification-code request* says "Anyone who asks for your verification code is a scammer" (FTC), and *Stimulus or relief payment* notes that the IRS has issued all Economic Impact Payments (IRS).
+
+### Rules
+
+Each scenario has a list of alternative conditions (`when`), and matches if any of them holds. Inside a condition every field must hold, and a list field holds when any of its values is present:
+
+| Field | Reads |
+|---|---|
+| `category` | the category of the brand the message claims, or the brand of its official or lookalike link (the same brand the next steps name) |
+| `threats`, `requests`, `payments`, `call_to_action` | the merged features (§5) |
+| `phrases` | the message text (email: sender, subject and body; screenshot: the transcription). Whole phrases, case-insensitive, skipped after a negation in the same clause, like the rule extractor |
+| `phone`, `link` | whether the message has a phone number / a link that isn't official |
+
+Load-time validation: condition fields and their values must be known types (an unknown threat or request type fails), every condition needs at least one field, ids are unique `snake_case` and never `none`, sources are `https://`, and categories must exist in `brands.yaml` (the guide refuses to start otherwise).
+
+### Its own next step
+
+Each scenario has one `step: {text, source, replaces}`, inserted after the "don't" steps and before the contact step (§18). `replaces` lists generic steps it already covers, so the advice doesn't repeat itself. For example, *Fake virus warning* ("Don't call the number, install anything or pay…") replaces `dont_call` and `dont_pay`. Only `dont_open_link`, `dont_share`, `dont_pay` and `dont_call` can be replaced: contact, policy-citing and reporting steps always stay. Step texts can't contain links or phone numbers other than curated official sites (`irs.gov`, `usps.com`); a test checks every step, and the E1 safety tests check the advice of every eval sample.
+
+### Why it doesn't change scores, and can't be steered
+
+- **No points, no floors.** The scenario is chosen after `aggregate()` and never feeds back into it. A test runs every text eval sample with and without the scenario catalog and compares score, verdict and reasons.
+- **Only on flagged results.** A `likely_legitimate` result never gets a scenario, so a real fraud alert isn't labeled a scam story. On a *suspicious* result the UI says the message *resembles* a known scam pattern; on a *likely scam*, that it *follows* one.
+- **Rules and wording are data.** The LLM can't name a scenario or write its text. An LLM-extracted feature can satisfy a condition, but the same grounded, merged features already drive the score.
+- **`matched_on` quotes only our vocabulary**: threat and request types, the brand's category, and the phrase from our list that matched, never free text from the message. A test checks every reported item.
+
+### Evaluation
+
+Every text and email scam sample was hand-labeled with its expected scenario, or `none`, in `data/eval/scenario_labels.yaml`. The labels were written **before** the rules, by reading each message, and kept out of `samples.jsonl` so splits don't move. Tests require every scam message to have a label and every scenario to have at least one labeled sample. The eval harness adds a scenario section to its report:
+- *right scenario*;
+- *wrong* (another scenario, or one where `none` was expected);
+- *missed* (flagged, but no rule matched);
+- *undetected* (scored likely legitimate, so no scenario could be shown);
+- accuracy overall and when detected;
+- how many legitimate samples got a scenario.
+
+Results (rules only, 2026-10-15): test split 16/21 (76%), **16/17 when detected (94%)**; dev 23/26, 23/23 when detected; all samples 106/121, 106/109 when detected. Every test-split miss is a detection miss. 3 of 154 legitimate samples got a scenario, all already *suspicious* triage false positives. Details and the misses: [README](README.md#named-scenarios-e4).
+
+**Tests:** `tests/unit/test_scenarios.py` covers:
+- one fresh example per scenario (not an eval sample);
+- priority between overlapping scenarios;
+- negation;
+- no scenario on legitimate results or URL-only input;
+- `matched_on` vocabulary;
+- step placement and replacement, and the report step always last;
+- step texts free of links and numbers;
+- scores unchanged across the eval set;
+- label and catalog integrity;
+- validation errors;
+- the eval metrics.
+
+### Adding a scenario
+
+1. Add it to `data/scenarios.yaml` at the right priority: name, category, a description and step paraphrased from a cited source, and conditions over existing signals. Prefer threats and requests to phrases.
+2. Label the eval samples it should match in `scenario_labels.yaml`. Every scenario needs at least one.
+3. Check dev, then run the test split once, and report the numbers.
+
+### Limitations
+
+- **One scenario per message.** A message that tells two stories (a refund lure that also asks for a verification code) gets the first one in priority order.
+- **Phrases are English and from the same author as the samples**, so recognition on real-world messages is likely lower than measured. 5 of the 21 scenarios have only 1–2 labeled samples. *Tax debt relief offer* has one, and that sample is scored likely legitimate, so the scenario is untested on a real detection.
+- **Wording overlaps.** "Suspended" and "login attempts" are shared by several stories; the measured wrong picks come from exactly those words.
+- **No scenario without a detection.** That keeps legitimate messages from being labeled, but scams scored likely legitimate get no explanation of their story either.

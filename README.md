@@ -59,7 +59,7 @@ And each lookalike link is taken apart, so you can see the trick for yourself (`
 }]
 ```
 
-> **Status:** MVP complete (M0–M6), plus a Certificate Transparency watcher (P1) and a brand-agnostic core with a second scam category (G1) and a third, bank impersonation (G2), "what should I do next?" advice on every result (E1), plain-language explanations of how each lookalike domain imitates a brand (E2), and a fact-check table of every claim against the trusted facts (E3). Text, URL, email and screenshot analysis work end to end, the security defenses below are implemented and tested, and accuracy is measured per category on held-out test splits ([Evaluation](#evaluation)). See [Roadmap](#roadmap).
+> **Status:** MVP complete (M0–M6), plus a Certificate Transparency watcher (P1) and a brand-agnostic core with a second scam category (G1) and a third, bank impersonation (G2), "what should I do next?" advice on every result (E1), plain-language explanations of how each lookalike domain imitates a brand (E2), a fact-check table of every claim against the trusted facts (E3), and 21 named scam scenarios ("refund lure", "fake virus warning", "move your money to protect it") with their own advice (E4). Text, URL, email and screenshot analysis work end to end, the security defenses below are implemented and tested, and accuracy is measured per category on held-out test splits ([Evaluation](#evaluation)). See [Roadmap](#roadmap).
 
 ---
 
@@ -89,8 +89,9 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 5. **Risk aggregator** ✅: combines module scores into one score, verdict, and list of reasons.
 6. **Evaluation harness** ✅: 191 labeled samples in two categories, with leak-free train/dev/test splits stratified by category, reporting precision, recall, F1 and false-positive rate per category, input type and brand, plus ablations.
 7. **Fact check for unknown organizations** ✅: when a message claims to be from an organization outside the curated categories ("Acme Bank"), an LLM is asked for that organization's official domains, and links that conflict with them are flagged. Because that answer is model knowledge, not a published source, it's labeled as such, worth fewer points, and **can only add risk**: a "matching" link never lowers the score. Needs a Groq key. See [`architecture.md` §17](architecture.md#17-fact-check-for-organizations-without-curated-facts).
-8. **"What should I do next?"** ✅: up to six short, cautious steps chosen by the evidence that fired: don't open the link, don't share what was asked for, don't pay (citing the organization's own payment policy when it has one), don't call the number, contact the organization through its official site and published number, and where to report it. Wording comes from `data/guidance.yaml` and contacts from `data/facts.yaml`, with sources. The LLM can't write or pick advice, and a "likely legitimate" result still says to verify through a channel you trust. Shown in the UI under "What to do next". See [`architecture.md` §18](architecture.md#18-what-should-i-do-next-e1).
-9. **Certificate Transparency watcher** ✅: polls crt.sh every 6 hours for new certificates whose names contain a brand token, scores each name with the domain engine, and lists the lookalikes at `GET /v1/ct/candidates`. It finds phishing domains before anyone reports them, and never visits them. See [`architecture.md` §15](architecture.md#15-certificate-transparency-watcher-p1).
+8. **"What should I do next?"** ✅: up to seven short, cautious steps chosen by the evidence that fired: don't open the link, don't share what was asked for, don't pay (citing the organization's own payment policy when it has one), don't call the number, contact the organization through its official site and published number, and where to report it. Wording comes from `data/guidance.yaml` and contacts from `data/facts.yaml`, with sources. The LLM can't write or pick advice, and a "likely legitimate" result still says to verify through a channel you trust. Shown in the UI under "What to do next". See [`architecture.md` §18](architecture.md#18-what-should-i-do-next-e1).
+9. **Named scam scenarios** ✅: names the story a flagged message tells, from a catalog of 21 in `data/scenarios.yaml`. Examples: *Refund lure*, *Back taxes, audit or arrest threat*, *Redelivery fee*, *Fake bank fraud alert*, *"Move your money to protect it"*, *Verification-code request*, *Fake virus warning*, *Pay-to-work job offer*. Each comes with a plain-language description from FTC, IRS or USPIS guidance (cited), what it matched on, and one extra next step of its own ("Never share a verification code…"). Scenarios are fixed rules over signals the rules already extract, plus phrases in the message. They're never chosen by the LLM, never shown on a "likely legitimate" result, and add no points. Recognition is measured against hand labels: **94% of detected scams on the test split get the right scenario** (see [Evaluation](#named-scenarios-e4)). See [`architecture.md` §21](architecture.md#21-named-scenarios-e4).
+10. **Certificate Transparency watcher** ✅: polls crt.sh every 6 hours for new certificates whose names contain a brand token, scores each name with the domain engine, and lists the lookalikes at `GET /v1/ct/candidates`. It finds phishing domains before anyone reports them, and never visits them. See [`architecture.md` §15](architecture.md#15-certificate-transparency-watcher-p1).
 
 **Brand-agnostic core.** Brands, categories, trusted facts and phrase lists are data (`data/brands.yaml`, `facts.yaml`, `keywords.yaml`). The domain engine, LLM schema, verification checks, scoring floors and CT watcher all read them, so no code names a specific organization. See [`architecture.md` §16](architecture.md#16-scam-categories-and-the-brand-agnostic-core).
 
@@ -108,11 +109,8 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 | E1 | "What should I do next?" advice on every result | ✅ |
 | E2 | Richer domain explanations: swapped characters, misspellings, extra words, real owner | ✅ |
 | E3 | Fact-check summary: every claim, the fact it was checked against, and the outcome | ✅ |
-| E4 | Named scenarios per category | Planned |
+| E4 | Named scenarios: 21 scam stories across the six categories, each with a sourced description, its own advice and labeled eval samples | ✅ |
 | P2–P4 | Page fetching with an SSRF guard, a Playwright sandbox, Docker packaging | Planned |
-
-The remaining explain-and-guide item:
-- **Named scenarios** per category, such as refund delays, payment demands, identity verification, or "package on hold".
 
 Details: [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
 
@@ -295,6 +293,22 @@ The test splits are **tiny** (6 samples each), so treat them as smoke tests. Wha
 - **Job scams are mostly brandless.** A recruiter who demands a gift card, Cash App or USDT payment without naming a protected company lands in *suspicious* (35–50). Triage recall is 89%, but strict recall is 61%. Indeed-branded fee demands hit the 85 payment-policy floor ("Indeed will never ask candidates to pay fees").
 
 Next steps for these categories, to be tuned on dev only: a check for "Microsoft + a phone number"; a floor for a brandless message that combines an unusual payment method with a job or virus lure; and sourced phone facts for Apple and Microsoft.
+
+### Named scenarios (E4)
+
+Measured 2026-10-15, rules only. Every text and email scam sample (121) was **hand-labeled with the scenario a person would call it, or "none", before the rules were written** (`data/eval/scenario_labels.yaml`). The rules were then checked once on dev and not tuned on test. Scenarios are only reported on suspicious or likely-scam results, so a scam scored likely legitimate also misses its scenario. That is counted separately as *undetected*.
+
+| Data | Labeled | Right scenario | Wrong | Undetected | Accuracy | Accuracy when detected |
+|---|---|---|---|---|---|---|
+| Test split | 21 | 16 | 1 | 4 | 76% | **94%** (16/17) |
+| Dev split | 26 | 23 | 0 | 3 | 88% | 100% (23/23) |
+| All samples | 121 | 106 | 2 | 12 | 88% | 97% (106/109) |
+
+What the numbers show:
+- **Misses are detection misses, not scenario misses.** On the test split every miss is a scam scored likely legitimate (an unbranded "delivery attempt failed" text, a "refund approved, send your bank details" email, a "your phone has been hacked" text, a remote-access refund call). Across all samples, only one flagged scam got no scenario: "we found hackers on your network, buy Google Play cards for a firewall".
+- **The two wrong picks are both "suspended" or "login" wording.** "Your SSN has been suspended" is read as *Account locked*, and "your IRS account has been locked after 3 failed login attempts" as *Fake sign-in alert* instead of *Account locked*.
+- **Legitimate messages:** 3 of 154 got a scenario, all because they were already scored *suspicious*: a real-style Wells Fargo "unusual activity" alert (*Fake bank fraud alert*), a Credit Karma tip about checking your refund (*Refund lure*), and a genuine QuickBooks invoice sent for a merchant (*Payment problem or overdue invoice*). The UI says a suspicious message only *resembles* a known pattern.
+- Like the other numbers, these labels were written by the same author as the rules. The categories have only 2–10 labeled test samples each.
 
 Reproduce: `python -m scamsentinel.eval --split test --category tax` (or `--category delivery` / `bank` / `account_takeover` / `tech_support` / `job`; omit it for everything; add `--report reports/eval-test.md` for a markdown report, and `--ablation full` for the LLM, cached in `var/eval.db`). Methodology: [`architecture.md` §10](architecture.md#10-evaluation-harness).
 

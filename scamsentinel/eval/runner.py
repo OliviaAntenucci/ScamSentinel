@@ -81,10 +81,13 @@ def run(
     rate_limit_wait: float = 20.0,
     sleep: Callable[[float], None] = time.sleep,
     progress: Callable[[str], None] | None = None,
+    scenario_labels: dict[str, str] | None = None,
 ) -> list[Prediction]:
     """Analyze each sample. With retries > 0, a sample whose LLM call was rate limited
     (free-tier quotas) is retried after `rate_limit_wait` seconds instead of silently
-    being scored rules-only. Successful LLM results are cached, so retries are cheap."""
+    being scored rules-only. Successful LLM results are cached, so retries are cheap.
+    `scenario_labels` (sample id -> expected scenario) is copied onto each prediction."""
+    sample_scenarios = scenario_labels or {}
     predictions = []
     for index, sample in enumerate(samples, 1):
         common = {
@@ -94,6 +97,7 @@ def run(
             "brand": sample.brand,
             "category": sample.category,
             "synthetic": sample.synthetic,
+            "expected_scenario": sample_scenarios.get(sample.id),
         }
         request = AnalyzeRequest(**{_FIELD[sample.input_type]: sample.content})
         try:
@@ -122,6 +126,7 @@ def run(
                 signals=[r.signal for r in result.reasons if r.points != 0],
                 llm_used=result.llm_used,
                 degraded=result.degraded,
+                scenario=result.scenario.id if result.scenario else None,
             )
         )
         if progress and index % 10 == 0:

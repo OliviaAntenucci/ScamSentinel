@@ -68,6 +68,7 @@ Each sample has a `category` (default `tax`). Metrics are reported per category,
 ### All categories
 
 - **Variants of the same template share a `group`** and always land in the same split.
+- **Scenario labels (E4).** Every text and email scam sample has an expected named scenario (or `none`) in `scenario_labels.yaml`, hand-labeled from its content before the scenario rules were written. The labels live outside `samples.jsonl`, so they never change which split a sample lands in. URL samples have no message and aren't labeled.
 
 ## Rules
 - Scam URLs are stored **defanged** (`hxxps://example[.]com`); a test enforces it. Domains in scam samples are invented.

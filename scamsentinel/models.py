@@ -45,6 +45,19 @@ class ModuleResult(BaseModel):
     reasons: list[Reason] = []
 
 
+class Scenario(BaseModel):
+    """The named story a scam message tells (E4), e.g. "Refund lure". It explains the
+    score and adds no points. Chosen by fixed rules (data/scenarios.yaml), never by the LLM."""
+
+    id: str
+    name: str
+    category: str | None = None
+    description: str
+    source: str
+    # The conditions that matched, e.g. ['threat: refund loss', 'phrase: "tax refund"'].
+    matched_on: list[str] = []
+
+
 class NextStep(BaseModel):
     """One piece of advice (E1). Built from fixed templates and data files only, never from
     the analyzed content, so it can't repeat a scammer's link or phone number."""
@@ -96,3 +109,6 @@ class AnalysisResult(BaseModel):
     # Every claim checked against trusted facts (E3): conflicts, then can't verify, then
     # matches.
     fact_checks: list[FactCheck] = []
+    # The named scenario the message follows (E4). Only on suspicious or likely-scam
+    # results that contain a message.
+    scenario: Scenario | None = None

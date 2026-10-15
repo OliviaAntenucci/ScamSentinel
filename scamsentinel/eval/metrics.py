@@ -29,6 +29,10 @@ class Prediction(BaseModel):
     llm_used: bool = False
     degraded: list[str] = []
     error: str | None = None
+    # Named scenario (E4): the one reported, and the hand label ("none" = no scenario
+    # expected; None = not labeled, e.g. URL samples).
+    scenario: str | None = None
+    expected_scenario: str | None = None
 
 
 @dataclass(frozen=True)
@@ -79,6 +83,46 @@ def confusion(predictions: Iterable[Prediction], positive: frozenset[Verdict]) -
         else:
             fp, tn = (fp + 1, tn) if flagged else (fp, tn + 1)
     return Confusion(tp, fp, tn, fn)
+
+
+@dataclass(frozen=True)
+class ScenarioScore:
+    """Scenario recognition over hand-labeled samples (E4)."""
+
+    labeled: int = 0
+    correct: int = 0
+    wrong: int = 0  # a different scenario, or one where none was expected
+    missed: int = 0  # detected as suspicious or a scam, but no scenario rule matched
+    # Scored likely legitimate: scenarios are only reported on flagged results, so this
+    # is a detection miss rather than a scenario-rule miss.
+    undetected: int = 0
+
+    @property
+    def accuracy(self) -> float | None:
+        return _ratio(self.correct, self.labeled)
+
+    @property
+    def accuracy_when_detected(self) -> float | None:
+        """How well the scenario rules do on the samples they get to see."""
+        return _ratio(self.correct, self.labeled - self.undetected)
+
+
+def scenario_score(predictions: Iterable[Prediction]) -> ScenarioScore:
+    labeled = correct = wrong = missed = undetected = 0
+    for p in predictions:
+        if p.expected_scenario is None:
+            continue
+        labeled += 1
+        predicted = p.scenario or "none"
+        if predicted == p.expected_scenario:
+            correct += 1
+        elif p.scenario is not None:
+            wrong += 1
+        elif p.verdict == Verdict.LIKELY_LEGITIMATE:
+            undetected += 1
+        else:
+            missed += 1
+    return ScenarioScore(labeled, correct, wrong, missed, undetected)
 
 
 def breakdown(

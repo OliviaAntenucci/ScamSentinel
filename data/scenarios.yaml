@@ -1,0 +1,629 @@
+# Named scenarios (E4, architecture.md §21).
+#
+# A scenario names the story a scam tells ("refund on hold", "fake virus warning") and
+# explains it in plain language, with one next step of its own. It changes no score: it's
+# reported only on results that are already suspicious or likely scams, and it is chosen
+# by fixed rules over signals the rule extractor already produces. The LLM can't pick it.
+#
+# Order matters: scenarios are tried top to bottom and the FIRST match is reported, so
+# more specific ones come first (a job offer that sends a check is "fake check", not
+# "pay-to-work"; a sign-in alert that asks for a code is "verification-code request").
+#
+# Each scenario has:
+#   id, name, category (null = shared by several categories), description, source
+#   when:  a list of alternative conditions; the scenario matches if ANY of them holds.
+#          Inside one condition, every field must hold, and a list field holds when any
+#          of its values is present:
+#            category        category of the brand the message claims (or links to)
+#            threats         threat types (keywords.yaml → threats)
+#            requests        sensitive-request types (ssn, mfa_code, card, ...)
+#            payments        payment methods (gift_card, crypto, wire, zelle, ...)
+#            call_to_action  click_link, call_number, reply, pay
+#            phrases         phrases in the message text (case-insensitive, whole words,
+#                            skipped after a negation such as "we will never ...")
+#            phone / link    true if the message has a phone number / a non-official link
+#   step:  {text, source} — fixed advice added to the next steps. It must not contain a
+#          link or phone number (tests check), only official sites from brands.yaml.
+#
+# Every scenario needs at least one labeled eval sample in data/eval/scenario_labels.yaml.
+# Sources were reviewed on 2026-10-15.
+
+_phrases:
+  job: &job
+    - job
+    - jobs
+    - hired
+    - job offer
+    - your offer
+    - position
+    - role
+    - recruiter
+    - recruiting
+    - onboarding
+    - training
+    - interview
+    - start date
+    - paycheck
+    - work from home
+    - remote work
+    - part-time
+    - assignment
+    - tasks
+    - resume
+  tax_debt: &tax_debt
+    - you owe
+    - owe taxes
+    - back taxes
+    - unpaid taxes
+    - tax debt
+    - unpaid balance
+    - outstanding balance
+    - balance due
+    - audit
+    - lien
+    - discrepancy
+    - return was flagged
+    - case agent
+    - tax office
+    - criminal investigation
+  unusual_payments: &unusual_payments [gift_card, crypto, wire, zelle, cash_app, venmo]
+  charge: &charge
+    - renewed
+    - auto-renew
+    - auto-renews
+    - auto-renewed
+    - auto-renewal
+    - subscription renewal
+    - protection plan
+    - charge is pending
+    - pending charge
+    - been charged
+    - to cancel
+    - cancel the order
+    - cancel this order
+    - cancel the charge
+    - cancel the subscription
+    - cancel your subscription
+
+scenarios:
+  # --- most specific first ------------------------------------------------------------
+
+  - id: remote_access
+    name: Remote-access request
+    category: tech_support
+    description: >-
+      Asks you to install a remote-access app (such as AnyDesk or TeamViewer) or to let a
+      "technician" connect to your computer. Once connected, tech-support scammers pretend
+      to scan for viruses and then push you to pay for help you don't need.
+    source: https://consumer.ftc.gov/articles/how-spot-avoid-and-report-tech-support-scams
+    when:
+      - phrases:
+          - anydesk
+          - teamviewer
+          - ultraviewer
+          - logmein
+          - remote access
+          - remote desktop
+          - remote support
+          - connect to your computer
+          - access your computer
+          - access to your computer
+          - control of your computer
+    step:
+      text: >-
+        Don't install anything or let anyone connect to your computer because of this
+        message. Legitimate tech companies won't contact you by phone, email or text to fix
+        your computer.
+      source: https://consumer.ftc.gov/articles/how-spot-avoid-and-report-tech-support-scams
+
+  - id: fake_check_job
+    name: Fake check job
+    category: job
+    description: >-
+      Sends you a check to deposit and asks you to send part of the money on, to a
+      "vendor", an "equipment supplier" or for your "first assignment". No honest employer
+      sends you a check and tells you to pay part of it to someone else; the check will
+      bounce.
+    source: https://consumer.ftc.gov/articles/job-scams
+    when:
+      - phrases:
+          - deposit it
+          - deposit the check
+          - cash the check
+          - mail you a check
+          - send you a check
+          - send the rest
+          - send the remaining
+          - keep the rest
+    step:
+      text: >-
+        Don't deposit a check from someone you don't know, and never send any of the money
+        on. No honest employer sends you a check and asks you to pay part of it to someone
+        else.
+      source: https://consumer.ftc.gov/articles/job-scams
+      replaces: [dont_pay]
+
+  - id: job_upfront_fee
+    name: Pay-to-work job offer
+    category: job
+    description: >-
+      Offers a job, then asks you to pay first: for equipment, training, software, an
+      "activation" deposit or "tasks". If someone asks you to pay to get a job, it's a
+      scam; honest employers never do.
+    source: https://consumer.ftc.gov/articles/job-scams
+    when:
+      - phrases: *job
+        payments: *unusual_payments
+      - category: [job]
+        payments: *unusual_payments
+      - phrases:
+          - training fee
+          - setup fee
+          - activation fee
+          - activation deposit
+          - starter kit
+          - onboarding fee
+    step:
+      text: >-
+        Don't pay for a job, training, equipment or "tasks". Honest employers never ask you
+        to pay to get a job.
+      source: https://consumer.ftc.gov/articles/job-scams
+      replaces: [dont_pay]
+
+  - id: job_data_harvest
+    name: Job offer that asks for your ID or bank details
+    category: job
+    description: >-
+      Offers a job or an interview, often after a chat-only "interview", and asks for your
+      Social Security number, a photo of your ID or your bank details before you've
+      verified the company. Giving them to a fake employer can lead to identity theft.
+    source: https://consumer.ftc.gov/articles/job-scams
+    when:
+      - phrases: *job
+        requests: [ssn, id_photo, bank_account, dob]
+      - category: [job]
+        requests: [ssn, id_photo, bank_account, dob]
+    step:
+      text: >-
+        Don't send your Social Security number, ID photos or bank details to a recruiter
+        you haven't checked. Look up the company and the job yourself, outside this
+        message, before you share anything.
+      source: https://consumer.ftc.gov/articles/job-scams
+      replaces: [dont_share]
+
+  - id: safe_account_transfer
+    name: '"Move your money to protect it"'
+    category: bank
+    description: >-
+      Claims your money is at risk and tells you to move it: to a "safe" or "protected"
+      account, or to yourself through Zelle. Nobody legitimate tells you to move or
+      transfer your money to protect it.
+    source: https://consumer.ftc.gov/consumer-alerts/2024/03/never-move-your-money-protect-it-thats-scam
+    when:
+      - phrases:
+          - safe account
+          - protected account
+          - protect your funds
+          - protect your money
+          - protect your savings
+          - move your money
+          - move your balance
+          - move your available balance
+          - send your balance
+          - transfer your balance
+          - send it to yourself
+          - send money to yourself
+          - to yourself with zelle
+          - to yourself via zelle
+    step:
+      text: >-
+        Never move or transfer money to "protect it". If you're worried about your account,
+        call your bank using the number on your card or statement.
+      source: https://consumer.ftc.gov/consumer-alerts/2024/03/never-move-your-money-protect-it-thats-scam
+      replaces: [dont_pay]
+
+  # --- tax --------------------------------------------------------------------------
+
+  - id: tax_relief_offer
+    name: Tax debt relief offer
+    category: tax
+    description: >-
+      Promises to cut or erase your tax debt, often saying you "qualify" for a special
+      program, and wants a fee first. Only the IRS or your state tax agency can decide what
+      you qualify for.
+    source: https://consumer.ftc.gov/articles/tax-relief-companies
+    when:
+      - phrases:
+          - tax relief
+          - tax debt relief
+          - reduce your tax debt
+          - settle your tax debt
+          - tax forgiveness
+          - tax debt forgiveness
+          - fresh start program
+          - tax resolution
+    step:
+      text: >-
+        Don't pay anyone who wants their whole fee upfront to fix a tax debt. The IRS offers
+        payment plans and other options directly; start at irs.gov.
+      source: https://consumer.ftc.gov/articles/tax-relief-companies
+
+  - id: back_taxes_threat
+    name: Back taxes, audit or arrest threat
+    category: tax
+    description: >-
+      Claims you owe taxes or are under audit and pushes you to pay right away, often with
+      gift cards, cryptocurrency or a wire transfer, under threat of arrest, a lien or
+      legal action. The IRS mails a bill first, lets you question what you owe, and
+      doesn't threaten arrest or demand a specific payment method.
+    source: https://www.irs.gov/newsroom/how-to-know-its-really-the-irs-calling-or-knocking-on-your-door
+    when:
+      - phrases: *tax_debt
+        threats: [arrest, legal_action, penalty]
+      - phrases: *tax_debt
+        payments: *unusual_payments
+      - category: [tax]
+        threats: [arrest, legal_action]
+    step:
+      text: >-
+        Don't pay because of this message. If you owe taxes, the IRS mails you a bill first;
+        to check, contact the IRS yourself through irs.gov.
+      source: https://www.irs.gov/newsroom/how-to-know-its-really-the-irs-calling-or-knocking-on-your-door
+      replaces: [dont_pay]
+
+  - id: stimulus_payment
+    name: Stimulus or relief payment
+    category: tax
+    description: >-
+      Says you're eligible for a stimulus, Economic Impact or relief payment and must claim
+      it through a link or by sharing your details. The IRS has already issued all three
+      rounds of Economic Impact Payments.
+    source: https://www.irs.gov/coronavirus/economic-impact-payments
+    when:
+      - phrases:
+          - stimulus payment
+          - stimulus check
+          - economic impact payment
+          - recovery rebate
+          - relief payment
+    step:
+      text: >-
+        Don't follow the link or share details to "claim" a payment. The IRS has already
+        issued all Economic Impact Payments.
+      source: https://www.irs.gov/coronavirus/economic-impact-payments
+      replaces: [dont_open_link]
+
+  - id: refund_lure
+    name: Refund lure
+    category: tax
+    description: >-
+      Says a refund is waiting, on hold or bigger than expected, and that you must follow a
+      link or share your details to get it. A message saying you're eligible for a
+      government refund is a common phishing story.
+    source: https://consumer.ftc.gov/articles/how-recognize-and-avoid-phishing-scams
+    when:
+      - threats: [refund_loss]
+      - category: [tax]
+        phrases: [refund]
+      - phrases:
+          - tax refund
+          - federal refund
+          - state refund
+          - refund is ready
+          - refund is pending
+          - refund pending
+          - refund has been approved
+          - refund approved
+          - refund is suspended
+          - refund has been suspended
+          - entitled to a refund
+          - owed a refund
+          - additional refund
+          - you are owed
+          - you're owed
+    step:
+      text: >-
+        Check a tax refund yourself with the IRS refund tracker on irs.gov, not through this
+        message.
+      source: https://www.irs.gov/wheres-my-refund
+
+  # --- delivery -----------------------------------------------------------------------
+
+  - id: redelivery_fee
+    name: Redelivery fee or card request
+    category: delivery
+    description: >-
+      Says a package can't be delivered until you pay a small fee (redelivery, customs,
+      postage) or enter your card details. USPS only texts or emails about a package if
+      you asked for tracking, and those messages never contain a link.
+    source: https://www.uspis.gov/news/scam-article/smishing
+    when:
+      - phrases:
+          - redelivery fee
+          - redelivery charge
+          - customs fee
+          - customs charge
+          - delivery fee
+          - shipping fee
+          - postage due
+          - release fee
+      - threats: [delivery_hold]
+        payments: *unusual_payments
+      - threats: [delivery_hold]
+        requests: [card, dob]
+      - category: [delivery]
+        requests: [card]
+    step:
+      text: >-
+        Don't pay a fee or enter card details to get a package. Track it yourself by typing
+        usps.com, or the carrier's own site, into your browser.
+      source: https://www.uspis.gov/news/scam-article/smishing
+      replaces: [dont_pay]
+
+  - id: incomplete_address
+    name: Incomplete-address notice
+    category: delivery
+    description: >-
+      Says a package is held because of an incomplete or wrong address and asks you to
+      "update your details" through a link. USPS doesn't text links unless you asked for
+      tracking, so an unexpected one is a scam.
+    source: https://www.uspis.gov/news/scam-article/smishing
+    when:
+      - threats: [delivery_hold]
+        phrases:
+          - incomplete address
+          - address is incomplete
+          - invalid address
+          - wrong address
+          - address information
+          - confirm your address
+          - update your address
+          - update your details
+          - update your delivery details
+          - update your information
+    step:
+      text: >-
+        Don't "update your address" through a link in a message. If you're expecting a
+        package, track it yourself on usps.com or the carrier's own site.
+      source: https://www.uspis.gov/news/scam-article/smishing
+      replaces: [dont_open_link]
+
+  - id: package_on_hold
+    name: Package on hold
+    category: delivery
+    description: >-
+      Says a package is on hold, undeliverable or about to be returned, to get you to tap a
+      link, reply or call. USPS doesn't send texts with links unless you asked for
+      tracking.
+    source: https://www.uspis.gov/news/scam-article/smishing
+    when:
+      - threats: [delivery_hold]
+    step:
+      text: >-
+        Check the delivery yourself: type the carrier's website, such as usps.com, into your
+        browser and enter your own tracking number.
+      source: https://www.uspis.gov/news/scam-article/smishing
+
+  # --- tech support -------------------------------------------------------------------
+
+  - id: fake_charge_callback
+    name: Fake charge or renewal ("call to cancel")
+    category: tech_support
+    description: >-
+      Says you were charged for a renewal, subscription or order you didn't make, and gives
+      a number to call (or asks for your card) to cancel it or get a refund. The "agent"
+      then asks for remote access, card details or payment.
+    source: https://consumer.ftc.gov/articles/how-spot-avoid-and-report-tech-support-scams
+    when:
+      - phrases: *charge
+        call_to_action: [call_number]
+      - phrases: *charge
+        phone: true
+      - phrases: *charge
+        requests: [card, bank_account]
+    step:
+      text: >-
+        Don't call the number in a surprise charge or renewal notice. Look for the charge in
+        your own bank or card account, or contact the company through a website you know is
+        real.
+      source: https://consumer.ftc.gov/articles/how-recognize-and-avoid-phishing-scams
+      replaces: [dont_call]
+
+  - id: fake_virus_alert
+    name: Fake virus or locked-computer warning
+    category: tech_support
+    description: >-
+      Warns that your computer or phone is infected, hacked or locked, and pushes you to
+      call a number, install an app or pay to fix it. Real security warnings never ask you
+      to call a phone number.
+    source: https://consumer.ftc.gov/articles/how-spot-avoid-and-report-tech-support-scams
+    when:
+      - threats: [device_infected]
+    step:
+      text: >-
+        Don't call the number, install anything or pay. Real security warnings never ask
+        you to call a phone number.
+      source: https://consumer.ftc.gov/articles/how-spot-avoid-and-report-tech-support-scams
+      replaces: [dont_call, dont_pay]
+
+  # --- account takeover ---------------------------------------------------------------
+
+  - id: verification_code_theft
+    name: Verification-code request
+    category: account_takeover
+    description: >-
+      Asks you to read back, reply with or type in a one-time code. That code is the second
+      key to your account: with it, someone can sign in as you or move your money. Anyone
+      who asks for your verification code is a scammer.
+    source: https://consumer.ftc.gov/consumer-alerts/2024/03/whats-verification-code-why-would-someone-ask-me-it
+    when:
+      - requests: [mfa_code]
+    step:
+      text: >-
+        Never share a verification code with anyone, even someone who says they're from the
+        company. It's only for you to sign in.
+      source: https://consumer.ftc.gov/consumer-alerts/2024/03/whats-verification-code-why-would-someone-ask-me-it
+
+  - id: fake_sign_in_alert
+    name: Fake sign-in alert
+    category: account_takeover
+    description: >-
+      Claims someone signed in to your account from a new device or place, and asks you to
+      "secure" it through a link or by sharing details. Saying they've noticed suspicious
+      log-in attempts is one of the most common phishing stories.
+    source: https://consumer.ftc.gov/articles/how-recognize-and-avoid-phishing-scams
+    when:
+      - phrases:
+          - unusual sign-in
+          - unrecognized sign-in
+          - suspicious sign-in
+          - new sign-in
+          - sign-in attempt
+          - sign-in from
+          - signed in from
+          - sign in from
+          - login attempt
+          - login from
+          - logged in from
+          - new device
+    step:
+      text: >-
+        To check your account, open the app or type the company's website into your browser
+        yourself, and review recent sign-ins there.
+      source: https://consumer.ftc.gov/articles/how-recognize-and-avoid-phishing-scams
+
+  # --- bank ---------------------------------------------------------------------------
+
+  - id: fake_fraud_alert
+    name: Fake bank fraud alert
+    category: bank
+    description: >-
+      Claims there's suspicious activity, a blocked charge or a flagged payment on your
+      bank account or card, to get you to call a number, reply, or enter your card or
+      sign-in details. No real bank's fraud department will ask for your verification
+      code.
+    source: https://consumer.ftc.gov/consumer-alerts/2024/06/got-call-about-fraud-activity-your-bank-account-it-could-be-scammer
+    when:
+      - category: [bank]
+        threats: [suspicious_activity]
+      - category: [bank]
+        phrases:
+          - fraud department
+          - fraud team
+          - fraud alert
+          - did you try
+          - did you attempt
+          - did you authorize
+          - was attempted
+          - flagged payment
+          - flagged transaction
+      - threats: [suspicious_activity]
+        phrases: [bank, bank account, debit card, credit card, card ending, online banking]
+    step:
+      text: >-
+        To check a fraud alert, call the number on the back of your card or on your
+        statement, never a number from the message.
+      source: https://consumer.ftc.gov/consumer-alerts/2024/06/got-call-about-fraud-activity-your-bank-account-it-could-be-scammer
+      replaces: [dont_call]
+
+  # --- shared by several categories ---------------------------------------------------
+
+  - id: billing_problem
+    name: Payment problem or overdue invoice
+    category: null
+    description: >-
+      Claims a payment failed, a subscription can't renew or an invoice is overdue, and
+      sends you to a link to update your card or pay. A "problem with your payment
+      information" and an invoice you don't recognize are common phishing stories.
+    source: https://consumer.ftc.gov/articles/how-recognize-and-avoid-phishing-scams
+    when:
+      - phrases:
+          - invoice
+          - overdue
+          - past due
+          - payment failed
+          - payment declined
+          - payment was declined
+          - payment could not be processed
+          - subscription payment
+          - update your card
+          - update your credit card
+          - update your payment
+          - update your billing
+          - billing information
+    step:
+      text: >-
+        Check for a real billing problem by signing in through the company's own app or
+        website, not the link in this message.
+      source: https://consumer.ftc.gov/articles/how-recognize-and-avoid-phishing-scams
+
+  - id: account_deletion
+    name: Password expiry or account deletion
+    category: account_takeover
+    description: >-
+      Says your password expires today, or your account will be closed or deleted, unless
+      you act through its link. Phishing messages often claim there's a problem with your
+      account; this one adds the threat of losing it.
+    source: https://consumer.ftc.gov/articles/how-recognize-and-avoid-phishing-scams
+    when:
+      - threats: [access_loss]
+      - phrases:
+          - will be deactivated
+          - will be deleted
+          - will be closed
+          - will be terminated
+          - request to delete
+          - delete your account
+    step:
+      text: >-
+        Don't sign in through the link. Open the account's app or type its website into
+        your browser yourself to see whether anything really needs your attention.
+      source: https://consumer.ftc.gov/articles/how-recognize-and-avoid-phishing-scams
+
+  - id: account_locked
+    name: Account locked or suspended
+    category: null
+    description: >-
+      Says your account is locked, suspended, restricted or on hold, and that you must
+      verify something through a link to restore it. Phishing messages often claim there's
+      a problem with your account when there isn't.
+    source: https://consumer.ftc.gov/articles/how-recognize-and-avoid-phishing-scams
+    when:
+      - threats: [account_suspension]
+      - phrases:
+          - account is on hold
+          - account has been restricted
+          - account is restricted
+          - temporarily restricted
+          - has been locked
+          - has been disabled
+          - has been suspended
+    step:
+      text: >-
+        Check your account by opening its app or typing the company's website into your
+        browser yourself, not through this message.
+      source: https://consumer.ftc.gov/articles/how-recognize-and-avoid-phishing-scams
+
+  - id: identity_verification
+    name: Identity verification request
+    category: null
+    description: >-
+      Asks you to "verify your identity" by sending your Social Security number, date of
+      birth, a photo of your ID or bank details. A request to confirm personal or financial
+      information is one of the most common phishing stories.
+    source: https://consumer.ftc.gov/articles/how-recognize-and-avoid-phishing-scams
+    when:
+      - requests: [ssn, dob, id_photo]
+      - category: [tax]
+        requests: [bank_account]
+      - phrases:
+          - verify your identity
+          - confirm your identity
+          - identity verification
+          - identity confirmation
+    step:
+      text: >-
+        You don't need to confirm personal or financial information because a message asks
+        you to. If you're unsure, contact the organization through a website or number you
+        know is real.
+      source: https://consumer.ftc.gov/articles/how-recognize-and-avoid-phishing-scams

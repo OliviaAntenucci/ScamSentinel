@@ -64,7 +64,8 @@ Job: fake recruiters and offers, upfront fees or equipment payments, fake checks
 
 ### Outputs
 - Verdict (`likely_scam` / `suspicious` / `likely_legitimate`), a 0–100 score, per-module scores, and an itemized list of evidence-backed reasons
-- "What should I do next?": up to six cautious next steps (`next_steps`), each with the source of any official contact it gives
+- "What should I do next?": up to seven cautious next steps (`next_steps`), each with the source of any official contact it gives
+- The named scenario a flagged message follows (`scenario`), such as "Refund lure" or "Fake virus warning": a sourced plain-language description, what it matched on, and its own next step
 - For each lookalike link, how it imitates the brand (`domain_explanations`): swapped characters, misspelling, added trust words, real owner, changed ending
 - A fact-check table (`fact_checks`): each claim, the trusted fact it was compared with (source and review date), and whether it matches, conflicts or can't be verified
 - Domain-only scoring (`GET /v1/domain/score`)
@@ -84,7 +85,7 @@ Details in [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
 | E1 | "What should I do next?": short, cautious next steps chosen by the evidence found (never repeating links or numbers from the message) | ✅ Done |
 | E2 | Richer domain explanations: which characters were swapped, the misspelling, the misleading extra words | ✅ Done |
 | E3 | Fact-check summary: which claims match, conflict with, or can't be checked against the trusted facts | ✅ Done |
-| E4 | Named scenarios per category (refund delay, payment demand, package on hold, …), added over time | Planned |
+| E4 | Named scenarios per category (refund delay, payment demand, package on hold, …), added over time | ✅ Done |
 | P2 | Lightweight page fetch (no browser) to inspect forms and brand content, together with the SSRF URL guard | Planned |
 | P3 | Playwright headless-browser sandbox (screenshots, JavaScript-rendered pages, redirect chains) | Planned |
 | P4 | Docker packaging | Planned |
@@ -122,6 +123,11 @@ Details in [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
 - It never repeats, links to or recommends a URL or phone number from the analyzed message, and never quotes the name of an organization that isn't curated (that name was written by the possible scammer). Official sites and contacts come only from `data/brands.yaml` and `data/facts.yaml`, with sources.
 - It's worded cautiously and never promises that something is safe. A "likely legitimate" result still says to check through a channel you already trust.
 - Reporting steps point only to the organization's own published address, 7726 (SPAM) for texts, or ReportFraud.ftc.gov. ScamSentinel itself never reports anything.
+
+### Named scenarios (E4)
+- Scenario descriptions and steps paraphrase a cited FTC, IRS or USPIS page; don't add claims a source doesn't make.
+- A scenario is never shown on a "likely legitimate" result, and on a "suspicious" one the UI only says the message resembles the pattern.
+- Each new scenario needs labeled eval samples (`data/eval/scenario_labels.yaml`) and is measured like a category: dev first, test once.
 
 ### Evaluation data
 - Use public datasets under their licenses and cite them in `data/eval/SOURCES.md`.

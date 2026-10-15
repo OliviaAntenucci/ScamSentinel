@@ -41,6 +41,9 @@ class MessageAnalysis(BaseModel):
     # Indicators the rules found but the LLM missed: possible injection or extraction gaps.
     disagreements: list[str] = []
     dropped_llm_spans: int = 0
+    # The text that was analyzed (after truncation), for phrase-based scenario rules (E4).
+    # Kept in memory only: it's never stored or returned.
+    text: str = ""
 
 
 def merge_features(
@@ -192,6 +195,7 @@ class MessageAnalyzer:
             degraded=degraded,
             disagreements=disagreements,
             dropped_llm_spans=dropped,
+            text=text,
         )
 
     def _check_unknown_org(

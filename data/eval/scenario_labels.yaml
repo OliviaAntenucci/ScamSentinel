@@ -1,0 +1,144 @@
+# Expected named scenario (E4, data/scenarios.yaml) for each text and email scam sample.
+#
+# Hand-labeled from the sample's content (what a person would call it), BEFORE the
+# scenario rules were written, so the rules are measured against them rather than the
+# other way round. "none" means no catalogued scenario fits; the sample should get none.
+# URL-only samples have no message, so they get no scenario and aren't listed here.
+# Legitimate samples should never get a scenario (scenarios are only reported on
+# suspicious or likely-scam results); the eval report counts any that do.
+#
+# Kept separate from samples.jsonl so labeling never changes split assignment.
+
+labels:
+  # --- tax --------------------------------------------------------------------------
+  t-s-001: refund_lure
+  t-s-002: identity_verification
+  t-s-003: back_taxes_threat
+  t-s-004: none  # "Officer ... your SSN has been suspended, call us back"
+  t-s-005: stimulus_payment
+  t-s-006: account_locked
+  t-s-007: refund_lure
+  t-s-008: back_taxes_threat
+  t-s-009: back_taxes_threat
+  t-s-010: refund_lure
+  t-s-011: refund_lure
+  t-s-012: stimulus_payment
+  t-s-013: back_taxes_threat
+  t-s-014: identity_verification
+  t-s-015: refund_lure
+  t-s-016: account_locked
+  t-s-017: refund_lure
+  t-s-018: identity_verification
+  t-s-019: none  # "TurboTax Live rebate" prize lure
+  t-s-020: none  # "e-file rejected, re-submit"
+  t-s-021: verification_code_theft
+  t-s-022: refund_lure
+  t-s-023: account_locked
+  t-s-024: billing_problem
+  t-s-025: billing_problem
+  t-s-026: none  # payroll admin password phishing
+  t-s-027: refund_lure
+  t-s-028: fake_sign_in_alert
+  t-s-029: identity_verification
+  t-s-030: none  # advance-fee loan
+  t-s-031: refund_lure
+  t-s-032: identity_verification
+  t-s-033: refund_lure
+  t-s-034: tax_relief_offer
+  t-s-035: refund_lure
+  t-s-036: back_taxes_threat
+  t-s-037: back_taxes_threat
+  t-s-038: fake_charge_callback
+  t-s-039: refund_lure
+  t-s-040: identity_verification
+  e-s-001: refund_lure
+  e-s-002: back_taxes_threat
+  e-s-003: account_locked
+  e-s-004: refund_lure
+  e-s-005: billing_problem
+  e-s-006: billing_problem
+  e-s-007: verification_code_theft
+  e-s-008: refund_lure
+  e-s-009: stimulus_payment
+  e-s-010: back_taxes_threat
+  e-s-011: account_deletion
+  e-s-012: refund_lure
+
+  # --- delivery ---------------------------------------------------------------------
+  d-t-s-001: incomplete_address
+  d-t-s-002: incomplete_address
+  d-t-s-003: redelivery_fee
+  d-t-s-004: redelivery_fee
+  d-t-s-005: incomplete_address
+  d-t-s-006: redelivery_fee
+  d-t-s-007: redelivery_fee
+  d-t-s-008: package_on_hold
+  d-t-s-009: redelivery_fee
+  d-t-s-010: package_on_hold
+  d-e-s-001: redelivery_fee
+  d-e-s-002: incomplete_address
+  d-e-s-003: verification_code_theft
+  d-e-s-004: redelivery_fee
+  d-e-s-005: redelivery_fee
+
+  # --- bank -------------------------------------------------------------------------
+  b-t-s-001: fake_fraud_alert
+  b-t-s-002: fake_fraud_alert
+  b-t-s-003: account_locked
+  b-t-s-004: verification_code_theft
+  b-t-s-005: fake_fraud_alert
+  b-t-s-006: safe_account_transfer
+  b-t-s-007: fake_fraud_alert
+  b-t-s-008: fake_sign_in_alert
+  b-t-s-009: fake_fraud_alert
+  b-t-s-010: fake_fraud_alert
+  b-e-s-001: fake_sign_in_alert
+  b-e-s-002: verification_code_theft
+  b-e-s-003: fake_fraud_alert
+  b-e-s-004: safe_account_transfer
+  b-e-s-005: fake_fraud_alert
+
+  # --- account takeover -------------------------------------------------------------
+  a-t-s-001: account_locked
+  a-t-s-002: account_deletion
+  a-t-s-003: verification_code_theft
+  a-t-s-004: account_deletion
+  a-t-s-005: account_deletion
+  a-t-s-006: fake_charge_callback
+  a-t-s-007: verification_code_theft
+  a-t-s-008: verification_code_theft  # "send me the code you just got"
+  a-e-s-001: verification_code_theft
+  a-e-s-002: account_deletion
+  a-e-s-003: account_deletion
+  a-e-s-004: account_deletion
+  a-e-s-005: billing_problem
+
+  # --- tech support -----------------------------------------------------------------
+  s-t-s-001: fake_virus_alert
+  s-t-s-002: fake_virus_alert
+  s-t-s-003: fake_virus_alert
+  s-t-s-004: fake_virus_alert  # "hackers on your network", gift cards for a "firewall"
+  s-t-s-005: fake_charge_callback
+  s-t-s-006: fake_virus_alert
+  s-t-s-007: remote_access
+  s-t-s-008: fake_charge_callback
+  s-e-s-001: fake_virus_alert
+  s-e-s-002: account_deletion
+  s-e-s-003: fake_charge_callback
+  s-e-s-004: fake_virus_alert
+  s-e-s-005: remote_access
+
+  # --- job --------------------------------------------------------------------------
+  j-t-s-001: job_data_harvest
+  j-t-s-002: job_upfront_fee
+  j-t-s-003: fake_check_job
+  j-t-s-004: job_upfront_fee
+  j-t-s-005: job_data_harvest
+  j-t-s-006: job_upfront_fee
+  j-t-s-007: none  # "part-time work, add our HR on WhatsApp"
+  j-t-s-008: none  # "shortlisted, complete onboarding at <link>"
+  j-e-s-001: job_upfront_fee
+  j-e-s-002: job_data_harvest
+  j-e-s-003: job_upfront_fee
+  j-e-s-004: fake_check_job
+  j-e-s-005: job_upfront_fee

@@ -1,27 +1,41 @@
-"""'What should I do next?' (E1, architecture.md §18).
+"""'What should I do next?' (E1, architecture.md §18) and named scenarios (E4, §21).
 
 Turns the evidence behind a verdict into a few short, cautious steps. The wording comes
-from data/guidance.yaml, and every value filled into it comes from data files: curated
-brand names and official sites, published phone numbers and report addresses, and
-sourced references. Nothing from the analyzed content is inserted (not a link, a phone
-number, or the name of an uncurated organization), so the advice can't be turned into a
-scammer's "call this number to confirm". Advice never says something is safe.
+from data/guidance.yaml and data/scenarios.yaml, and every value filled into it comes from
+data files: curated brand names and official sites, published phone numbers and report
+addresses, and sourced references. Nothing from the analyzed content is inserted (not a
+link, a phone number, or the name of an uncurated organization), so the advice can't be
+turned into a scammer's "call this number to confirm". Advice never says something is safe.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 from scamsentinel.aggregate.aggregator import LOOKALIKE_THRESHOLD
-from scamsentinel.data import Brand, Fact, Guidance, load_brands, load_facts, load_guidance
+from scamsentinel.data import (
+    Brand,
+    Fact,
+    Guidance,
+    ScenarioRule,
+    load_brands,
+    load_facts,
+    load_guidance,
+    load_keywords,
+    load_scenarios,
+)
 from scamsentinel.domain.engine import DomainResult
+from scamsentinel.guidance.scenarios import ScenarioMatcher
 from scamsentinel.ingest.phones import normalize_phone
 from scamsentinel.message.features import OTHER_ENTITY, UNUSUAL_PAYMENT_METHODS, MessageFeatures
-from scamsentinel.models import InputType, NextStep, Verdict
+from scamsentinel.models import InputType, NextStep, Scenario, Verdict
 from scamsentinel.verify.checks import CheckResult
 
-MAX_STEPS = 6
+# The report step is always kept; when there are more steps than this, "already acted"
+# goes first, then the list is cut before the report step.
+MAX_STEPS = 7
 
 REQUIRED_STEPS = frozenset(
     {
@@ -63,20 +77,64 @@ class _Contact:
 
 
 class NextStepsGuide:
-    def __init__(self, guidance: Guidance, brands: list[Brand], facts: list[Fact]) -> None:
+    def __init__(
+        self,
+        guidance: Guidance,
+        brands: list[Brand],
+        facts: list[Fact],
+        scenarios: Sequence[ScenarioRule] = (),
+        negations: Sequence[str] = (),
+    ) -> None:
         missing = REQUIRED_STEPS - set(guidance.steps)
         if missing:
             raise ValueError(f"guidance.yaml is missing steps: {sorted(missing)}")
+        categories = {b.category for b in brands}
+        unknown = {
+            c for s in scenarios for c in [s.category, *(x for w in s.when for x in w.category)]
+            if c is not None and c not in categories
+        }
+        if unknown:
+            raise ValueError(f"scenarios.yaml uses unknown categories: {sorted(unknown)}")
         self._steps = guidance.steps
         self._refs = guidance.references
         self._contacts = {b.name: _contact_for(b, facts) for b in brands}
+        self._categories = {b.name: b.category for b in brands}
         self._policy_sources = {
             f.entity: f.source for f in facts if "disallowed_payment_methods" in f.data
         }
+        self._scenarios = ScenarioMatcher(scenarios, negations)
+        self._scenario_steps = {s.id: s.step for s in scenarios}
 
     @classmethod
     def from_files(cls, data_dir: Path) -> NextStepsGuide:
-        return cls(load_guidance(data_dir), load_brands(data_dir), load_facts(data_dir))
+        return cls(
+            load_guidance(data_dir),
+            load_brands(data_dir),
+            load_facts(data_dir),
+            load_scenarios(data_dir),
+            load_keywords(data_dir).negations,
+        )
+
+    def scenario(
+        self,
+        *,
+        verdict: Verdict,
+        features: MessageFeatures | None,
+        domains: list[DomainResult],
+        text: str,
+    ) -> Scenario | None:
+        """The named scenario (E4) of a suspicious or likely-scam message. A likely-
+        legitimate result never gets one, so a real alert isn't labeled as a scam story."""
+        if verdict == Verdict.LIKELY_LEGITIMATE or features is None or not text:
+            return None
+        entity = self._entity(features, domains)
+        return self._scenarios.match(
+            features=features,
+            text=text,
+            entity=entity,
+            category=self._categories.get(entity) if entity else None,
+            unofficial_link=any(not d.official for d in domains),
+        )
 
     def build(
         self,
@@ -86,6 +144,7 @@ class NextStepsGuide:
         features: MessageFeatures | None,
         domains: list[DomainResult],
         checks: list[CheckResult],
+        scenario: Scenario | None = None,
     ) -> list[NextStep]:
         features = features or MessageFeatures()
         entity = self._entity(features, domains)
@@ -133,13 +192,20 @@ class NextStepsGuide:
         if unverified_phone:
             steps.append(self._step("dont_call"))
 
+        if scenario is not None and scenario.id in self._scenario_steps:
+            # The scenario's own advice, after the "don't" steps it may stand in for.
+            own = self._scenario_steps[scenario.id]
+            steps = [s for s in steps if s.id not in own.replaces]
+            steps.append(NextStep(id=f"scenario_{scenario.id}", text=own.text, source=own.source))
+
         steps.append(self._contact_step(entity, features))
 
         if verdict == Verdict.LIKELY_SCAM and (requested or features.payment_methods):
             steps.append(self._step("already_acted"))
 
-        steps.append(self._report_step(entity, input_type))
-        return steps[:MAX_STEPS]
+        if len(steps) > MAX_STEPS - 1:
+            steps = [s for s in steps if s.id != "already_acted"]
+        return [*steps[: MAX_STEPS - 1], self._report_step(entity, input_type)]
 
     # --- helpers --------------------------------------------------------------------
 

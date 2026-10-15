@@ -199,6 +199,8 @@ Every result carries `next_steps`: advice such as "don't open the link" or "cont
 
 **Gap:** the advice isn't yet run against the prompt-injection corpus in `tests/security/test_prompt_injection.py`. The defense doesn't depend on the LLM, so this is defense in depth.
 
+**Named scenarios (E4)** follow the same rules ([`architecture.md` §21](architecture.md#21-named-scenarios-e4)). A scenario's description and step are fixed text from `data/scenarios.yaml`, chosen by rules, never by the LLM. A test checks that step texts contain no link or phone number other than curated official sites. `matched_on` lists only our own vocabulary (threat and request types, the matched phrase from our list), never free text from the message. A scenario is never attached to a likely-legitimate result, so a scammer can't use the catalog to get a reassuring label, and a real message isn't branded a scam story. It adds no points; a test compares scores with and without the catalog over every text eval sample.
+
 ---
 
 ## Post-MVP threats
@@ -231,7 +233,7 @@ The payload list and test file already exist (`tests/security/ssrf_payloads.txt`
 | S4 | `test_local_api.py` | Loopback only; foreign `Host` rejected; no CORS; security headers; local CSRF refused; body size cap; rate limit | Passing |
 | S7 | `test_redaction.py` | SSN/card numbers removed from responses, storage and logs | Passing |
 | S5 | `test_allowlist.py` | Subdomain/suffix tricks never match the official allowlist | Passing |
-| S9 | `test_next_steps.py` | Next-step advice never repeats a link, phone number or uncurated organization name from the input (every eval sample, plus property-based fuzzing); only curated official contacts appear | Passing |
+| S9 | `test_next_steps.py`, `test_scenarios.py` | Next-step advice never repeats a link, phone number or uncurated organization name from the input (every eval sample, plus property-based fuzzing); only curated official contacts appear. Scenario steps carry no links or numbers, scenario evidence quotes only our vocabulary, and scenarios never change a score | Passing |
 | S6 | `test_ssrf.py` | URL guard blocks internal targets via any encoding, redirect or rebind | Post-MVP (P2) |
 
 All security tests run in CI on every push.

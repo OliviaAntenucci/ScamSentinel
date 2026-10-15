@@ -7,8 +7,9 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
+from scamsentinel.message.features import CtaType, PaymentType, SensitiveType, ThreatType
 from scamsentinel.models import Module
 
 
@@ -154,6 +155,127 @@ class Guidance(BaseModel):
 
 def load_guidance(data_dir: Path) -> Guidance:
     return Guidance.model_validate(load_yaml(data_dir / "guidance.yaml"))
+
+
+# --- data/scenarios.yaml ------------------------------------------------------
+
+
+_LIST_CONDITIONS = ("category", "threats", "requests", "payments", "call_to_action", "phrases")
+
+
+class ScenarioCondition(BaseModel):
+    """One way a scenario can match (E4). Every field that's set must hold, and a list
+    field holds when any of its values is present. They read signals the rules already
+    produce, plus `phrases`, which are matched in the message text."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    category: list[str] = []  # category of the brand the message claims or links to
+    threats: list[ThreatType] = []
+    requests: list[SensitiveType] = []
+    payments: list[PaymentType] = []
+    call_to_action: list[CtaType] = []
+    phrases: list[str] = []
+    phone: bool | None = None  # the message contains a phone number
+    link: bool | None = None  # the message links to a domain that isn't official
+
+    @model_validator(mode="after")
+    def _not_empty(self) -> ScenarioCondition:
+        if not any(getattr(self, f) for f in _LIST_CONDITIONS) and (
+            self.phone is None and self.link is None
+        ):
+            raise ValueError("a scenario condition needs at least one non-empty field")
+        return self
+
+
+# Generic E1 steps a scenario step may stand in for, when it already says the same thing
+# more specifically. Contact and reporting steps are never replaced.
+REPLACEABLE_STEPS = frozenset({"dont_open_link", "dont_share", "dont_pay", "dont_call"})
+
+
+class ScenarioStep(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: str
+    source: str
+    replaces: list[str] = []
+
+    @field_validator("replaces")
+    @classmethod
+    def _replaceable(cls, value: list[str]) -> list[str]:
+        unknown = set(value) - REPLACEABLE_STEPS
+        if unknown:
+            raise ValueError(f"steps that can't be replaced: {sorted(unknown)}")
+        return value
+
+    @field_validator("text")
+    @classmethod
+    def _single_line(cls, value: str) -> str:
+        return " ".join(value.split())
+
+    @field_validator("source")
+    @classmethod
+    def _https_source(cls, value: str) -> str:
+        if not value.startswith("https://"):
+            raise ValueError(f"source must be an https:// URL: {value!r}")
+        return value
+
+
+class ScenarioRule(BaseModel):
+    """A named scenario: a plain-language description, the conditions that recognize it,
+    and its own next step."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    name: str
+    category: str | None = None  # None: shared by several categories
+    description: str
+    source: str
+    when: list[ScenarioCondition]
+    step: ScenarioStep
+
+    @field_validator("description")
+    @classmethod
+    def _single_line(cls, value: str) -> str:
+        return " ".join(value.split())
+
+    @field_validator("source")
+    @classmethod
+    def _https_source(cls, value: str) -> str:
+        if not value.startswith("https://"):
+            raise ValueError(f"source must be an https:// URL: {value!r}")
+        return value
+
+    @field_validator("id")
+    @classmethod
+    def _snake_case(cls, value: str) -> str:
+        if not value.replace("_", "").isalnum() or value != value.lower() or value == "none":
+            raise ValueError(f"scenario id must be lower_snake_case and not 'none': {value!r}")
+        return value
+
+    @field_validator("when")
+    @classmethod
+    def _has_conditions(cls, value: list[ScenarioCondition]) -> list[ScenarioCondition]:
+        if not value:
+            raise ValueError("a scenario needs at least one condition")
+        return value
+
+
+class ScenariosFile(BaseModel):
+    scenarios: list[ScenarioRule]
+
+    @model_validator(mode="after")
+    def _unique_ids(self) -> ScenariosFile:
+        ids = [s.id for s in self.scenarios]
+        if len(set(ids)) != len(ids):
+            raise ValueError("scenario ids must be unique")
+        return self
+
+
+def load_scenarios(data_dir: Path) -> list[ScenarioRule]:
+    """Scenarios in priority order: the first one that matches is reported."""
+    return ScenariosFile.model_validate(load_yaml(data_dir / "scenarios.yaml")).scenarios
 
 
 # --- config/scoring.yaml ------------------------------------------------------

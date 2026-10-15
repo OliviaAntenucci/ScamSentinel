@@ -8,6 +8,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Literal
 
+import yaml
 from pydantic import BaseModel, ConfigDict
 
 Label = Literal["scam", "legitimate"]
@@ -50,6 +51,22 @@ def load_samples(path: Path) -> list[Sample]:
     if duplicates:
         raise ValueError(f"duplicate sample ids: {sorted(duplicates)}")
     return samples
+
+
+NO_SCENARIO = "none"
+
+
+def load_scenario_labels(path: Path) -> dict[str, str]:
+    """Sample id -> expected scenario id (or "none"), from data/eval/scenario_labels.yaml.
+    Kept apart from samples.jsonl so labels never change split assignment."""
+    if not path.exists():
+        return {}
+    with path.open(encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    labels = data.get("labels") or {}
+    if not all(isinstance(k, str) and isinstance(v, str) for k, v in labels.items()):
+        raise ValueError("scenario labels must map sample ids to scenario ids")
+    return dict(labels)
 
 
 def _rank(key: str) -> str:

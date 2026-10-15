@@ -5,7 +5,16 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from scamsentinel.eval.metrics import STRICT, TRIAGE, Confusion, Prediction, breakdown, confusion
+from scamsentinel.eval.metrics import (
+    STRICT,
+    TRIAGE,
+    Confusion,
+    Prediction,
+    ScenarioScore,
+    breakdown,
+    confusion,
+    scenario_score,
+)
 from scamsentinel.models import Verdict
 
 
@@ -48,7 +57,66 @@ def summary(predictions: list[Prediction]) -> dict[str, Any]:
         "by_brand": {
             k: metrics(v) for k, v in breakdown(predictions, lambda p: p.brand, STRICT).items()
         },
+        "scenarios": {
+            name: {
+                "labeled": s.labeled, "correct": s.correct, "wrong": s.wrong,
+                "missed": s.missed, "undetected": s.undetected, "accuracy": s.accuracy,
+                "accuracy_when_detected": s.accuracy_when_detected,
+            }
+            for name, s in _scenario_slices(predictions).items()
+        },
+        "legitimate_with_scenario": sum(
+            1 for p in predictions if p.label == "legitimate" and p.scenario
+        ),
     }
+
+
+def _scenario_slices(predictions: list[Prediction]) -> dict[str, ScenarioScore]:
+    labeled = [p for p in predictions if p.expected_scenario is not None]
+    categories = sorted({p.category for p in labeled})
+    return {
+        "all": scenario_score(labeled),
+        **{c: scenario_score(p for p in labeled if p.category == c) for c in categories},
+    }
+
+
+def _scenario_section(predictions: list[Prediction]) -> list[str]:
+    slices = _scenario_slices(predictions)
+    if not slices["all"].labeled:
+        return []
+    lines = [
+        "",
+        "## Named scenarios (E4)",
+        "",
+        "Hand-labeled text and email scams (`data/eval/scenario_labels.yaml`). A scenario is "
+        "only reported on suspicious or likely-scam results, so a scam scored likely "
+        "legitimate is counted as *undetected*; *missed* means it was flagged but no "
+        "scenario rule matched.",
+        "",
+        "| Slice | Labeled | Correct | Wrong | Missed | Undetected | Accuracy "
+        "| Accuracy when detected |",
+        "|---|---|---|---|---|---|---|---|",
+        *(
+            f"| {name} | {s.labeled} | {s.correct} | {s.wrong} | {s.missed} "
+            f"| {s.undetected} | {pct(s.accuracy)} | {pct(s.accuracy_when_detected)} |"
+            for name, s in slices.items()
+        ),
+        "",
+        "Legitimate samples given a scenario: "
+        f"{sum(1 for p in predictions if p.label == 'legitimate' and p.scenario)}",
+    ]
+    mismatches = [
+        p
+        for p in predictions
+        if p.expected_scenario is not None and (p.scenario or "none") != p.expected_scenario
+    ]
+    if mismatches:
+        lines += ["", "| Sample | Expected | Reported | Verdict |", "|---|---|---|---|"]
+        lines += [
+            f"| {p.id} | {p.expected_scenario} | {p.scenario or 'none'} | {p.verdict.value} |"
+            for p in sorted(mismatches, key=lambda p: p.id)
+        ]
+    return lines
 
 
 def markdown(
@@ -108,6 +176,8 @@ def markdown(
             for v in (Verdict.LIKELY_SCAM, Verdict.SUSPICIOUS, Verdict.LIKELY_LEGITIMATE)
         ]
         lines.append(f"| {label} | {' | '.join(map(str, counts))} |")
+
+    lines += _scenario_section(predictions)
 
     errors = [
         p

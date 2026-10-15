@@ -206,6 +206,23 @@ function renderDomainExplanations(explanations) {
   }
 }
 
+function renderScenario(scenario, verdict) {
+  const box = document.querySelector("#scenario");
+  box.hidden = !scenario;
+  if (!scenario) return;
+  // A suspicious result only resembles the pattern; a likely scam follows it.
+  document.querySelector("#scenario-label").textContent =
+    verdict === "likely_scam" ? "Known scam pattern" : "Resembles a known scam pattern";
+  document.querySelector("#scenario-name").textContent = scenario.name;
+  document.querySelector("#scenario-description").textContent = scenario.description;
+  const matched = (scenario.matched_on ?? []).join(" · ");
+  // Plain text: the source comes from a data file but is still not turned into a link.
+  document.querySelector("#scenario-meta").textContent =
+    [matched && `Matched on: ${matched}`, scenario.source && `Source: ${scenario.source}`]
+      .filter(Boolean)
+      .join(" — ");
+}
+
 const FACT_OUTCOMES = {
   conflicts: ["Conflicts", "conflicts"],
   cannot_verify: ["Can't verify", "unverified"],
@@ -283,6 +300,7 @@ function renderResult(result) {
     notes.hidden = true;
     notes.textContent = "";
   }
+  renderScenario(result.scenario ?? null, result.verdict);
   renderNextSteps(result.next_steps ?? []);
   renderDomainExplanations(result.domain_explanations ?? []);
   renderFactChecks(result.fact_checks ?? []);

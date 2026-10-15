@@ -12,7 +12,7 @@ from scamsentinel.data import Guidance, load_brands, load_facts, load_guidance
 from scamsentinel.domain.normalize import InvalidHost
 from scamsentinel.eval.dataset import load_samples
 from scamsentinel.eval.runner import build_service
-from scamsentinel.guidance.next_steps import NextStepsGuide
+from scamsentinel.guidance.next_steps import MAX_STEPS, NextStepsGuide
 from scamsentinel.ingest.phones import extract_phone_numbers, normalize_phone
 from scamsentinel.ingest.urls import extract_urls
 from scamsentinel.message.features import Impersonation, MessageFeatures
@@ -144,7 +144,7 @@ def test_unknown_organization_name_is_never_quoted(make_analyzer, fake_llm, engi
     assert "555" not in text_out
 
 
-def test_every_result_has_steps_and_at_most_six(make_service):
+def test_every_result_has_steps_and_at_most_max(make_service):
     service = make_service()
     for request in [
         {"text": "hello"},
@@ -155,7 +155,18 @@ def test_every_result_has_steps_and_at_most_six(make_service):
         },
     ]:
         steps = service.analyze(AnalyzeRequest(**request)).next_steps
-        assert 1 <= len(steps) <= 6
+        assert 1 <= len(steps) <= MAX_STEPS
+
+
+def test_report_step_survives_a_long_list(make_service):
+    # Every "don't" step, a scenario step, contact and already-acted: more than fit.
+    text = (
+        "IRS: you owe back taxes. Confirm your SSN, bank account, password and card number "
+        "at irs-pay-now.com, pay with bitcoin, or call 202-555-0100 today or face arrest."
+    )
+    steps = make_service().analyze(AnalyzeRequest(text=text)).next_steps
+    assert len(steps) == MAX_STEPS
+    assert steps[-1].id == "report_brand_text"
 
 
 def test_missing_template_is_rejected():

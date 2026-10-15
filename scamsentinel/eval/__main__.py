@@ -11,8 +11,8 @@ import json
 from pathlib import Path
 
 from scamsentinel.config import get_settings
-from scamsentinel.eval.dataset import load_samples, select
-from scamsentinel.eval.metrics import STRICT, TRIAGE, confusion
+from scamsentinel.eval.dataset import load_samples, load_scenario_labels, select
+from scamsentinel.eval.metrics import STRICT, TRIAGE, confusion, scenario_score
 from scamsentinel.eval.report import markdown, pct, summary
 from scamsentinel.eval.runner import RATE_LIMITED, build_service, run
 
@@ -52,6 +52,7 @@ def main() -> None:
         rate_limit_retries=retries,
         rate_limit_wait=args.rate_limit_wait,
         progress=lambda line: print(line, flush=True),
+        scenario_labels=load_scenario_labels(args.data.parent / "scenario_labels.yaml"),
     )
     rate_limited = sum(RATE_LIMITED in p.degraded for p in predictions)
     if rate_limited:
@@ -71,6 +72,15 @@ def main() -> None:
         print(
             f"  {name:6}  precision {pct(c.precision):>6}  recall {pct(c.recall):>6}  "
             f"F1 {pct(c.f1):>6}  FPR {pct(c.fpr):>6}  (TP {c.tp} FP {c.fp} TN {c.tn} FN {c.fn})"
+        )
+    s = scenario_score(predictions)
+    if s.labeled:
+        on_legit = sum(1 for p in predictions if p.label == "legitimate" and p.scenario)
+        print(
+            f"  scenario  {pct(s.accuracy):>6} of {s.labeled} labeled, "
+            f"{pct(s.accuracy_when_detected)} when detected (wrong {s.wrong}, "
+            f"missed {s.missed}, undetected {s.undetected}); "
+            f"legitimate with a scenario: {on_legit}"
         )
 
     if args.report:

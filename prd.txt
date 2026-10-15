@@ -247,7 +247,9 @@ the tax-scam niche and explainability, and come before page fetching.
   E3  Fact-check summary: claims that match / conflict / can't be
       verified against trusted facts, with sources                (done)
   E4  Named scenarios per category (refund delay, payment demand,
-      package on hold, ...), added over time as data              (next)
+      package on hold, ...), added over time as data: 21 scenarios
+      in data/scenarios.yaml with sourced descriptions, their own
+      next step, and hand-labeled eval samples                    (done)
   P2  Lightweight page fetch (httpx + HTML parser) + SSRF URL guard
   P3  Playwright headless-browser sandbox in an isolated container
   P4  Docker packaging

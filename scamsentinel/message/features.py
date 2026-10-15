@@ -40,12 +40,17 @@ class Urgency(_Strict):
     spans: list[str] = []
 
 
+PaymentType = Literal["gift_card", "crypto", "wire", "zelle", "cash_app", "venmo", "other"]
+SensitiveType = Literal["ssn", "bank_account", "password", "mfa_code", "card", "id_photo", "dob"]
+CtaType = Literal["click_link", "call_number", "reply", "pay", "none"]
+
+
 class PaymentMethod(Span):
-    method: Literal["gift_card", "crypto", "wire", "zelle", "cash_app", "venmo", "other"]
+    method: PaymentType
 
 
 class SensitiveRequest(Span):
-    type: Literal["ssn", "bank_account", "password", "mfa_code", "card", "id_photo", "dob"]
+    type: SensitiveType
 
 
 ThreatType = Literal[
@@ -68,7 +73,7 @@ class Threat(Span):
 
 
 class CallToAction(Span):
-    value: Literal["click_link", "call_number", "reply", "pay", "none"]
+    value: CtaType
 
 
 class InjectionAttempt(_Strict):

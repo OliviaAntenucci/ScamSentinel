@@ -179,6 +179,17 @@ class AnalysisService:
             config=self._scoring,
             checks=message.checks if message else None,
         )
+        # Named scenario (E4): explains the result, never changes it.
+        scenario = (
+            self._guide.scenario(
+                verdict=result.verdict,
+                features=message.features,
+                domains=domains,
+                text=message.text,
+            )
+            if self._guide and message
+            else None
+        )
         analysis = AnalysisResult(
             analysis_id=f"an_{uuid.uuid4().hex}",
             created_at=datetime.now(UTC),
@@ -199,12 +210,14 @@ class AnalysisService:
                     features=message.features if message else None,
                     domains=domains,
                     checks=message.checks if message else [],
+                    scenario=scenario,
                 )
                 if self._guide
                 else []
             ),
             domain_explanations=_explanations(domains),
             fact_checks=fact_checks(message.checks) if message else [],
+            scenario=scenario,
         )
         # SSN/card numbers quoted as evidence never reach the response, disk or logs.
         analysis = redact_result(analysis)
