@@ -32,6 +32,10 @@ The MVP is done when someone can run ScamSentinel on their own computer, send it
 | Bank impersonation | Chase | `chase.com` |
 | | Bank of America | `bankofamerica.com`, `bofa.com` |
 | | Wells Fargo | `wellsfargo.com` |
+| Account takeover | Google | `google.com`, `gmail.com` |
+| | Apple | `apple.com`, `icloud.com` |
+| Tech-support scams | Microsoft | `microsoft.com`, `live.com`, `outlook.com`, `office.com`, `microsoftonline.com`, `hotmail.com` |
+| Job scams | Indeed | `indeed.com` |
 
 Categories and brands live in `data/brands.yaml`, versioned, with a source for each entry. The code names no organization; see [`architecture.md` §16](architecture.md#16-scam-categories-and-the-brand-agnostic-core).
 
@@ -54,6 +58,9 @@ Shared across categories:
 Tax: refund holds, identity verification, account suspension, fake balance due, fake tax-prep or "IRS agent" offers.
 Delivery: "package on hold", incomplete address, redelivery or customs fees, "returned to sender".
 Bank: fake fraud alerts ("unusual activity", "confirm this charge"), one-time-code and password requests, "move your money to a safe account" or "send it to yourself with Zelle".
+Account takeover: "your password expires today", "your account will be deleted", fake sign-in alerts, lookalike sign-in pages, requests for passwords or one-time codes.
+Tech support: "virus detected", "your computer has been locked", "call Microsoft Support", remote-access installs, payment for "support" in gift cards or crypto.
+Job: fake recruiters and offers, upfront fees or equipment payments, fake checks, SSN / ID photo / bank details before a real interview, "the offer will be withdrawn".
 
 ### Outputs
 - Verdict (`likely_scam` / `suspicious` / `likely_legitimate`), a 0–100 score, per-module scores, and an itemized list of evidence-backed reasons
@@ -73,7 +80,7 @@ Details in [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
 | P1 | Certificate Transparency watcher (crt.sh) to find newly registered lookalikes | ✅ Done |
 | G1 | Brand-agnostic core and scam categories; package delivery (USPS) as the second category | ✅ Done |
 | G2 | Bank impersonation (Chase, Bank of America, Wells Fargo) | ✅ Done |
-| G3+ | One new category at a time: account takeover, tech support, job scams | Planned |
+| G3 | Account takeover (Google, Apple), tech support (Microsoft), job scams (Indeed) | ✅ Done |
 | E1 | "What should I do next?": short, cautious next steps chosen by the evidence found (never repeating links or numbers from the message) | ✅ Done |
 | E2 | Richer domain explanations: which characters were swapped, the misspelling, the misleading extra words | ✅ Done |
 | E3 | Fact-check summary: which claims match, conflict with, or can't be checked against the trusted facts | ✅ Done |

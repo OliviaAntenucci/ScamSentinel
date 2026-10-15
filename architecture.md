@@ -165,7 +165,7 @@ Regex and phrase lists from `keywords.yaml`: urgency phrases ("within 24 hours",
   "claimed_urls":       ["..."],
   "claimed_phone_numbers": ["..."],
   "call_to_action":     { "value": "click_link|call_number|reply|pay|none", "span": "..." },
-  "threats":            [{ "type": "arrest|account_suspension|refund_loss|delivery_hold|suspicious_activity|penalty|legal_action", "span": "..." }],
+  "threats":            [{ "type": "arrest|account_suspension|refund_loss|delivery_hold|suspicious_activity|access_loss|device_infected|job_offer_loss|penalty|legal_action", "span": "..." }],
   "injection_attempt":  { "detected": false, "span": "" }
 }
 ```
@@ -368,11 +368,11 @@ The CT tables (`ct/store.py`) live in the same file. They hold public certificat
 
 ## 14. Post-MVP roadmap
 
-Built only after the MVP works end to end and has evaluation numbers. Done: P1 (CT watcher), G1 (brand-agnostic core + delivery category), G2 (bank impersonation), E1 (next steps), E2 (domain explanations), E3 (fact-check summary). Next: G3+ (one category at a time) and E4, then P2 → P3 → P4.
+Built only after the MVP works end to end and has evaluation numbers. Done: P1 (CT watcher), G1 (brand-agnostic core + delivery category), G2 (bank impersonation), E1 (next steps), E2 (domain explanations), E3 (fact-check summary), G3 (account takeover, tech support, job scams). Next: E4, then P2 → P3 → P4.
 
-### Scam categories (G1 ✅, G2 ✅, G3+)
+### Scam categories (G1 ✅, G2 ✅, G3 ✅)
 
-See [§16](#16-scam-categories-and-the-brand-agnostic-core). Candidates for the next categories, in rough order of how well the existing signals already cover them: **account takeover** (password-reset and MFA-code lures), **tech support** (pop-ups and callback numbers), **job scams** (fake offers that ask for ID documents or an upfront payment). Each one is added only with sourced facts, its own phrases, hard negatives and its own reported metrics.
+See [§16](#16-scam-categories-and-the-brand-agnostic-core). G3 added **account takeover** (Google, Apple: password-expiry, deletion and MFA-code lures), **tech support** (Microsoft: virus pop-ups and callback numbers) and **job scams** (Indeed: upfront fees, equipment payments, ID and SSN requests), each with sourced facts, its own phrases, hard negatives and its own reported metrics. Open work for them is listed in §16's known limitations.
 
 ### Explain and guide (E1–E4)
 
@@ -452,13 +452,19 @@ The bank category (G2) adds Chase, Bank of America and Wells Fargo. Banks do tex
 4. Write labeled samples with `"category"`: scams, hard negatives that resemble them, and off-vocabulary scams so recall isn't flattered. At least 5 per category × input type × label, so every stratum reaches dev and test.
 5. Check the existing categories' test numbers are unchanged, tune on the new category's dev split only, run its test split once, and report its metrics separately.
 
-New trust keywords are shared by every brand's domain scoring. Adding the delivery keywords left the tax category's numbers unchanged (re-run 2026-10-15), but that check is part of every new category.
+New trust keywords are shared by every brand's domain scoring. Adding the delivery keywords left the tax category's numbers unchanged (re-run 2026-10-15), and so did adding the G3 keywords and rule changes for tax, delivery and bank (re-run 2026-10-15). That check is part of every new category.
+
+**One category per brand.** A brand belongs to exactly one category, so Microsoft account phishing is counted under `tech_support`, Microsoft's category.
+
+**Ordinary words as brand names.** `apple`, `outlook` and `indeed` are whole-word, no-typo tokens (like `chase`). Their text mentions are limited to forms that name the company ("Apple ID", "Indeed Recruiter"). Bare "google" and "gmail" aren't mentions either: "Google Play cards" is a payment demand, and a `gmail.com` sender is just a personal address.
 
 ### Known limitations
 
 - **Brandless scams** are the weak spot in every category: the strongest evidence (lookalike domains, fact checks, floors) depends on knowing which organization is being impersonated.
 - **Facts are uneven across brands.** The IRS has a published payment policy, so a gift-card demand hits the 85 floor; USPS has no equivalent sourced fact, so the same demand scores on message signals only.
-- **What isn't a request.** Real bank messages mention codes, cards and payment apps all the time. The rule extractor skips a code being delivered ("your code is 482913"), a card or account named by its last four digits ("card ending in 4421"), and money coming in ("You received $40 via Zelle"). Any other mention still counts. A merchant receipt that names a Chase card is still read as a claim to be Chase.
+- **What isn't a request.** Real bank messages mention codes, cards and payment apps all the time. The rule extractor skips a code being delivered ("your code is 482913"), a card or account named by its last four digits ("card ending in 4421"), and money coming in ("You received $40 via Zelle"). Since G3 it also skips a code shown before the phrase ("G-482913 is your Google verification code", but not digits after a hyphen, as in a phone number), and a password that's only mentioned: one that changed or expires, or what someone did or should do with it ("someone knows your password", "reset your password"). A reset lure still scores through its link and threat. Any other mention still counts. A merchant receipt that names a Chase card is still read as a claim to be Chase.
+- **Tech support and job scams (G3)** are the weakest categories (strict recall 50% and 61% on all samples). Microsoft publishes that its error messages never include phone numbers, but nothing checks that yet, so "virus detected, call this number" stops at *suspicious*. "windows" isn't a Microsoft token, and refund lures name brands that aren't protected (Norton, Geek Squad). Most job scams name no protected company, so a gift-card or crypto "training fee" scores on message signals only.
+- **Unofficial Google hosts.** `googleapis.com` and `googleusercontent.com` aren't marked official, because anyone can host a page there, and Google's country sites (`google.co.uk`) aren't either, because they'd need a sourced list. Links to them score as unofficial.
 - **Short tokens** (`usps`, 4 letters) only get typosquat detection for an added character (`uspss`); a substituted letter (`uspz`) is below the edit-distance threshold.
 
 ---

@@ -236,9 +236,9 @@ the tax-scam niche and explainability, and come before page fetching.
       sourced facts, 39 samples and its own metrics.              (done)
   G2  Bank impersonation (Chase, Bank of America, Wells Fargo) with
       sourced facts, 39 samples and its own metrics.              (done)
-  G3+ One new category at a time (account takeover, tech support,
-      job scams), each with sourced facts, signals, hard negatives
-      and separately reported metrics.
+  G3  Account takeover (Google, Apple), tech support (Microsoft) and
+      job scams (Indeed), each with sourced facts, signals, 34
+      samples and separately reported metrics.                    (done)
   E1  "What should I do next?": evidence-based, cautious next steps
       from fixed templates (never repeats links/numbers from the
       message; official contacts only from facts.yaml)            (done)

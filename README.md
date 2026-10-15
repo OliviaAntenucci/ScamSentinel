@@ -104,7 +104,7 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 | P1 | Certificate Transparency watcher | ✅ |
 | G1 | Brand-agnostic core + scam categories; package delivery (USPS) as the second category | ✅ |
 | G2 | Bank impersonation (Chase, Bank of America, Wells Fargo) | ✅ |
-| G3+ | One new category at a time (account takeover, job scams, tech support), each with sourced facts, signals, synthetic samples and its own metrics | Planned |
+| G3 | Account takeover (Google, Apple), tech support (Microsoft) and job scams (Indeed), each with sourced facts, signals, synthetic samples and its own metrics | ✅ |
 | E1 | "What should I do next?" advice on every result | ✅ |
 | E2 | Richer domain explanations: swapped characters, misspellings, extra words, real owner | ✅ |
 | E3 | Fact-check summary: every claim, the fact it was checked against, and the outcome | ✅ |
@@ -274,10 +274,32 @@ The test split is **tiny**, so treat it as a smoke test. What the numbers show:
 - **Real fraud alerts that use scam vocabulary** ("Unusual activity was detected on your card…") reach *suspicious* (35). So does a merchant receipt that mentions a Chase card and links to the merchant: any brand mention counts as a claim to be that brand.
 - **"Did you try to send $500? Text back NO"**, with no link, code or payment request yet, scores as legitimate. That scam continues by phone.
 
-Reproduce: `python -m scamsentinel.eval --split test --category tax` (or `--category delivery` / `bank`; omit it for everything; add `--report reports/eval-test.md` for a markdown report, and `--ablation full` for the LLM, cached in `var/eval.db`). Methodology: [`architecture.md` §10](architecture.md#10-evaluation-harness).
+### Account takeover, tech support and job scams (G3)
+
+Measured 2026-10-15, rules only. 34 hand-written samples per category (18 scams, 16 legitimate). Each category was run once on dev, with no changes, because every dev miss was a sample deliberately written outside the rules' vocabulary. The test split was then run once. Tax, delivery and bank were re-run first and gave exactly the numbers above.
+
+| Category | Data | Precision | Recall | FPR | Triage recall | Triage FPR |
+|---|---|---|---|---|---|---|
+| Account takeover (Google, Apple) | Test split (6) | 100% (3/3) | 100% (3/3) | 0% (0/3) | 100% | 0% |
+| | All samples (34) | 100% (15/15) | 83% (15/18) | 0% (0/16) | 89% | 0% |
+| Tech support (Microsoft) | Test split (6) | 100% (1/1) | 33% (1/3) | 0% (0/3) | 33% | 0% |
+| | All samples (34) | 100% (9/9) | 50% (9/18) | 0% (0/16) | 67% | 0% |
+| Job scams (Indeed) | Test split (6) | 100% (1/1) | 33% (1/3) | 0% (0/3) | 100% | 0% |
+| | All samples (34) | 100% (11/11) | 61% (11/18) | 0% (0/16) | 89% | 0% |
+
+The test splits are **tiny** (6 samples each), so treat them as smoke tests. What the numbers show:
+- **No false alarms in any of the three**, including the hard negatives written to trip the rules: a Google code with the code before the phrase ("G-482913 is your Google verification code"), real-style "your password was changed" and "someone knows your password" alerts, "your iCloud storage is full", an IT desk saying "do not shut down your computer", "Indeed, the team loved…", `applebees.com` and `outlookindia.com`.
+- **Two rule fixes made this possible.** A code shown before the phrase is now treated as delivered, not requested. A password that's only mentioned ("was changed", "expires in 7 days", "someone knows your password", "reset your password") isn't a request for it. Without these, real Google and Microsoft alerts hit the 75 floor for a brand that asks for sensitive information.
+- **Account takeover works the way bank impersonation does.** Apple publishes that it never asks for passwords or two-factor codes, so a code request fails a sourced `request_policy` check. Lookalike sign-in domains (`appleid-unlock-support`, `g00gle-…`, `accounts.google.com-…`) are caught by the domain engine.
+- **Tech support is the weakest category.** Microsoft "virus detected, call this number" texts stop at *suspicious* (45–55). Microsoft's page says its error messages never include phone numbers, but nothing checks that yet, and no Microsoft phone numbers are in the facts. A link to `windows-defender-renew.com` isn't tied to Microsoft because "windows" isn't a Microsoft token. Refund and renewal lures that name Norton or Geek Squad (not protected brands) score near zero.
+- **Job scams are mostly brandless.** A recruiter who demands a gift card, Cash App or USDT payment without naming a protected company lands in *suspicious* (35–50). Triage recall is 89%, but strict recall is 61%. Indeed-branded fee demands hit the 85 payment-policy floor ("Indeed will never ask candidates to pay fees").
+
+Next steps for these categories, to be tuned on dev only: a check for "Microsoft + a phone number"; a floor for a brandless message that combines an unusual payment method with a job or virus lure; and sourced phone facts for Apple and Microsoft.
+
+Reproduce: `python -m scamsentinel.eval --split test --category tax` (or `--category delivery` / `bank` / `account_takeover` / `tech_support` / `job`; omit it for everything; add `--report reports/eval-test.md` for a markdown report, and `--ablation full` for the LLM, cached in `var/eval.db`). Methodology: [`architecture.md` §10](architecture.md#10-evaluation-harness).
 
 ---
 
 ## Disclaimer
 
-ScamSentinel is an educational and portfolio project. It is not affiliated with or endorsed by any organization it protects against impersonation, including the Internal Revenue Service, Intuit (TurboTax, QuickBooks), Credit Karma, or the United States Postal Service. Brand names appear only to identify impersonation targets, and trusted facts are quoted from each organization's own published pages. A "likely legitimate" verdict does not guarantee safety. When in doubt, go to the organization directly through a channel you already trust, such as typing `irs.gov` or `usps.com` yourself.
+ScamSentinel is an educational and portfolio project. It is not affiliated with or endorsed by any organization it protects against impersonation, including the Internal Revenue Service, Intuit (TurboTax, QuickBooks), Credit Karma, the United States Postal Service, Chase, Bank of America, Wells Fargo, Google, Apple, Microsoft, or Indeed. Brand names appear only to identify impersonation targets, and trusted facts are quoted from each organization's own published pages. A "likely legitimate" verdict does not guarantee safety. When in doubt, go to the organization directly through a channel you already trust, such as typing `irs.gov` or `usps.com` yourself.
