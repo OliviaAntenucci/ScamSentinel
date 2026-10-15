@@ -69,6 +69,10 @@ class Settings(BaseSettings):
     max_email_bytes: int = 2 * 1024 * 1024
     max_image_bytes: int = 5 * 1024 * 1024
     max_image_pixels: int = 25_000_000
+    # Whole request body. Covers a 2 MB email after JSON escaping, or a 5 MB image plus
+    # multipart overhead.
+    max_request_bytes: int = 6 * 1024 * 1024
+    rate_limit_per_minute: int = 30
 
     retention_days: int = 7
 

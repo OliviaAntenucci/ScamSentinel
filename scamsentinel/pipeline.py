@@ -7,6 +7,7 @@ user-supplied URL, which removes SSRF by design (SECURITY.md T1).
 from __future__ import annotations
 
 import hashlib
+import logging
 import uuid
 from datetime import UTC, datetime
 
@@ -20,7 +21,10 @@ from scamsentinel.ingest.email import parse_eml
 from scamsentinel.message.analyzer import MessageAnalysis, MessageAnalyzer
 from scamsentinel.message.llm import CachedExtractor, FeatureExtractor, build_extractor
 from scamsentinel.models import AnalysisResult, InputType
+from scamsentinel.security.redaction import redact_result
 from scamsentinel.store import Store
+
+logger = logging.getLogger(__name__)
 
 # Upper bound on domains scored per input, so a message stuffed with links stays cheap.
 MAX_DOMAINS = 20
@@ -102,7 +106,19 @@ class AnalysisService:
             overrides_applied=result.overrides_applied,
             disagreements=message.disagreements if message else [],
         )
+        # SSN/card numbers quoted as evidence never reach the response, disk or logs.
+        analysis = redact_result(analysis)
         self._store.save_analysis(analysis, hashlib.sha256(raw.encode()).hexdigest())
+        # Metadata only: the analyzed content is never logged.
+        logger.info(
+            "analysis %s input=%s verdict=%s score=%d llm=%s degraded=%s",
+            analysis.analysis_id,
+            input_type,
+            analysis.verdict.value,
+            analysis.risk_score,
+            analysis.llm_used,
+            ",".join(analysis.degraded) or "-",
+        )
         return analysis
 
     def get_analysis(self, analysis_id: str) -> AnalysisResult | None:

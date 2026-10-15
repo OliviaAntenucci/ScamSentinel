@@ -3,10 +3,12 @@
 import uvicorn
 
 from scamsentinel.config import get_settings
+from scamsentinel.security.redaction import configure_logging
 
 
 def main() -> None:
-    settings = get_settings()  # refuses non-loopback hosts unless explicitly allowed
+    settings = get_settings()  # refuses non-loopback hosts
+    configure_logging()
     uvicorn.run(
         "scamsentinel.api.app:create_app",
         factory=True,
@@ -14,6 +16,8 @@ def main() -> None:
         port=settings.port,
         proxy_headers=False,
         server_header=False,
+        # Uvicorn's loggers propagate to the root handler, which redacts PII.
+        log_config=None,
     )
 
 

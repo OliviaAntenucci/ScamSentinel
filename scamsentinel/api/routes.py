@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Path, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 
 from scamsentinel import __version__
+from scamsentinel.api.guards import rate_limited, require_local_post
 from scamsentinel.api.schemas import AnalyzeRequest
 from scamsentinel.domain.engine import DomainResult, get_engine
 from scamsentinel.domain.normalize import InvalidHost
@@ -34,7 +35,10 @@ def healthz(request: Request) -> dict[str, str]:
     }
 
 
-@router.post("/v1/analyze")
+@router.post(
+    "/v1/analyze",
+    dependencies=[Depends(require_local_post("application/json")), Depends(rate_limited)],
+)
 def analyze(request: Request, body: AnalyzeRequest) -> AnalysisResult:
     try:
         return _service(request).analyze(body)
