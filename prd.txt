@@ -245,7 +245,7 @@ the tax-scam niche and explainability, and come before page fetching.
   E2  Richer domain explanations (swapped characters, misspelling,
       misleading extra words, real owner of the domain)          (done)
   E3  Fact-check summary: claims that match / conflict / can't be
-      verified against trusted facts, with sources                (next)
+      verified against trusted facts, with sources                (done)
   E4  Named scenarios per category (refund delay, payment demand,
       package on hold, ...), added over time as data              (next)
   P2  Lightweight page fetch (httpx + HTML parser) + SSRF URL guard

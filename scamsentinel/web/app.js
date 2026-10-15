@@ -206,6 +206,50 @@ function renderDomainExplanations(explanations) {
   }
 }
 
+const FACT_OUTCOMES = {
+  conflicts: ["Conflicts", "conflicts"],
+  cannot_verify: ["Can't verify", "unverified"],
+  matches: ["Matches", "matches"],
+};
+const FACT_BASIS = {
+  published_fact: "",
+  brand_list: "Official domain list",
+  email_headers: "The email's own headers",
+  model_knowledge: "AI model knowledge (unverified)",
+  no_fact: "No published fact",
+};
+
+function renderFactChecks(rows) {
+  const box = document.querySelector("#fact-checks");
+  const body = document.querySelector("#fact-check-rows");
+  body.replaceChildren();
+  box.hidden = !rows.length;
+  const conflicts = rows.filter((row) => row.outcome === "conflicts").length;
+  document.querySelector("#fact-check-count").textContent =
+    `${conflicts} of ${rows.length} ${rows.length === 1 ? "claim conflicts" : "claims conflict"}`;
+  for (const row of rows) {
+    // Claims quote the message: plain text only. Sources come from data files but are
+    // still shown as text, not links.
+    const tr = document.createElement("tr");
+    addText(tr, "td", "fact-claim", row.claim);
+    const against = document.createElement("td");
+    against.className = "fact-against";
+    const label = FACT_BASIS[row.basis] ?? "";
+    if (label) addText(against, "span", "fact-basis", label);
+    addText(against, "span", "", row.fact ?? row.detail);
+    if (row.source || row.last_reviewed) {
+      const meta = [row.source, row.last_reviewed && `reviewed ${row.last_reviewed}`].filter(Boolean);
+      addText(against, "span", "fact-source", meta.join(" · "));
+    }
+    tr.append(against);
+    const [text, tone] = FACT_OUTCOMES[row.outcome] ?? ["", ""];
+    const cell = document.createElement("td");
+    addText(cell, "span", `fact-outcome ${tone}`, text);
+    tr.append(cell);
+    body.append(tr);
+  }
+}
+
 function renderResult(result) {
   const verdicts = {
     likely_legitimate: ["Likely legitimate", "No major warning signs found", "legitimate"],
@@ -241,6 +285,7 @@ function renderResult(result) {
   }
   renderNextSteps(result.next_steps ?? []);
   renderDomainExplanations(result.domain_explanations ?? []);
+  renderFactChecks(result.fact_checks ?? []);
   renderEvidence(result.reasons ?? []);
   resultSection.hidden = false;
   resultSection.scrollIntoView({ behavior: "smooth", block: "start" });

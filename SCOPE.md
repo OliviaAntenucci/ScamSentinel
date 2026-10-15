@@ -59,6 +59,7 @@ Bank: fake fraud alerts ("unusual activity", "confirm this charge"), one-time-co
 - Verdict (`likely_scam` / `suspicious` / `likely_legitimate`), a 0–100 score, per-module scores, and an itemized list of evidence-backed reasons
 - "What should I do next?": up to six cautious next steps (`next_steps`), each with the source of any official contact it gives
 - For each lookalike link, how it imitates the brand (`domain_explanations`): swapped characters, misspelling, added trust words, real owner, changed ending
+- A fact-check table (`fact_checks`): each claim, the trusted fact it was compared with (source and review date), and whether it matches, conflicts or can't be verified
 - Domain-only scoring (`GET /v1/domain/score`)
 - Evaluation report: precision, recall, F1, FPR, confusion matrix, ablations, per category
 - Lookalike domains found in Certificate Transparency logs (`GET /v1/ct/candidates`)
@@ -75,7 +76,7 @@ Details in [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
 | G3+ | One new category at a time: account takeover, tech support, job scams | Planned |
 | E1 | "What should I do next?": short, cautious next steps chosen by the evidence found (never repeating links or numbers from the message) | ✅ Done |
 | E2 | Richer domain explanations: which characters were swapped, the misspelling, the misleading extra words | ✅ Done |
-| E3 | Fact-check summary: which claims match, conflict with, or can't be checked against the trusted facts | Planned |
+| E3 | Fact-check summary: which claims match, conflict with, or can't be checked against the trusted facts | ✅ Done |
 | E4 | Named scenarios per category (refund delay, payment demand, package on hold, …), added over time | Planned |
 | P2 | Lightweight page fetch (no browser) to inspect forms and brand content, together with the SSRF URL guard | Planned |
 | P3 | Playwright headless-browser sandbox (screenshots, JavaScript-rendered pages, redirect chains) | Planned |

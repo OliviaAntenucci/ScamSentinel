@@ -35,6 +35,7 @@ from scamsentinel.security.image_sanitize import sanitize_image
 from scamsentinel.security.redaction import redact_result
 from scamsentinel.security.upload_guard import validate_image_upload
 from scamsentinel.store import Store
+from scamsentinel.verify.checks import fact_checks
 from scamsentinel.verify.org_facts import OrgFactChecker, build_org_fact_checker
 
 logger = logging.getLogger(__name__)
@@ -203,6 +204,7 @@ class AnalysisService:
                 else []
             ),
             domain_explanations=_explanations(domains),
+            fact_checks=fact_checks(message.checks) if message else [],
         )
         # SSN/card numbers quoted as evidence never reach the response, disk or logs.
         analysis = redact_result(analysis)

@@ -178,7 +178,7 @@ def test_generated_lookalike_is_flagged(engine, host, brand):
         "intuition.com",
         "tuition.edu",
         "refund-status-center.com",
-        "google.com",
+        "wikipedia.org",
         "example.org",
         "turbine-parts.com",
     ],

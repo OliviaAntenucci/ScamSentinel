@@ -69,6 +69,22 @@ def test_search_patterns_for_repo_brands(settings):
         "%.bofa%",
         "%-bofa%",
         "%wellsfargo%",
+        "%google%",
+        "%gmail%",
+        "apple%",
+        "%.apple%",
+        "%-apple%",
+        "%appleid%",
+        "%icloud%",
+        "%microsoft%",
+        "outlook%",
+        "%.outlook%",
+        "%-outlook%",
+        "%hotmail%",
+        "%onedrive%",
+        "indeed%",
+        "%.indeed%",
+        "%-indeed%",
     ]
 
 

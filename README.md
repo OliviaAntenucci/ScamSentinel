@@ -59,7 +59,7 @@ And each lookalike link is taken apart, so you can see the trick for yourself (`
 }]
 ```
 
-> **Status:** MVP complete (M0–M6), plus a Certificate Transparency watcher (P1) and a brand-agnostic core with a second scam category (G1) and a third, bank impersonation (G2), "what should I do next?" advice on every result (E1), and plain-language explanations of how each lookalike domain imitates a brand (E2). Text, URL, email and screenshot analysis work end to end, the security defenses below are implemented and tested, and accuracy is measured per category on held-out test splits ([Evaluation](#evaluation)). See [Roadmap](#roadmap).
+> **Status:** MVP complete (M0–M6), plus a Certificate Transparency watcher (P1) and a brand-agnostic core with a second scam category (G1) and a third, bank impersonation (G2), "what should I do next?" advice on every result (E1), plain-language explanations of how each lookalike domain imitates a brand (E2), and a fact-check table of every claim against the trusted facts (E3). Text, URL, email and screenshot analysis work end to end, the security defenses below are implemented and tested, and accuracy is measured per category on held-out test splits ([Evaluation](#evaluation)). See [Roadmap](#roadmap).
 
 ---
 
@@ -84,7 +84,7 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 
 1. **Lookalike-domain engine** ✅: scores a domain against the protected brands using Public Suffix List parsing, Unicode/IDN homoglyph normalization, edit distance, and keyword-stuffing detection (`turbotax-refund-secure.com`, `usрs-delivery.com` with a Cyrillic `р`). Each lookalike also gets a **plain-language explanation of how it imitates the brand**: the characters swapped in (`'0'` for `'o'`, a Cyrillic `'і'` for `'i'`, `'rn'` for `'m'`), the exact misspelling (`turbotxa`: "'a' and 'x' swapped"), the trust words added (`refund`, `secure`), who really owns a `turbotax.com.evil.net`-style address, or a changed ending (`.net` instead of `.com`). Shown in the UI under "Why the link looks fake". See [`architecture.md` §19](architecture.md#19-richer-domain-explanations-e2).
 2. **Message analyzer** ✅: keyword rules plus an LLM (Groq by default) extract urgency, impersonation, payment-method, sensitive-data-request and threat signals as structured JSON.
-3. **Verification layer** ✅: checks claims against sourced, trusted facts, such as "is this an official IRS domain?", "does the IRS start contact by SMS?" or "does USPS text links you didn't ask for?"
+3. **Verification layer** ✅: checks claims against sourced, trusted facts, such as "is this an official IRS domain?", "does the IRS start contact by SMS?" or "does USPS text links you didn't ask for?" Every result includes a **fact-check table** (`fact_checks`). Each row gives the claim, the fact it was compared with (with source and last-reviewed date), and the outcome: *matches*, *conflicts* or *can't verify*. Gaps are shown rather than hidden: a gift-card demand "from USPS" is listed as *can't verify*, because USPS publishes no payment policy to check it against. See [`architecture.md` §20](architecture.md#20-fact-check-summary-e3).
 4. **Screenshot analysis** ✅: a Groq vision model transcribes the sanitized screenshot, and the text then goes through the message analyzer like any pasted message.
 5. **Risk aggregator** ✅: combines module scores into one score, verdict, and list of reasons.
 6. **Evaluation harness** ✅: 191 labeled samples in two categories, with leak-free train/dev/test splits stratified by category, reporting precision, recall, F1 and false-positive rate per category, input type and brand, plus ablations.
@@ -107,11 +107,11 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 | G3+ | One new category at a time (account takeover, job scams, tech support), each with sourced facts, signals, synthetic samples and its own metrics | Planned |
 | E1 | "What should I do next?" advice on every result | ✅ |
 | E2 | Richer domain explanations: swapped characters, misspellings, extra words, real owner | ✅ |
-| E3–E4 | Explain and guide: a fact-check summary, named scenarios per category | Planned |
+| E3 | Fact-check summary: every claim, the fact it was checked against, and the outcome | ✅ |
+| E4 | Named scenarios per category | Planned |
 | P2–P4 | Page fetching with an SSRF guard, a Playwright sandbox, Docker packaging | Planned |
 
-The remaining explain-and-guide items:
-- **Fact-check summary**: which claims match, conflict with, or can't be checked against the trusted facts.
+The remaining explain-and-guide item:
 - **Named scenarios** per category, such as refund delays, payment demands, identity verification, or "package on hold".
 
 Details: [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).

@@ -20,6 +20,7 @@ from scamsentinel.message.llm import (
 ENTITIES = [
     "IRS", "TurboTax", "QuickBooks", "Credit Karma", "USPS",
     "Chase", "Bank of America", "Wells Fargo",
+    "Google", "Apple", "Microsoft", "Indeed",
 ]
 
 VALID = {

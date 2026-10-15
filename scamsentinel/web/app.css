@@ -161,6 +161,19 @@ textarea::placeholder { color: #b2b3bf; }
 .domain-name { display: block; color: var(--ink); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; font-weight: 700; overflow-wrap: anywhere; }
 .domain-summary { margin: 4px 0 0; padding-left: 18px; color: #626478; font-size: 10px; line-height: 1.55; }
 .domain-summary li { padding: 2px 0; overflow-wrap: anywhere; }
+.fact-checks { margin-bottom: 18px; }
+.fact-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10px; line-height: 1.5; }
+.fact-table th { padding: 8px 6px 6px 0; color: #a0a1ae; font-size: 9px; font-weight: 600; text-align: left; }
+.fact-table th:last-child { width: 78px; }
+.fact-table td { padding: 8px 6px 8px 0; border-top: 1px solid #f1f1f5; color: #626478; vertical-align: top; overflow-wrap: anywhere; }
+.fact-claim { color: var(--ink); }
+.fact-against span { display: block; }
+.fact-basis { color: #44455b; font-weight: 700; }
+.fact-source { margin-top: 2px; color: #a0a1ae; font-size: 9px; }
+.fact-outcome { display: inline-block; padding: 3px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; white-space: nowrap; }
+.fact-outcome.conflicts { background: #fdecee; color: #b8434f; }
+.fact-outcome.unverified { background: #fff8e9; color: #8d672b; }
+.fact-outcome.matches { background: #eaf6ef; color: #3f8a64; }
 .evidence-item { display: grid; grid-template-columns: 78px minmax(0,1fr) auto; gap: 10px; align-items: start; padding: 11px 0; border-bottom: 1px solid #f1f1f5; }
 .module-tag { width: fit-content; padding: 4px 6px; border-radius: 4px; background: #f2f1ff; color: #6964c7; font-size: 8px; font-weight: 700; text-transform: uppercase; }
 .evidence-detail { color: #626478; font-size: 10px; line-height: 1.55; overflow-wrap: anywhere; }

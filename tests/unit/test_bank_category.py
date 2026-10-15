@@ -107,7 +107,8 @@ def test_request_policy_respects_the_facts_channels(settings, engine):
     ).model_copy(update={"sensitive_requests": [SensitiveRequest(type="mfa_code", span="code")]})
     by_text = verifier.run(features, input_type="text")
     by_email = verifier.run(features, input_type="email")
-    assert not [c for c in by_text if c.check == "request_policy"]
+    # By text the fact doesn't apply, so the request is only "can't verify" (E3).
+    assert [c.signal for c in by_text if c.check == "request_policy"] == ["request_unverified"]
     assert [c.signal for c in by_email if c.check == "request_policy"] == ["request_policy"]
 
 

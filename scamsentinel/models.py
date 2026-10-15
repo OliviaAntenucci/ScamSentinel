@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from typing import Literal
 
@@ -55,6 +55,26 @@ class NextStep(BaseModel):
     source: str | None = None
 
 
+# What a claim was compared with: a fact from facts.yaml, the official domains in
+# brands.yaml, the email's own headers, an LLM's knowledge (unverified), or nothing
+# because no published fact covers the claim.
+FactBasis = Literal["published_fact", "brand_list", "email_headers", "model_knowledge", "no_fact"]
+
+
+class FactCheck(BaseModel):
+    """One claim in the message checked against what's known (E3)."""
+
+    check: str  # official_domain, contact_channel, payment_method_policy, ...
+    claim: str
+    outcome: Literal["matches", "conflicts", "cannot_verify"]
+    detail: str
+    basis: FactBasis
+    fact: str | None = None  # the statement the claim was compared with
+    fact_id: str | None = None
+    source: str | None = None
+    last_reviewed: date | None = None
+
+
 class AnalysisResult(BaseModel):
     analysis_id: str
     created_at: datetime
@@ -73,3 +93,6 @@ class AnalysisResult(BaseModel):
     next_steps: list[NextStep] = []
     # How each lookalike link imitates a brand (E2), highest-scoring domain first.
     domain_explanations: list[DomainExplanation] = []
+    # Every claim checked against trusted facts (E3): conflicts, then can't verify, then
+    # matches.
+    fact_checks: list[FactCheck] = []

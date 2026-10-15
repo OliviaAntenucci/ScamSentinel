@@ -6,7 +6,8 @@ and the source of the fact it was checked against.
 
 from __future__ import annotations
 
-from typing import Literal
+from datetime import date
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -17,7 +18,7 @@ from scamsentinel.ingest.email import ParsedEmail
 from scamsentinel.ingest.phones import normalize_phone
 from scamsentinel.message.features import UNUSUAL_PAYMENT_METHODS, MessageFeatures
 from scamsentinel.message.rules import phrase_pattern
-from scamsentinel.models import InputType
+from scamsentinel.models import FactBasis, FactCheck, InputType
 from scamsentinel.verify.org_facts import OrgFacts
 
 CheckName = Literal[
@@ -41,12 +42,19 @@ _CHANNELS: dict[str, set[str]] = {
 
 class CheckResult(BaseModel):
     check: CheckName
-    # Key into verify_points in config/scoring.yaml.
+    # Key into verify_points in config/scoring.yaml. Signals without points (the
+    # "_unverified" ones) only appear in the fact-check summary (E3).
     signal: str
     claim: str
     verified: bool | None  # None = can't tell
     source: str | None = None
     detail: str = ""
+    # What the claim was compared with (E3): a fact from facts.yaml (statement, id,
+    # review date), the brand list, the email's own headers, or an LLM's knowledge.
+    basis: FactBasis = "published_fact"
+    fact: str | None = None
+    fact_id: str | None = None
+    last_reviewed: date | None = None
 
 
 class Verifier:
@@ -117,6 +125,9 @@ class Verifier:
                     ),
                     claim=url,
                     verified=None if match else False,
+                    basis="model_knowledge",
+                    fact=f"{name}'s sites, according to the {model} model: "
+                    f"{', '.join(sorted(official))}",
                     detail=(
                         f"{registrable} may belong to {name} ({provenance})"
                         if match
@@ -143,7 +154,7 @@ class Verifier:
                     signal="official_domain_match" if official else "official_domain_mismatch",
                     claim=url,
                     verified=official,
-                    source=brand.sources[0] if brand.sources else None,
+                    **self._domains_basis(entity),
                     detail=(
                         f"{registrable} is an official {entity} domain"
                         if official
@@ -179,29 +190,45 @@ class Verifier:
                         signal="contact_channel",
                         claim=f"{entity} contacting you by {input_type} and asking you to act",
                         verified=False,
-                        source=fact.source,
                         detail=fact.statement,
+                        **_cite(fact),
                     )
                 ]
         return []
 
     def _payment_policy(self, entity: str, features: MessageFeatures) -> list[CheckResult]:
-        disallowed: dict[str, str] = {}
+        disallowed: dict[str, Fact] = {}
         for fact in self._facts_with(entity, "disallowed_payment_methods"):
             for method in fact.data["disallowed_payment_methods"]:
-                disallowed.setdefault(method, fact.source)
-        return [
-            CheckResult(
-                check="payment_method_policy",
-                signal="payment_method_policy",
-                claim=f"{entity} asking for payment by {pm.method.replace('_', ' ')}",
-                verified=False,
-                source=disallowed[pm.method],
-                detail=f"{entity} does not demand payment by {pm.method.replace('_', ' ')}",
-            )
-            for pm in features.payment_methods
-            if pm.method in disallowed
-        ]
+                disallowed.setdefault(method, fact)
+        checks = []
+        for pm in features.payment_methods:
+            method = pm.method.replace("_", " ")
+            claim = f"{entity} asking for payment by {method}"
+            if pm.method in disallowed:
+                checks.append(
+                    CheckResult(
+                        check="payment_method_policy",
+                        signal="payment_method_policy",
+                        claim=claim,
+                        verified=False,
+                        detail=f"{entity} does not demand payment by {method}",
+                        **_cite(disallowed[pm.method]),
+                    )
+                )
+            elif pm.method in UNUSUAL_PAYMENT_METHODS:
+                # Not evidence either way: the gap is shown, not scored (E3).
+                checks.append(
+                    CheckResult(
+                        check="payment_method_policy",
+                        signal="payment_method_unverified",
+                        claim=claim,
+                        verified=None,
+                        basis="no_fact",
+                        detail=f"No published {entity} payment policy to check this against",
+                    )
+                )
+        return checks
 
     def _request_policy(
         self, entity: str, features: MessageFeatures, input_type: InputType
@@ -211,6 +238,7 @@ class Verifier:
         channels = _CHANNELS.get(input_type, set())
         checks = []
         for request in features.sensitive_requests:
+            claim = f"{entity} asking for {request.type.replace('_', ' ')}"
             for fact in self._facts_with(entity, "disallowed_requests"):
                 limited_to = fact.data.get("channels")
                 if request.type not in fact.data["disallowed_requests"]:
@@ -221,27 +249,51 @@ class Verifier:
                     CheckResult(
                         check="request_policy",
                         signal="request_policy",
-                        claim=f"{entity} asking for {request.type.replace('_', ' ')}",
+                        claim=claim,
                         verified=False,
-                        source=fact.source,
                         detail=fact.statement,
+                        **_cite(fact),
                     )
                 )
                 break
+            else:
+                checks.append(
+                    CheckResult(
+                        check="request_policy",
+                        signal="request_unverified",
+                        claim=claim,
+                        verified=None,
+                        basis="no_fact",
+                        detail=(
+                            f"No published {entity} statement about asking for this to "
+                            "check it against"
+                        ),
+                    )
+                )
         return checks
 
     def _phone_numbers(self, entity: str, phones: list[str]) -> list[CheckResult]:
-        known: dict[str, str] = {}
+        known: dict[str, Fact] = {}
         for fact in self._facts_with(entity, "phone_numbers"):
             for number in fact.data["phone_numbers"]:
                 if normalized := normalize_phone(number):
-                    known[normalized] = fact.source
-        if not known:
-            return []
+                    known[normalized] = fact
         checks = []
         for phone in phones:
             normalized = normalize_phone(phone)
             if normalized is None:
+                continue
+            if not known:
+                checks.append(
+                    CheckResult(
+                        check="phone_number",
+                        signal="phone_number_unverified",
+                        claim=phone,
+                        verified=None,
+                        basis="no_fact",
+                        detail=f"No published {entity} phone numbers to compare {phone} with",
+                    )
+                )
                 continue
             match = normalized in known
             checks.append(
@@ -251,7 +303,7 @@ class Verifier:
                     claim=phone,
                     # Only a short list of numbers is known, so a miss means "can't verify".
                     verified=True if match else None,
-                    source=known.get(normalized),
+                    **_cite(known[normalized] if match else next(iter(known.values()))),
                     detail=(
                         f"{phone} is a published {entity} number"
                         if match
@@ -281,7 +333,7 @@ class Verifier:
                         signal="sender_brand_mismatch",
                         claim=email.from_address or from_registrable,
                         verified=False,
-                        source=brand.sources[0] if brand.sources else None,
+                        **self._domains_basis(entity),
                         detail=f"Claims to be {entity}, but was sent from {from_registrable}",
                     )
                 )
@@ -292,6 +344,8 @@ class Verifier:
                         signal="sender_verified",
                         claim=email.from_address or from_registrable,
                         verified=True,
+                        basis="email_headers",
+                        fact=f"Official {entity} domains: {', '.join(brand.official_domains)}",
                         detail=f"Sent from {from_registrable} with a passing DKIM signature",
                     )
                 )
@@ -304,6 +358,8 @@ class Verifier:
                     signal="reply_to_mismatch",
                     claim=email.reply_to_address or reply_registrable,
                     verified=False,
+                    basis="email_headers",
+                    fact=f"The sender's own domain: {from_registrable}",
                     detail=(
                         f"Replies go to {reply_registrable}, not the sender's domain "
                         f"{from_registrable}"
@@ -325,6 +381,18 @@ class Verifier:
     def _facts_with(self, entity: str, key: str) -> list[Fact]:
         return [f for f in self._facts if f.entity == entity and key in f.data]
 
+    def _domains_basis(self, entity: str) -> dict[str, Any]:
+        """The brand's official-domains fact if facts.yaml has one, else brands.yaml."""
+        facts = self._facts_with(entity, "official_domains")
+        if facts:
+            return _cite(facts[0])
+        brand = self._brands[entity]
+        return {
+            "basis": "brand_list",
+            "fact": f"Official {entity} domains: {', '.join(brand.official_domains)}",
+            "source": brand.sources[0] if brand.sources else None,
+        }
+
     def _registrable(self, host_or_url: str | None) -> str | None:
         if not host_or_url:
             return None
@@ -332,3 +400,40 @@ class Verifier:
             return self._engine.score(host_or_url).registrable
         except InvalidHost:
             return None
+
+
+def _cite(fact: Fact) -> dict[str, Any]:
+    return {
+        "basis": "published_fact",
+        "fact": fact.statement,
+        "fact_id": fact.id,
+        "source": fact.source,
+        "last_reviewed": fact.last_reviewed,
+    }
+
+
+# --- fact-check summary (E3) ----------------------------------------------------------
+
+MAX_FACT_CHECKS = 30
+_OUTCOME_ORDER = {"conflicts": 0, "cannot_verify": 1, "matches": 2}
+
+
+def fact_checks(checks: list[CheckResult]) -> list[FactCheck]:
+    """Every check as a claim → fact → outcome row, conflicts first."""
+    rows = [
+        FactCheck(
+            check=c.check,
+            claim=c.claim,
+            outcome="matches" if c.verified else "conflicts" if c.verified is False
+            else "cannot_verify",
+            detail=c.detail,
+            basis=c.basis,
+            fact=c.fact,
+            fact_id=c.fact_id,
+            source=c.source,
+            last_reviewed=c.last_reviewed,
+        )
+        for c in checks
+    ]
+    rows.sort(key=lambda r: _OUTCOME_ORDER[r.outcome])
+    return rows[:MAX_FACT_CHECKS]

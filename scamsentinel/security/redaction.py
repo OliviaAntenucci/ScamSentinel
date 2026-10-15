@@ -42,8 +42,8 @@ def redact(text: str) -> str:
 
 
 def redact_result(result: AnalysisResult) -> AnalysisResult:
-    """Copy of `result` with SSN/card numbers removed from every reason and every domain
-    explanation (a hostname can carry digits too)."""
+    """Copy of `result` with SSN/card numbers removed from every reason, domain explanation
+    (a hostname can carry digits too) and fact check (claims quote the message)."""
     reasons = [
         r.model_copy(
             update={
@@ -56,7 +56,10 @@ def redact_result(result: AnalysisResult) -> AnalysisResult:
     explanations = [
         type(e).model_validate(_redact_strings(e.model_dump())) for e in result.domain_explanations
     ]
-    return result.model_copy(update={"reasons": reasons, "domain_explanations": explanations})
+    checks = [type(c).model_validate(_redact_strings(c.model_dump())) for c in result.fact_checks]
+    return result.model_copy(
+        update={"reasons": reasons, "domain_explanations": explanations, "fact_checks": checks}
+    )
 
 
 def _redact_strings(value: Any) -> Any:
