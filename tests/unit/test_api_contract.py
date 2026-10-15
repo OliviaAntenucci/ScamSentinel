@@ -25,6 +25,15 @@ def test_frontend_is_served_with_static_assets(client):
     assert "ScamSentinel" in page.text
     assert client.get("/static/app.css").status_code == 200
     assert client.get("/static/app.js").status_code == 200
+    assert "What would you like to check?" in page.text
+    results_page = client.get("/results")
+    assert "Here’s what we found" in results_page.text
+    assert "Signals detected" in results_page.text
+    assert "default-src 'none'" in results_page.headers["Content-Security-Policy"]
+    saved_page = client.get("/saved")
+    assert "Saved analyses" in saved_page.text
+    assert "default-src 'none'" in saved_page.headers["Content-Security-Policy"]
+    assert client.get("/static/results.js").status_code == 200
 
 
 @pytest.mark.parametrize(

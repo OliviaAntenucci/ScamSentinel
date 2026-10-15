@@ -20,3 +20,10 @@ class AnalyzeRequest(BaseModel):
         if len(provided) != 1:
             raise ValueError("provide exactly one of: text, url, email_raw")
         return self
+
+
+class AccountRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: str = Field(min_length=3, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    password: str = Field(min_length=10, max_length=128)

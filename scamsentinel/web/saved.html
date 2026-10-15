@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f7f8fc">
+    <meta name="description" content="Your locally saved ScamSentinel analyses.">
+    <title>Saved analyses — ScamSentinel</title>
+    <link rel="stylesheet" href="/static/app.css">
+    <script src="/static/results.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="ScamSentinel home"><span class="brand-mark" aria-hidden="true">✓</span><span>Scam<span class="brand-light">Sentinel</span></span></a>
+      <nav class="topnav" aria-label="Main navigation"><a class="nav-link" href="/">Analyzer</a><a class="nav-link active" href="/saved">Saved analyses</a></nav>
+      <div class="local-status online"><span class="status-dot"></span><span>Stored locally</span></div>
+    </header>
+    <main class="results-page saved-page">
+      <div class="result-heading">
+        <div><div class="section-label">YOUR ACCOUNT</div><h1>Saved analyses</h1><p class="page-intro">Only you can access results saved to your local account.</p></div>
+        <a class="text-button" href="/#analyzer">← New analysis</a>
+      </div>
+      <section class="save-panel saved-auth-panel" id="save-panel">
+        <div class="save-copy"><strong id="save-heading">Log in to view saved analyses</strong><span id="save-description">Your account and saved results are stored on this ScamSentinel installation.</span></div>
+        <div id="auth-controls">
+          <div class="auth-toggle" role="group" aria-label="Account action">
+            <button type="button" class="auth-tab selected" data-auth-mode="login">Log in</button>
+            <button type="button" class="auth-tab" data-auth-mode="register">Create account</button>
+          </div>
+          <form id="auth-form" class="auth-form">
+            <label>Email<input type="email" name="email" autocomplete="email" required maxlength="254"></label>
+            <label>Password<input type="password" name="password" autocomplete="current-password" required minlength="10" maxlength="128"></label>
+            <button class="analyze-button" id="auth-submit" type="submit">Log in</button>
+          </form>
+        </div>
+        <div class="account-actions" id="account-actions" hidden><span id="account-email"></span><button class="text-button" id="logout" type="button">Log out</button></div>
+        <p class="auth-error" id="auth-error" role="alert" hidden></p>
+      </section>
+      <p class="page-error" id="page-error" role="alert" hidden></p>
+      <section id="saved-view" hidden>
+        <div class="saved-list-heading"><h2>Your saved results</h2><span id="saved-count"></span></div>
+        <div class="saved-list" id="saved-list"></div>
+        <p class="empty-detail" id="saved-empty" hidden>No saved analyses yet. Analyze a message and choose “Save analysis” on its results page.</p>
+      </section>
+    </main>
+    <footer class="page-footer"><a class="footer-brand" href="/">ScamSentinel</a><span>Results are stored locally on this installation.</span><a href="/docs" target="_blank" rel="noreferrer">Local API reference ↗</a></footer>
+  </body>
+</html>

@@ -166,7 +166,15 @@ function renderEvidence(reasons) {
     const detail = document.createElement("div");
     detail.className = "evidence-detail";
     addText(detail, "span", "", reason.detail);
-    if (reason.evidence) addText(detail, "span", "evidence-quote", `“${reason.evidence}”`);
+    const evidence = reason.evidence?.trim();
+    const unquotedEvidence = evidence?.replace(/^["“”'‘’]+|["“”'‘’]+$/g, "").trim();
+    if (
+      evidence &&
+      !reason.detail.includes(evidence) &&
+      !(unquotedEvidence && reason.detail.includes(unquotedEvidence))
+    ) {
+      addText(detail, "span", "evidence-quote", `“${unquotedEvidence || evidence}”`);
+    }
     row.append(detail);
     const points = document.createElement("span");
     const mitigating = reason.points < 0;
@@ -369,7 +377,7 @@ form.addEventListener("submit", async (event) => {
     }
     const body = await response.json();
     if (!response.ok) throw new Error(explainError(body, response.status));
-    renderResult(body);
+    window.location.assign(`/results?analysis=${encodeURIComponent(body.analysis_id)}`);
   } catch (error) {
     errorBox.textContent = error instanceof TypeError
       ? "Could not reach the local ScamSentinel API. Make sure it is running, then refresh this page."

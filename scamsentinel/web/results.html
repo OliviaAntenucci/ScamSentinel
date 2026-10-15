@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f7f8fc">
+    <meta name="description" content="Review your ScamSentinel analysis and its evidence.">
+    <title>Analysis results — ScamSentinel</title>
+    <link rel="stylesheet" href="/static/app.css">
+    <script src="/static/results.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="ScamSentinel home">
+        <span class="brand-mark" aria-hidden="true">✓</span>
+        <span>Scam<span class="brand-light">Sentinel</span></span>
+      </a>
+      <nav class="topnav" aria-label="Main navigation">
+        <a class="nav-link" href="/">Analyzer</a>
+        <a class="nav-link" href="/saved" id="saved-nav">Saved analyses</a>
+      </nav>
+      <div class="local-status online"><span class="status-dot"></span><span>Private analysis</span></div>
+    </header>
+
+    <main class="results-page">
+      <div class="result-heading">
+        <div>
+          <div class="section-label">YOUR ANALYSIS</div>
+          <h1>Here’s what we found</h1>
+          <p class="page-intro">Review the evidence and choose a safe next step.</p>
+        </div>
+        <a class="text-button" href="/#analyzer">← New analysis</a>
+      </div>
+      <p class="page-error" id="page-error" role="alert" hidden></p>
+      <div id="analysis-view" hidden>
+        <section class="result-overview" id="result-card" aria-label="Analysis risk summary">
+          <div class="score-panel">
+            <div class="score-ring" id="score-ring">
+              <div class="score-inner"><strong id="risk-score">0</strong><span>of 100</span></div>
+            </div>
+            <span class="score-caption">RISK SCORE</span>
+          </div>
+          <div class="overview-copy">
+            <div class="verdict-row"><span class="verdict-pill" id="verdict-pill"></span><span class="result-meta" id="result-meta"></span></div>
+            <h2 id="result-title"></h2>
+            <p id="result-summary"></p>
+            <p class="result-notes" id="result-notes" hidden></p>
+            <div class="scenario" id="scenario" hidden>
+              <span class="scenario-label" id="scenario-label"></span>
+              <strong class="scenario-name" id="scenario-name"></strong>
+              <p class="scenario-description" id="scenario-description"></p>
+              <span class="scenario-meta" id="scenario-meta"></span>
+            </div>
+            <span class="analysis-id" id="analysis-id"></span>
+          </div>
+        </section>
+
+        <div class="result-grid">
+          <section class="detail-card">
+            <div class="detail-title"><span class="detail-icon">✓</span><div><h2>What to do next</h2><p>Practical steps to protect yourself</p></div></div>
+            <ol class="next-steps-list" id="next-steps-list"></ol>
+            <p class="empty-detail" id="no-next-steps" hidden>No specific steps are needed based on this result.</p>
+          </section>
+          <section class="detail-card">
+            <div class="detail-title"><span class="detail-icon">i</span><div><h2>Learn more</h2><p>Trusted resources for further reading</p></div></div>
+            <ul class="resource-list" id="resource-list"></ul>
+            <p class="empty-detail" id="no-resources" hidden>No additional resources for this analysis.</p>
+          </section>
+          <section class="detail-card">
+            <div class="detail-title"><span class="detail-icon">⌕</span><div><h2>Why the link looks false</h2><p>Domain clues and claims checked against known facts</p></div></div>
+            <div id="domain-explanations-list"></div>
+            <p class="empty-detail" id="no-domain-explanations" hidden>No suspicious lookalike link explanation was found.</p>
+            <div class="fact-checks">
+              <div class="subsection-title"><span>Fact check</span><span id="fact-check-count"></span></div>
+              <div class="table-scroll">
+                <table class="fact-table">
+                  <thead><tr><th>Claim</th><th>Checked against</th><th>Result</th></tr></thead>
+                  <tbody id="fact-check-rows"></tbody>
+                </table>
+              </div>
+              <p class="empty-detail" id="no-fact-checks" hidden>No claims could be checked against available facts.</p>
+            </div>
+          </section>
+          <section class="detail-card signals-card">
+            <div class="detail-title"><span class="detail-icon">!</span><div><h2>Signals detected</h2><p id="signal-count"></p></div><span class="signals-score" id="signals-score"></span></div>
+            <div class="evidence-list" id="evidence-list"></div>
+          </section>
+        </div>
+
+        <section class="save-panel" id="save-panel">
+          <div class="save-copy">
+            <strong id="save-heading">Keep this analysis</strong>
+            <span id="save-description">Create a local account or log in to save and revisit this result.</span>
+          </div>
+          <div id="auth-controls">
+            <div class="auth-toggle" role="group" aria-label="Account action">
+              <button type="button" class="auth-tab selected" data-auth-mode="login">Log in</button>
+              <button type="button" class="auth-tab" data-auth-mode="register">Create account</button>
+            </div>
+            <form id="auth-form" class="auth-form">
+              <label>Email<input type="email" name="email" autocomplete="email" required maxlength="254"></label>
+              <label>Password<input type="password" name="password" autocomplete="current-password" required minlength="10" maxlength="128"></label>
+              <button class="analyze-button" id="auth-submit" type="submit">Log in</button>
+            </form>
+          </div>
+          <div class="account-actions" id="account-actions" hidden>
+            <span id="account-email"></span>
+            <button class="analyze-button" id="save-analysis" type="button">Save analysis</button>
+            <button class="text-button" id="logout" type="button">Log out</button>
+          </div>
+          <p class="auth-error" id="auth-error" role="alert" hidden></p>
+          <p class="save-confirmation" id="save-confirmation" role="status" hidden></p>
+          <p class="privacy-caption">Accounts and saved results stay in this ScamSentinel installation. Saving stores the result, not the original message.</p>
+        </section>
+      </div>
+    </main>
+    <footer class="page-footer"><a class="footer-brand" href="/">ScamSentinel</a><span>Use your judgment; this is an aid, not a guarantee.</span><a href="/docs" target="_blank" rel="noreferrer">Local API reference ↗</a></footer>
+  </body>
+</html>

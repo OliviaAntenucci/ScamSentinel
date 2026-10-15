@@ -23,7 +23,7 @@ FRONTEND_CSP = (
 
 
 def _is_frontend(path: str) -> bool:
-    return path == "/" or path.startswith("/static/")
+    return path in ("/", "/results", "/saved") or path.startswith("/static/")
 
 
 class SecurityHeadersMiddleware:

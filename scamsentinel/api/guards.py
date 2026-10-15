@@ -119,3 +119,16 @@ def rate_limited(request: Request) -> None:
             detail="too many analyses; slow down",
             headers={"Retry-After": str(max(1, int(retry_after + 0.999)))},
         )
+
+
+def auth_rate_limited(request: Request) -> None:
+    """Limit local account registration and password guesses per client."""
+    limiter: RateLimiter = request.app.state.auth_rate_limiter
+    client = request.client.host if request.client else "unknown"
+    retry_after = limiter.hit(client)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="too many account attempts; slow down",
+            headers={"Retry-After": str(max(1, int(retry_after + 0.999)))},
+        )

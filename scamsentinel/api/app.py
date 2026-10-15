@@ -17,6 +17,7 @@ from scamsentinel.api.routes import router
 from scamsentinel.config import Settings, get_settings
 from scamsentinel.ct.store import CtStore
 from scamsentinel.pipeline import AnalysisService
+from scamsentinel.store import Store
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
@@ -29,9 +30,11 @@ def create_app(
     app = FastAPI(title="ScamSentinel", version=__version__)
     app.state.settings = settings
     app.state.service = service or AnalysisService.from_settings(settings)
+    app.state.account_store = Store(settings.db_path, settings.retention_days)
     # Read-only here: the CT watcher runs as its own process and writes the candidates.
     app.state.ct_store = CtStore(settings.db_path)
     app.state.rate_limiter = RateLimiter(settings.rate_limit_per_minute)
+    app.state.auth_rate_limiter = RateLimiter(10)
 
     # Middleware added later wraps earlier ones, so the order below is innermost first.
     app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_bytes)
@@ -48,5 +51,13 @@ def create_app(
     @app.get("/", include_in_schema=False)
     def frontend() -> FileResponse:
         return FileResponse(WEB_DIR / "index.html")
+
+    @app.get("/results", include_in_schema=False)
+    def results_frontend() -> FileResponse:
+        return FileResponse(WEB_DIR / "results.html")
+
+    @app.get("/saved", include_in_schema=False)
+    def saved_frontend() -> FileResponse:
+        return FileResponse(WEB_DIR / "saved.html")
 
     return app
