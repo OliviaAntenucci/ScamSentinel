@@ -54,7 +54,7 @@ This is a portfolio project that runs locally. Out of scope: reports about third
 
 The only outbound connection the MVP makes is the HTTPS call to the configured LLM provider, whose address comes from configuration, never from user input.
 
-**Tests (M4):** a pipeline test analyzes URLs from `tests/security/ssrf_payloads.txt` (metadata, loopback, private ranges, alternate IP encodings, odd schemes) with outbound network access patched to fail the test, and asserts that no connection is attempted and each URL still gets a domain verdict.
+**Tests:** `tests/security/test_no_fetch.py` (passing) replaces `socket.getaddrinfo`, `gethostbyname`, `create_connection`, `socket.connect` and `connect_ex` with tripwires. It then analyzes every URL in `tests/security/ssrf_payloads.txt` (metadata, loopback, private ranges, alternate IP encodings, odd schemes), both as URL inputs and inside a text message, and asserts that nothing even attempts a DNS lookup or connection. A third test configures the LLM and checks that the only outbound request goes to the fixed provider endpoint, even when the message is full of internal addresses.
 
 When page fetching arrives post-MVP, the full SSRF guard becomes mandatory. See [Post-MVP threats](#post-mvp-threats).
 
@@ -100,9 +100,9 @@ Without containers, the image is parsed by the same process that runs the API, s
 
 **Defenses**
 
-1. **Size limits.** Request body max 5 MB, enforced while reading (streaming with a cap), before the image is parsed.
-2. **Allowlist by magic bytes.** Accept only PNG, JPEG, and WebP, detected from file signatures. The client's `Content-Type` and filename are ignored.
-3. **Pixel limits before decoding.** Dimensions are read from the header and checked against 25 MP before a full decode. Pillow's `MAX_IMAGE_PIXELS` is set to the same limit, and its decompression-bomb warning is treated as an error.
+1. **Size limits.** The whole request body is capped at 6 MB by `BodySizeLimitMiddleware`: a declared `Content-Length` over the cap gets 413 immediately, and chunked bodies are counted while they stream in. The image itself is capped at 5 MB.
+2. **Allowlist by magic bytes.** Accept only PNG, JPEG, and WebP, detected from file signatures (`security/upload_guard.py`). The client's `Content-Type` and filename are ignored.
+3. **Pixel limits before decoding.** Width and height are read straight from the PNG `IHDR`, JPEG start-of-frame, or WebP `VP8`/`VP8L`/`VP8X` header with plain byte parsing, and checked against 25 MP. A 60-byte PNG claiming 100,000 × 100,000 pixels is rejected before any image decoder runs. Pillow's `MAX_IMAGE_PIXELS` will be set to the same limit as a second check (M5).
 4. **Decode and re-encode.** The image is decoded and written out again as a fresh PNG with no metadata. This strips EXIF (including GPS) and appended polyglot payloads. Only the re-encoded image goes to OCR.
 5. **OCR in a separate process with a timeout.** `pytesseract` runs the Tesseract binary as a child process. A pathological image gets killed after a fixed timeout, and the API returns `degraded: ocr_timeout` instead of hanging.
 6. **Never written, never executed, never served.** Uploads are processed in memory and never saved to disk, so client filenames are never used as paths. Uploaded images are never sent back to the user.
@@ -110,11 +110,8 @@ Without containers, the image is parsed by the same process that runs the API, s
 8. **Email (.eml) handling.** Parsed with Python's `email` package. HTML bodies are converted to text with an HTML parser, never rendered. Attachments are listed by name/type/size and **never opened**.
 
 **Tests:** `tests/security/test_uploads.py`
-- Rejects: `.exe`/`.html`/`.svg`/PDF/ZIP bytes labeled as images, an empty file, a 6 MB file, and a crafted bomb PNG (tiny file, huge dimensions).
-- A truncated or corrupt JPEG gets a clean 4xx error, not a 500.
-- Polyglot PNG+ZIP: the bytes after re-encoding contain no ZIP signature.
-- EXIF GPS is removed after re-encoding.
-- An OCR timeout returns `degraded`, not a hang.
+- Passing (M4): rejects `.exe`/`.html`/`.svg`/PDF/ZIP/GIF bytes, an empty file, and a 6 MB file. Rejects decompression bombs in all five header formats (each under 200 bytes, up to 10 billion pixels). Rejects truncated and malformed headers with a clean `malformed_header` reason. A `hypothesis` fuzz test feeds random bytes after each magic prefix and only ever gets a result or `UploadRejected`, never a crash.
+- Planned (M5): a polyglot PNG+ZIP has no ZIP signature after re-encoding, EXIF GPS is removed, and an OCR timeout returns `degraded`, not a hang.
 
 ---
 
@@ -127,9 +124,12 @@ Without containers, the image is parsed by the same process that runs the API, s
 | Another device on the network calls the API | Uvicorn binds to `127.0.0.1` only, and startup refuses any non-loopback address. There's no override |
 | A website in the user's browser calls `http://127.0.0.1:8000` via DNS rebinding | Requests whose `Host` header isn't `127.0.0.1` or `localhost` are rejected with 400 |
 | A website reads API responses cross-origin | No CORS headers are ever sent, so browsers block cross-origin reads |
-| A response is interpreted as HTML | The API responds with JSON only, and every response carries `X-Content-Type-Options: nosniff`, `Cache-Control: no-store` and `X-Frame-Options: DENY` |
+| **Local CSRF:** a website POSTs to `http://127.0.0.1:8000/v1/analyze` directly (the `Host` header is legitimate, and the attacker doesn't need to read the response to burn your LLM quota or fill your database) | `POST /v1/analyze` requires `Content-Type: application/json`. That is not a CORS "simple" type, so a cross-origin page must send a preflight, which this API never approves. Any request with a non-loopback `Origin` header (including `null` and `file://`) is refused with 403, since browsers always send `Origin` on cross-origin POSTs |
+| Oversized or never-ending request bodies | 6 MB body cap: 413 from the declared length, or while streaming for chunked bodies |
+| A runaway script or page hammering the API | Sliding-window rate limit, 30 analyses per minute per client, with `Retry-After` on 429 |
+| A response is interpreted as HTML | The API responds with JSON only, and every response carries `X-Content-Type-Options: nosniff`, `Cache-Control: no-store` and `X-Frame-Options: DENY`, including 400/413 rejections |
 
-**Tests:** `tests/security/test_local_api.py` (passing): loopback-only settings, foreign `Host` headers rejected, no CORS headers on simple or preflight requests, and security headers present on every response, including rejections.
+**Tests:** `tests/security/test_local_api.py` (passing): loopback-only settings, foreign `Host` headers rejected, no CORS headers on simple or preflight requests, security headers on every response, cross-origin POSTs refused, non-JSON content types refused (415), oversized bodies refused by length and while streaming (413), and the rate limiter.
 
 ---
 
@@ -137,13 +137,19 @@ Without containers, the image is parsed by the same process that runs the API, s
 
 | Threat | Defense |
 |---|---|
-| Cost/DoS via the LLM | Input caps, content-hash cache, at most one LLM call per input, per-client rate limit |
+| Cost/DoS via the LLM | Input caps, SQLite cache keyed by content hash, at most one LLM call per input, 30 analyses/minute rate limit |
 | PII sent to a third-party LLM (Groq free tier / Anthropic) | Only the input text is sent, never secrets or other data. Operators are told to submit only synthetic or public samples. Rules-only mode keeps everything local |
-| Leaking PII in logs | SSN-, card- and phone-like numbers are redacted before logging; analyses are deleted after 7 days |
+| PII in results, storage and logs | SSN-like numbers (valid area/group/serial ranges) and Luhn-valid card numbers are replaced with `[REDACTED-SSN]` / `[REDACTED-CARD]` in every reason before the result is returned or stored (`security/redaction.py`). A logging filter on the root handler redacts every log message and traceback, including uvicorn's. The pipeline logs only metadata (id, verdict, score), never content. The raw input is never stored, only its hash. Analyses and cached LLM features expire after 7 days. Phone numbers are deliberately kept, because they are evidence |
 | Secret leakage | API keys live only in `.env` (gitignored), are loaded as `SecretStr`, and never appear in prompts, logs or responses |
 | Allowlist bypass (`turbotax.com.evil.net`, `irs.gov-refund.com`) | The allowlist matches the **registrable domain** from the Public Suffix List, never a substring or prefix |
 | Network access while parsing domains | The Public Suffix List comes from tldextract's bundled snapshot. No download, no disk cache |
 | Dependency vulnerabilities | Minimum versions pinned, `pip-audit` in CI |
+
+### Known limitations
+
+- **Planted mitigating evidence.** A scammer can include a genuine `irs.gov` link to earn the "official link" mitigation (−15) and possibly the 40-point cap. That only applies when no check failed, no sensitive data or payment is requested, and no AI instructions are present. So the planted link can soften a vague message (e.g. "your account is locked, reply now") but not a credential or payment scam.
+- **Rules are English and phrase-based.** Paraphrases the rules don't know rely on the LLM. Obfuscated injections (leetspeak, homoglyphs, other languages) aren't detected as injections by the rules, but they still can't lower a verdict, because the LLM has no say over it.
+- **The LLM cache holds unredacted spans** for up to 7 days on the local disk, because grounding has to compare them against the original text.
 
 ---
 
@@ -170,10 +176,11 @@ The payload list and test file already exist (`tests/security/ssrf_payloads.txt`
 
 | ID | Test file | Proves | Status |
 |---|---|---|---|
-| S1 | pipeline no-fetch test (M4) | Analyzing any URL makes no outbound connection | Planned (M4) |
-| S2 | `test_prompt_injection.py`, `test_message_features.py`, `test_llm.py` | Injection never lowers the message score and is scored as evidence; an LLM that obeys the injection can't clear a scam; LLM output can't carry a verdict; malformed output → rules-only; ungrounded spans dropped | Passing (M2); verdict-band test + full paired corpus in M3/M4 |
-| S3 | `test_uploads.py` | Hostile files rejected or neutralized; no crash, hang or exhaustion | Planned (M4/M5) |
-| S4 | `test_local_api.py` | Loopback only; foreign `Host` rejected; no CORS; security headers | Passing |
+| S1 | `test_no_fetch.py` | Analyzing any URL makes no DNS lookup or connection; the only outbound request is to the LLM provider | Passing |
+| S2 | `test_prompt_injection.py`, `test_message_features.py`, `test_llm.py` | 30-variant paired corpus × 3 samples: injection never lowers the verdict band; injection is scored as evidence; an LLM that obeys the injection can't clear a scam; LLM output can't carry a verdict; malformed output → rules-only; ungrounded spans dropped | Passing |
+| S3 | `test_uploads.py` | Hostile files rejected before decoding (type, size, bombs, malformed headers, fuzzing) | Header checks passing; re-encode/OCR checks in M5 |
+| S4 | `test_local_api.py` | Loopback only; foreign `Host` rejected; no CORS; security headers; local CSRF refused; body size cap; rate limit | Passing |
+| S7 | `test_redaction.py` | SSN/card numbers removed from responses, storage and logs | Passing |
 | S5 | `test_allowlist.py` | Subdomain/suffix tricks never match the official allowlist | Passing |
 | S6 | `test_ssrf.py` | URL guard blocks internal targets via any encoding, redirect or rebind | Post-MVP (P2) |
 
