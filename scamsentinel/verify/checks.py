@@ -24,6 +24,7 @@ CheckName = Literal[
     "official_domain",
     "contact_channel",
     "payment_method_policy",
+    "request_policy",
     "phone_number",
     "sender_alignment",
     "org_official_domain",
@@ -81,6 +82,7 @@ class Verifier:
             unofficial_link = any(c.verified is False for c in domain_checks)
             checks += self._contact_channel(entity, features, input_type, unofficial_link)
             checks += self._payment_policy(entity, features)
+            checks += self._request_policy(entity, features, input_type)
             checks += self._phone_numbers(entity, features.claimed_phone_numbers)
         if email is not None:
             checks += self._sender_alignment(email)
@@ -200,6 +202,33 @@ class Verifier:
             for pm in features.payment_methods
             if pm.method in disallowed
         ]
+
+    def _request_policy(
+        self, entity: str, features: MessageFeatures, input_type: InputType
+    ) -> list[CheckResult]:
+        """Requests for data the brand says it never asks for (e.g. a bank and one-time
+        codes). A fact can limit its statement to some channels ("by email or text")."""
+        channels = _CHANNELS.get(input_type, set())
+        checks = []
+        for request in features.sensitive_requests:
+            for fact in self._facts_with(entity, "disallowed_requests"):
+                limited_to = fact.data.get("channels")
+                if request.type not in fact.data["disallowed_requests"]:
+                    continue
+                if limited_to is not None and not channels & set(limited_to):
+                    continue
+                checks.append(
+                    CheckResult(
+                        check="request_policy",
+                        signal="request_policy",
+                        claim=f"{entity} asking for {request.type.replace('_', ' ')}",
+                        verified=False,
+                        source=fact.source,
+                        detail=fact.statement,
+                    )
+                )
+                break
+        return checks
 
     def _phone_numbers(self, entity: str, phones: list[str]) -> list[CheckResult]:
         known: dict[str, str] = {}

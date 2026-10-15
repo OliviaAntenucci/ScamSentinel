@@ -58,6 +58,7 @@ verify_points:
   official_domain_match: -15
   contact_channel: 25
   payment_method_policy: 25
+  request_policy: 25 # asks for data the brand says it never asks for (e.g. bank + OTP)
   phone_number_unknown: 10
   sender_brand_mismatch: 25
   reply_to_mismatch: 15

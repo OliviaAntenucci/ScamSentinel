@@ -2,7 +2,7 @@
 
 This document defines what ScamSentinel does, what it doesn't do yet, what it won't do at all, and the rules it follows when it touches the outside world.
 
-ScamSentinel is a portfolio cybersecurity project: an explainable scam and phishing analyzer that runs locally, plus a threat model and tests for the analyzer itself. Detection is organized into **scam categories**. Tax-season impersonation is the baseline category; package-delivery smishing is the second.
+ScamSentinel is a portfolio cybersecurity project: an explainable scam and phishing analyzer that runs locally, plus a threat model and tests for the analyzer itself. Detection is organized into **scam categories**. Tax-season impersonation is the baseline category; package-delivery smishing is the second and bank impersonation the third.
 
 ## MVP definition
 
@@ -29,6 +29,9 @@ The MVP is done when someone can run ScamSentinel on their own computer, send it
 | | QuickBooks | `quickbooks.com`, `intuit.com` (incl. `quickbooks.intuit.com`) |
 | | Credit Karma | `creditkarma.com` |
 | Package-delivery smishing | USPS | `usps.com`, `uspis.gov` |
+| Bank impersonation | Chase | `chase.com` |
+| | Bank of America | `bankofamerica.com`, `bofa.com` |
+| | Wells Fargo | `wellsfargo.com` |
 
 Categories and brands live in `data/brands.yaml`, versioned, with a source for each entry. The code names no organization; see [`architecture.md` §16](architecture.md#16-scam-categories-and-the-brand-agnostic-core).
 
@@ -50,9 +53,11 @@ Shared across categories:
 
 Tax: refund holds, identity verification, account suspension, fake balance due, fake tax-prep or "IRS agent" offers.
 Delivery: "package on hold", incomplete address, redelivery or customs fees, "returned to sender".
+Bank: fake fraud alerts ("unusual activity", "confirm this charge"), one-time-code and password requests, "move your money to a safe account" or "send it to yourself with Zelle".
 
 ### Outputs
 - Verdict (`likely_scam` / `suspicious` / `likely_legitimate`), a 0–100 score, per-module scores, and an itemized list of evidence-backed reasons
+- "What should I do next?": up to six cautious next steps (`next_steps`), each with the source of any official contact it gives
 - Domain-only scoring (`GET /v1/domain/score`)
 - Evaluation report: precision, recall, F1, FPR, confusion matrix, ablations, per category
 - Lookalike domains found in Certificate Transparency logs (`GET /v1/ct/candidates`)
@@ -65,8 +70,9 @@ Details in [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
 |---|---|---|
 | P1 | Certificate Transparency watcher (crt.sh) to find newly registered lookalikes | ✅ Done |
 | G1 | Brand-agnostic core and scam categories; package delivery (USPS) as the second category | ✅ Done |
-| G2+ | One new category at a time: bank impersonation, account takeover, tech support, job scams | Planned |
-| E1 | "What should I do next?": short, cautious next steps chosen by the evidence found (never repeating links or numbers from the message) | Planned |
+| G2 | Bank impersonation (Chase, Bank of America, Wells Fargo) | ✅ Done |
+| G3+ | One new category at a time: account takeover, tech support, job scams | Planned |
+| E1 | "What should I do next?": short, cautious next steps chosen by the evidence found (never repeating links or numbers from the message) | ✅ Done |
 | E2 | Richer domain explanations: which characters were swapped, the misspelling, the misleading extra words | Planned |
 | E3 | Fact-check summary: which claims match, conflict with, or can't be checked against the trusted facts | Planned |
 | E4 | Named scenarios per category (refund delay, payment demand, package on hold, …), added over time | Planned |
@@ -103,9 +109,10 @@ Details in [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
 - Groq's free tier sends input text to a third party. Only analyze synthetic or public samples with the LLM enabled. Never send real victims' personal data. Rules-only mode (no API key) keeps everything local.
 
 ### Guidance (E1)
-- Next-step advice comes from fixed, reviewed templates, never from the LLM.
-- It never repeats, links to or recommends a URL or phone number from the analyzed message. Official contacts come only from `data/facts.yaml`, with sources.
-- It's worded cautiously and never promises that something is safe.
+- Next-step advice comes from fixed, reviewed templates in `data/guidance.yaml`, never from the LLM.
+- It never repeats, links to or recommends a URL or phone number from the analyzed message, and never quotes the name of an organization that isn't curated (that name was written by the possible scammer). Official sites and contacts come only from `data/brands.yaml` and `data/facts.yaml`, with sources.
+- It's worded cautiously and never promises that something is safe. A "likely legitimate" result still says to check through a channel you already trust.
+- Reporting steps point only to the organization's own published address, 7726 (SPAM) for texts, or ReportFraud.ftc.gov. ScamSentinel itself never reports anything.
 
 ### Evaluation data
 - Use public datasets under their licenses and cite them in `data/eval/SOURCES.md`.

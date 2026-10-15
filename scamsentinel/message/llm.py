@@ -28,7 +28,8 @@ from scamsentinel.message.features import (
 from scamsentinel.store import Store
 
 # v2: the impersonated-entity list comes from data/brands.yaml; "delivery_hold" threat.
-PROMPT_VERSION = "v2"
+# v3: "suspicious_activity" threat (bank category); PINs and access codes named explicitly.
+PROMPT_VERSION = "v3"
 GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
 # Models that support Groq's strict (constrained-decoding) JSON schema mode.
 # Others get JSON-object mode and rely on our own validation.
@@ -69,13 +70,15 @@ message claims to be from. Use "other" for an organization not in the list.
 - payment_methods: [{{"method": one of "gift_card", "crypto", "wire", "zelle", "cash_app", \
 "venmo", "other"; "span": quote}}]. Payment methods the reader is asked to use.
 - sensitive_requests: [{{"type": one of "ssn", "bank_account", "password", "mfa_code", "card", \
-"id_photo", "dob"; "span": quote}}]. Information the reader is asked to provide.
+"id_photo", "dob"; "span": quote}}]. Information the reader is asked to provide. A PIN is \
+"password"; a one-time, access or authorization code is "mfa_code".
 - claimed_urls: [URLs or domains exactly as written]
 - claimed_phone_numbers: [phone numbers exactly as written]
 - call_to_action: {{"value": one of "click_link", "call_number", "reply", "pay", "none"; \
 "span": quote}}
 - threats: [{{"type": one of {threats}; "span": quote}}]. "delivery_hold" means a package \
-is said to be held, undeliverable or about to be returned.
+is said to be held, undeliverable or about to be returned. "suspicious_activity" means an \
+account or card is said to show suspicious, unusual or unauthorized activity.
 - injection_attempt: {{"detected": boolean, "span": quote}}
 """
 

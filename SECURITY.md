@@ -12,6 +12,7 @@ It covers the **MVP**. Threats that only exist once post-MVP features land (page
 - [T4 — Attacks on the local API](#t4--attacks-on-the-local-api)
 - [T5 — Other threats](#t5--other-threats)
 - [CT watcher (P1)](#ct-watcher-p1)
+- [Next-step advice (E1)](#next-step-advice-e1)
 - [Post-MVP threats](#post-mvp-threats)
 - [Security test matrix](#security-test-matrix)
 
@@ -177,11 +178,32 @@ The Certificate Transparency watcher (`python -m scamsentinel.ct`, [`architectur
 
 ---
 
+## Next-step advice (E1)
+
+Every result carries `next_steps`: advice such as "don't open the link" or "contact the IRS at a published number" ([`architecture.md` §18](architecture.md#18-what-should-i-do-next-e1)). Advice is the most dangerous output to get wrong. If a scammer could steer it, a "call this number to confirm" would send victims straight to them, now with ScamSentinel's endorsement.
+
+| Threat | Defense |
+|---|---|
+| The message's own link or phone number repeated as "the official contact" | Advice text comes only from fixed templates in `data/guidance.yaml`. Every value filled into them comes from data files: brand names and official sites (`brands.yaml`), published phone numbers and report addresses (`facts.yaml`), and sourced references. Nothing from the analyzed content is ever inserted |
+| The LLM (or a prompt injection through it) writing or choosing advice | The LLM has no advice field. Steps are chosen in code from rule signals, verification checks and domain scores. A brand the LLM names is used only if it's a curated brand, and the analyzer already demotes unknown names to `other` |
+| An attacker-chosen organization name ("Acme Bank, call 1-800-…") echoed back | The name of an uncurated organization is never quoted. The advice says "the organization it claims to be from" |
+| Advice that reassures the victim ("this is safe") | Templates are worded cautiously. A `likely_legitimate` result gets one step that still says to verify through a channel you trust or by typing the official site yourself |
+| The UI turning advice into clickable links or HTML | Steps are rendered as plain text with `textContent`. No link is generated, not even for official sites |
+| A missing or renamed template silently dropping advice | The guide refuses to start if any required template is missing from `guidance.yaml` |
+
+**Tests** (`tests/unit/test_next_steps.py`):
+- The advice for every eval sample is checked: any URL or phone number in it must be a curated official domain, a published number or report address, or ReportFraud.ftc.gov.
+- A property-based test (hypothesis) builds scam texts from random brands, domains, phone numbers and lures, and checks that neither the planted domain nor the number appears in the advice.
+- An uncurated organization name carrying a phone number is never quoted.
+- A legitimate result never says "safe".
+
+**Gap:** the advice isn't yet run against the prompt-injection corpus in `tests/security/test_prompt_injection.py`. The defense doesn't depend on the LLM, so this is defense in depth.
+
+---
+
 ## Post-MVP threats
 
 These come back when the corresponding post-MVP phase lands (see [`architecture.md` §14](architecture.md#14-post-mvp-roadmap)).
-
-**Advice turned against the user (E1 next steps).** If a scammer could steer the advice, a "call this number to confirm" could send victims straight to them. Planned defenses: advice comes only from fixed templates chosen by rule signals (the LLM can't write or pick it), official contacts come only from `data/facts.yaml`, and tests check that no URL, domain or phone number from the input ever appears in `next_steps`, including under the prompt-injection corpus.
 
 **Full SSRF (P2 page fetch, P3 headless browser).** Once ScamSentinel fetches pages, a naive `ipaddress.ip_address(host).is_private` check is not enough. It misses hostnames that *resolve* to private IPs, alternate IP encodings (`http://2852039166/`), IPv4-mapped IPv6, redirects to internal addresses, DNS rebinding, and (with a browser) every subresource the page loads. The planned guard (`security/url_guard.py`):
 1. Allow `http`/`https` on ports 80/443 only, and reject userinfo.
@@ -209,6 +231,7 @@ The payload list and test file already exist (`tests/security/ssrf_payloads.txt`
 | S4 | `test_local_api.py` | Loopback only; foreign `Host` rejected; no CORS; security headers; local CSRF refused; body size cap; rate limit | Passing |
 | S7 | `test_redaction.py` | SSN/card numbers removed from responses, storage and logs | Passing |
 | S5 | `test_allowlist.py` | Subdomain/suffix tricks never match the official allowlist | Passing |
+| S9 | `test_next_steps.py` | Next-step advice never repeats a link, phone number or uncurated organization name from the input (every eval sample, plus property-based fuzzing); only curated official contacts appear | Passing |
 | S6 | `test_ssrf.py` | URL guard blocks internal targets via any encoding, redirect or rebind | Post-MVP (P2) |
 
 All security tests run in CI on every push.

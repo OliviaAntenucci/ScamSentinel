@@ -234,12 +234,14 @@ the tax-scam niche and explainability, and come before page fetching.
       and phrases are data; the LLM schema, verification and floors
       read them. Package delivery (USPS) as the second category, with
       sourced facts, 39 samples and its own metrics.              (done)
-  G2+ One new category at a time (bank impersonation, account
-      takeover, tech support, job scams), each with sourced facts,
-      signals, hard negatives and separately reported metrics.
+  G2  Bank impersonation (Chase, Bank of America, Wells Fargo) with
+      sourced facts, 39 samples and its own metrics.              (done)
+  G3+ One new category at a time (account takeover, tech support,
+      job scams), each with sourced facts, signals, hard negatives
+      and separately reported metrics.
   E1  "What should I do next?": evidence-based, cautious next steps
       from fixed templates (never repeats links/numbers from the
-      message; official contacts only from facts.yaml)            (next)
+      message; official contacts only from facts.yaml)            (done)
   E2  Richer domain explanations (swapped characters, misspelling,
       misleading extra words, real owner of the domain)          (next)
   E3  Fact-check summary: claims that match / conflict / can't be

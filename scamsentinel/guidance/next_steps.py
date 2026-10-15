@@ -35,7 +35,7 @@ REQUIRED_STEPS = frozenset(
 _REQUESTED = {
     "ssn": "your Social Security number",
     "bank_account": "your bank account details",
-    "password": "your password",
+    "password": "your password or PIN",
     "mfa_code": "verification codes",
     "card": "your card details",
     "id_photo": "photos of your ID",

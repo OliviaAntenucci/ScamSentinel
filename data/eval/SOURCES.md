@@ -2,7 +2,7 @@
 
 | File | Source | License / terms | Count |
 |---|---|---|---|
-| `samples.jsonl` | Hand-written for this project (`source: synthetic-handwritten`) | Same as the repository | 191 |
+| `samples.jsonl` | Hand-written for this project (`source: synthetic-handwritten`) | Same as the repository | 230 |
 
 ## What's in `samples.jsonl`
 
@@ -14,6 +14,9 @@ Each sample has a `category` (default `tax`). Metrics are reported per category,
 | | Email (raw `.eml`) | 12 | 10 |
 | | URL | 30 | 25 |
 | Delivery (`delivery`) | Text | 10 | 8 |
+| | Email | 5 | 5 |
+| | URL | 6 | 5 |
+| Bank (`bank`) | Text | 10 | 8 |
 | | Email | 5 | 5 |
 | | URL | 6 | 5 |
 
@@ -29,7 +32,13 @@ Each sample has a `category` (default `tax`). Metrics are reported per category,
 - **Off-vocabulary scams** are included on purpose (`uspz-parcel`, "sent back" instead of a known hold phrase).
 - **Legitimate samples include hard negatives**: opted-in USPS tracking texts, Informed Delivery digests, a real missed-delivery notice that links to usps.com, UPS (one letter from "usps"), Amazon and FedEx notices, a mailroom message, and a merchant email that mentions USPS.
 
-### Both categories
+### Bank
+
+- **Scams** impersonate Chase, Bank of America and Wells Fargo (plus two brandless ones): fake fraud alerts and blocked sign-ins with lookalike links, one-time-code and password requests, "send your balance to yourself with Zelle" and "move it to a protected account by wire", card-and-PIN harvesting, a callback number, a spoofed `wellsfargo.com` sender with a foreign Reply-To, and lookalike domains (keyword stuffing, `rn` for `m`, a zero for `o`, `bankofamerica.com-…` subdomain tricks, a TLD swap).
+- **An off-vocabulary scam** is included on purpose ("Did you try to send $500? Text back NO", with no link or request yet).
+- **Legitimate samples include hard negatives**: YES/NO fraud alerts naming a card by its last four digits, incoming-Zelle notices, one-time-code texts, statement emails, a real-style alert that says "unusual activity", a merchant receipt that mentions a Chase card, "chase" as a verb, and `purchase.edu` / `phaseone.com`.
+
+### All categories
 
 - **Variants of the same template share a `group`** and always land in the same split.
 

@@ -55,6 +55,8 @@ class _Token:
     raw: str
     skel: str
     boundary: bool
+    # False for tokens that must never be matched by edit distance (Brand.no_typo_tokens).
+    typo: bool = True
 
 
 @dataclass(frozen=True)
@@ -92,7 +94,13 @@ class DomainEngine:
                 if t not in seen:
                     seen.add(t)
                     self._tokens.append(
-                        _Token(b.name, t, self._norm.skeleton(t), t in b.boundary_tokens)
+                        _Token(
+                            b.name,
+                            t,
+                            self._norm.skeleton(t),
+                            boundary=t in b.boundary_tokens,
+                            typo=t not in b.no_typo_tokens,
+                        )
                     )
 
         self._keywords = {
@@ -210,7 +218,7 @@ class DomainEngine:
         for tok in self._tokens:
             if self._contains(tok, label):
                 hits += self._brand_hits(tok, label, suffix, compact)
-            elif len(tok.skel) >= TYPO_MIN_TOKEN_LENGTH:
+            elif tok.typo and len(tok.skel) >= TYPO_MIN_TOKEN_LENGTH:
                 typo = self._typosquat(tok, skel, compact)
                 if typo:
                     hits.append(typo)
@@ -285,7 +293,7 @@ class DomainEngine:
         return hits
 
     def _padded_brand(self, tok: _Token, label: str, compact: str) -> _Hit | None:
-        if len(tok.skel) < TYPO_MIN_TOKEN_LENGTH:
+        if not tok.typo or len(tok.skel) < TYPO_MIN_TOKEN_LENGTH:
             return None
         distance = DamerauLevenshtein.distance(compact, tok.skel)
         normalized = distance / max(len(compact), len(tok.skel))

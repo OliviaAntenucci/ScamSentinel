@@ -38,6 +38,12 @@ stuffing_keywords:
   - tracking
   - shipping
   - shipment
+  # bank
+  - bank
+  - banking
+  - fraud
+  - card
+  - transfer
 
 urgency_phrases:
   - immediately
@@ -66,11 +72,24 @@ payment_methods:
   cash_app: [cash app, cashapp]
   venmo: [venmo]
 
+# A payment method is a notice of money coming in, not a demand, when one of these comes
+# shortly before it in the same clause ("You received $40 from Sam via Zelle").
+payment_received_markers: [you received, you've received, you have received, sent you, deposited]
+
 sensitive_requests:
   ssn: [social security number, social security, ssn]
   bank_account: [bank account, routing number, account number]
-  password: [password, passcode]
-  mfa_code: [verification code, one-time code, one time code, otp, security code, 6-digit code]
+  password: [password, passcode, pin number, your pin, atm pin, debit card pin]
+  mfa_code:
+    - verification code
+    - one-time code
+    - one time code
+    - one-time passcode
+    - otp
+    - security code
+    - 6-digit code
+    - access code
+    - authorization code
   card: [credit card, debit card, card number, card details, card information, cvv]
   id_photo: [photo of your id, driver's license, drivers license, selfie with]
   dob: [date of birth, birth date]
@@ -96,6 +115,18 @@ threats:
     - address is incomplete
     - returned to sender
     - return to sender
+  suspicious_activity:
+    - suspicious activity
+    - unusual activity
+    - suspicious transaction
+    - unauthorized transaction
+    - unauthorized charge
+    - unauthorized purchase
+    - fraudulent activity
+    - fraudulent transaction
+    - unusual sign-in
+    - unrecognized sign-in
+    - unrecognized device
 
 # Mentions of a protected brand in message text. Keys must match names in brands.yaml.
 entity_mentions:
@@ -104,6 +135,23 @@ entity_mentions:
   QuickBooks: [quickbooks, quick books]
   Credit Karma: [credit karma, creditkarma]
   USPS: [usps, us postal service, u.s. postal service, united states postal service]
+  # "chase" alone is also a verb ("don't chase the deal"), so only forms that name the bank.
+  Chase:
+    - "chase:"
+    - chase bank
+    - jpmorgan chase
+    - chase alert
+    - chase fraud
+    - chase card
+    - chase account
+    - chase online
+    - chase sapphire
+    - chase freedom
+    - chase debit
+    - chase credit
+    - chase security
+  Bank of America: [bank of america, bankofamerica, bofa]
+  Wells Fargo: [wells fargo, wellsfargo]
 
 # A payment method, sensitive request or threat is ignored when one of these words appears
 # shortly before it in the same clause ("The IRS will never ask for your password").

@@ -17,15 +17,27 @@ from scamsentinel.models import Module
 
 def test_brands_load(settings):
     brands = {b.name: b for b in load_brands(settings.data_dir)}
-    assert set(brands) == {"IRS", "TurboTax", "QuickBooks", "Credit Karma", "USPS"}
+    assert set(brands) == {
+        "IRS", "TurboTax", "QuickBooks", "Credit Karma", "USPS",
+        "Chase", "Bank of America", "Wells Fargo",
+    }
     assert "irs.gov" in brands["IRS"].official_domains
     assert brands["IRS"].boundary_tokens == ["irs"]
-    assert {b.category for b in brands.values()} == {"tax", "delivery"}
+    assert {b.category for b in brands.values()} == {"tax", "delivery", "bank"}
     assert brands["USPS"].category == "delivery"
+    assert brands["Chase"].no_typo_tokens == ["chase"]
 
 
 def test_categories_load(settings):
-    assert set(load_categories(settings.data_dir)) == {"tax", "delivery"}
+    assert set(load_categories(settings.data_dir)) == {"tax", "delivery", "bank"}
+
+
+def test_no_typo_tokens_must_be_tokens():
+    with pytest.raises(ValidationError, match="no_typo_tokens not in tokens"):
+        Brand(
+            name="X", category="c", tokens=["x"], no_typo_tokens=["y"],
+            official_domains=["x.com"],
+        )
 
 
 def brand(**overrides) -> dict:

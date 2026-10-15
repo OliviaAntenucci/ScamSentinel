@@ -61,6 +61,14 @@ def test_search_patterns_for_repo_brands(settings):
         "%quickbooks%",
         "%creditkarma%",
         "%usps%",
+        "chase%",
+        "%.chase%",
+        "%-chase%",
+        "%bankofamerica%",
+        "bofa%",
+        "%.bofa%",
+        "%-bofa%",
+        "%wellsfargo%",
     ]
 
 

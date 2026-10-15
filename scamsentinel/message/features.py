@@ -49,7 +49,13 @@ class SensitiveRequest(Span):
 
 
 ThreatType = Literal[
-    "arrest", "account_suspension", "refund_loss", "delivery_hold", "penalty", "legal_action"
+    "arrest",
+    "account_suspension",
+    "refund_loss",
+    "delivery_hold",
+    "suspicious_activity",
+    "penalty",
+    "legal_action",
 ]
 THREAT_TYPES: tuple[str, ...] = get_args(ThreatType)
 

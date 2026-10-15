@@ -45,6 +45,8 @@ This document describes the **MVP**, plus what has been built since: the Certifi
                   └───────────────────────┬───────────────────────┘
                                           ▼
                             verdict · score · reasons[]
+                                          ▼
+                  Next-steps guide (E1, §18): fixed templates ─▶ next_steps[]
 ```
 
 ### Interface
@@ -78,6 +80,7 @@ scamsentinel/
   ocr/            # vision.py: Groq vision transcriber + cache
   web/            # browser UI (index.html, app.js, app.css), served at / and /static
   aggregate/      # weights, floors, verdict bands, reason assembly
+  guidance/       # E1: next_steps.py, "what should I do next?" chosen from the evidence
   security/       # upload_guard.py, image_sanitize.py, redaction.py (url_guard.py is post-MVP)
   ct/             # P1: crt.sh client, CT watcher (python -m scamsentinel.ct), candidate store
   eval/           # dataset loader, runner, metrics, ablations, report
@@ -87,6 +90,7 @@ data/
   brands.yaml     # scam categories; protected brands, their category, official domains, tokens
   keywords.yaml   # stuffing keywords, urgency phrases, payment methods
   facts.yaml      # trusted facts for verification (with sources)
+  guidance.yaml   # E1 next-step templates and their references
   confusables.txt # curated Unicode TR39 confusables subset
   eval/           # labeled samples + SOURCES.md
 tests/
@@ -160,7 +164,7 @@ Regex and phrase lists from `keywords.yaml`: urgency phrases ("within 24 hours",
   "claimed_urls":       ["..."],
   "claimed_phone_numbers": ["..."],
   "call_to_action":     { "value": "click_link|call_number|reply|pay|none", "span": "..." },
-  "threats":            [{ "type": "arrest|account_suspension|refund_loss|delivery_hold|penalty|legal_action", "span": "..." }],
+  "threats":            [{ "type": "arrest|account_suspension|refund_loss|delivery_hold|suspicious_activity|penalty|legal_action", "span": "..." }],
   "injection_attempt":  { "detected": false, "span": "" }
 }
 ```
@@ -363,11 +367,11 @@ The CT tables (`ct/store.py`) live in the same file. They hold public certificat
 
 ## 14. Post-MVP roadmap
 
-Built only after the MVP works end to end and has evaluation numbers. Done: P1 (CT watcher), G1 (brand-agnostic core + delivery category). Next: G2+ (one category at a time) and E1–E4, then P2 → P3 → P4.
+Built only after the MVP works end to end and has evaluation numbers. Done: P1 (CT watcher), G1 (brand-agnostic core + delivery category), G2 (bank impersonation), E1 (next steps). Next: G3+ (one category at a time) and E2–E4, then P2 → P3 → P4.
 
-### Scam categories (G1 ✅, G2+)
+### Scam categories (G1 ✅, G2 ✅, G3+)
 
-See [§16](#16-scam-categories-and-the-brand-agnostic-core). Candidates for the next categories, in rough order of how well the existing signals already cover them: **bank impersonation** (fraud-alert texts, "confirm this charge"), **account takeover** (password-reset and MFA-code lures), **tech support** (pop-ups and callback numbers), **job scams** (fake offers that ask for ID documents or an upfront payment). Each one is added only with sourced facts, its own phrases, hard negatives and its own reported metrics.
+See [§16](#16-scam-categories-and-the-brand-agnostic-core). Candidates for the next categories, in rough order of how well the existing signals already cover them: **account takeover** (password-reset and MFA-code lures), **tech support** (pop-ups and callback numbers), **job scams** (fake offers that ask for ID documents or an upfront payment). Each one is added only with sourced facts, its own phrases, hard negatives and its own reported metrics.
 
 ### Explain and guide (E1–E4)
 
@@ -375,7 +379,7 @@ ScamSentinel's angle is being an explainable checker that runs locally and shows
 
 | Phase | What | Notes |
 |---|---|---|
-| **E1** | **"What should I do next?"** | Each result gets a short, cautious `next_steps[]` list, chosen from fixed templates by the evidence that fired. Examples: a sensitive-data request → "Don't reply with personal information"; an IRS or brand impersonation → "Contact the agency using a number from its official website or your paperwork, not the one in the message"; a gift-card or crypto demand → "The IRS doesn't take payment this way. Don't pay." Official contact details come only from `data/facts.yaml`, with sources. **Links and phone numbers found in the analyzed message are never repeated, opened or recommended.** Advice is worded cautiously and never promises safety; a `likely_legitimate` verdict still says to verify through a channel you already trust. Shown in the UI below the verdict. |
+| **E1** ✅ | **"What should I do next?"** (built: see [§18](#18-what-should-i-do-next-e1)) | Each result gets a short, cautious `next_steps[]` list, chosen from fixed templates by the evidence that fired. Examples: a sensitive-data request → "Don't reply with personal information"; an IRS or brand impersonation → "Contact the agency using a number from its official website or your paperwork, not the one in the message"; a gift-card or crypto demand → "The IRS doesn't take payment this way. Don't pay." Official contact details come only from `data/facts.yaml`, with sources. **Links and phone numbers found in the analyzed message are never repeated, opened or recommended.** Advice is worded cautiously and never promises safety; a `likely_legitimate` verdict still says to verify through a channel you already trust. Shown in the UI below the verdict. |
 | **E2** | **Richer domain explanations** | Today each domain technique carries a one-line `detail`. Add a structured explanation of *what* differs from the real brand: the swapped characters (`0` for `o`, Cyrillic `і` for `i`), the misspelling (`turbotxa` vs. `turbotax`), the misleading extra words (`-refund-secure`), or the real owner of a brand-in-subdomain URL. Built from data the engine already computes (skeleton, edit operations, keywords, PSL split). |
 | **E3** | **Fact-check summary** | The verification layer already evaluates every check as matched / conflicts / can't verify (`CheckResult.verified`), but only failures and mitigations reach the response, as reasons. Expose the full list as `fact_checks[]`: each claim in the message, the trusted fact it was compared with, the outcome, and the fact's source and last-reviewed date. Shown in the UI as a matches / conflicts table. |
 | **E4** | **Named scenarios per category** | Recognize named scenarios, such as (tax) refund delay or "refund on hold", balance due or payment demand, identity verification, fake tax-prep or "IRS agent" offers, and (delivery) "package on hold", incomplete address, redelivery fee. Each scenario is a rule over existing signals in a new `data/scenarios.yaml` with a plain-language description and its own E1 next steps. Reported as `scenario` on the result (0 points: it explains the score and doesn't change it). New scenarios are added over time as data, each with eval samples. |
@@ -428,11 +432,13 @@ Scams differ by lure (a held refund, a held package, a locked bank account) but 
 | Signals | `data/keywords.yaml` | Brand mentions (`usps`, `u.s. postal service`), the `delivery_hold` threat ("package is on hold", "incomplete address", "returned to sender"), trust keywords for domains (`redelivery`, `parcel`, `tracking`) |
 | Labeled data | `data/eval/samples.jsonl` with `"category"` | 21 scams and 18 legitimate, including hard negatives |
 
+The bank category (G2) adds Chase, Bank of America and Wells Fargo. Banks do text and email their customers, so they have no first-contact-channel fact. What they publish instead is what they never *ask for*. A new fact kind captures that: `disallowed_requests` (sensitive-request types, optionally limited to `channels`), checked as `request_policy`. It also adds a `suspicious_activity` threat ("unusual activity", "unauthorized charge"; LLM prompt v3), and PINs and access/authorization codes as sensitive-request phrases.
+
 ### What's generic (no organization named in code)
 
-- **Domain engine** (§4): tokens and official domains come from `brands.yaml`, so every technique (homoglyph, typosquat, keyword stuffing, TLD swap, subdomain abuse) works for any brand.
+- **Domain engine** (§4): tokens and official domains come from `brands.yaml`, so every technique (homoglyph, typosquat, keyword stuffing, TLD swap, subdomain abuse) works for any brand. A token that is an ordinary word can be marked `boundary_tokens` (whole word only: "purchase" isn't Chase) and `no_typo_tokens` (never matched by edit distance: "phase" and "chose" are one letter from "chase").
 - **Message features** (§5): `impersonated_entity` accepts any brand from `brands.yaml`, plus `other` / `none`. The LLM's JSON schema enum and prompt are built from the same list. In JSON-object mode (no enforced enum), a name outside the list becomes `other`, and the analyzer re-checks merged features, so neither the LLM nor a stale cache entry can introduce a "protected" brand the rules don't know. The entity list is part of the LLM cache key.
-- **Verification** (§6): checks are driven by each entity's facts (`official_domains`, `disallowed_first_contact_channels`, `disallowed_payment_methods`, `phone_numbers`). A brand without a given kind of fact simply doesn't get that check.
+- **Verification** (§6): checks are driven by each entity's facts (`official_domains`, `disallowed_first_contact_channels`, `disallowed_payment_methods`, `disallowed_requests`, `phone_numbers`). A brand without a given kind of fact simply doesn't get that check.
 - **Floors** (§9): `disallowed_payment_demand` (formerly `irs_unusual_payment_demand`) fires when a brand's own payment-policy fact fails, so it applies to any brand that publishes one. For the IRS it behaves exactly as before.
 - **CT watcher** (§15): search patterns come from `brands.yaml`.
 - **Load-time validation:** brand names are unique and not `other` / `none`; every brand's category is defined; `entity_mentions` names only known brands; every fact's entity is a known brand; every category has facts and at least 15 scam and 15 legitimate eval samples (tests).
@@ -451,6 +457,7 @@ New trust keywords are shared by every brand's domain scoring. Adding the delive
 
 - **Brandless scams** are the weak spot in every category: the strongest evidence (lookalike domains, fact checks, floors) depends on knowing which organization is being impersonated.
 - **Facts are uneven across brands.** The IRS has a published payment policy, so a gift-card demand hits the 85 floor; USPS has no equivalent sourced fact, so the same demand scores on message signals only.
+- **What isn't a request.** Real bank messages mention codes, cards and payment apps all the time. The rule extractor skips a code being delivered ("your code is 482913"), a card or account named by its last four digits ("card ending in 4421"), and money coming in ("You received $40 via Zelle"). Any other mention still counts. A merchant receipt that names a Chase card is still read as a claim to be Chase.
 - **Short tokens** (`usps`, 4 letters) only get typosquat detection for an added character (`uspss`); a substituted letter (`uspz`) is below the edit-distance threshold.
 
 ---
@@ -485,3 +492,57 @@ LLM features: impersonated_entity = "other", span "Acme Bank"  (grounded: verbat
 **Cost and switches.** One extra Groq call, only for messages that name an uncurated organization *and* contain links. Off without a Groq key, or with `SCAMSENTINEL_ORG_FACT_CHECK=false`. `/healthz` reports its state. Rules-only mode never runs it. In the eval harness it runs only with `--ablation full`.
 
 **Limitations.** The model's knowledge can be outdated or wrong, and it doesn't know small or local organizations (`known: false` → no check). Legitimate organizations often link to third-party domains (email services, payment processors, link trackers), so a conflict is "suspicious", not proof; that's why it's worth only 10 points. Email sender domains aren't checked against the model's answer, for the same reason. It isn't included in the published metrics yet, because those are rules-only.
+
+---
+
+## 18. "What should I do next?" (E1)
+
+A verdict tells you how worried to be; it doesn't tell you what to do. Every result also carries `next_steps[]`: up to six short, cautious steps, most important first, chosen by the evidence that fired. It changes no scores.
+
+```
+verdict + input type + merged features + domain results + verification checks
+  ─▶ NextStepsGuide.build()   (guidance/next_steps.py)
+       choose step ids by rule      ─▶ fill {placeholders} from data files only
+       (no LLM involvement)            brands.yaml · facts.yaml · guidance.yaml
+  ─▶ next_steps: [{id, text, source}]
+```
+
+### Which organization the advice names
+
+The curated brand the message claims to be (`protected_entity`). If there isn't one, it's the brand of the highest-scoring link that is official or a lookalike (score ≥ 60). An `other` organization (named, but not curated) is never named in the advice, because its name was written by the possible scammer.
+
+### Which steps, in order
+
+A `likely_legitimate` result gets one step: `verify_brand` ("go to irs.gov by typing it in yourself") when a brand is known, otherwise `verify`. It never says "safe". Otherwise:
+
+| Step | When | Filled from |
+|---|---|---|
+| `dont_open_link_brand` / `dont_open_link` | The brand's link check failed or a link is a lookalike of that brand / any lookalike, unverified-link conflict or unofficial link | Brand name |
+| `dont_share` | Sensitive data was requested ("your Social Security number and your date of birth") | Fixed labels per request type |
+| `dont_pay_policy` / `dont_pay` | An unusual payment method was demanded. The policy version is used when the brand's own payment fact failed ("IRS says it doesn't take payment by gift card") | Brand name, source of its payment fact |
+| `dont_call` | A phone number in the message isn't a published one, or the message says to call without giving a known number | — |
+| `contact_brand_with_phone` / `contact_brand` / `contact_unknown_org` / `contact_sender` | Always one of these: the brand's official site and first published number (or "a number from your own paperwork"), a generic "the organization it claims to be from", or "check with the sender through a channel you already trust" | `brands.yaml` official domain, `facts.yaml` phone numbers |
+| `already_acted` | `likely_scam` and data or payment was requested | — |
+| `report_brand_text` / `report_brand` / `report_text` / `report` | Always last: the brand's published report address (plus 7726 for texts), or 7726 / ReportFraud.ftc.gov | `facts.yaml` `report_to`, `guidance.yaml` references |
+
+Each step has a stable `id` (for the UI and tests), its `text`, and the `source` URL of any official contact or policy it gives.
+
+### Why it can't be turned against the user
+
+The obvious attack is a scam that says "call 1-888-… to confirm" and hopes the tool repeats it as advice. So:
+- **Templates, not generation.** Wording lives in `data/guidance.yaml`, reviewed like any other data file. The guide refuses to start if a required template is missing.
+- **Placeholders come from data files only.** Brand names and official sites come from `brands.yaml`. Phone numbers and report addresses come from `facts.yaml`, each with a source and review date. Nothing from the analyzed message is ever inserted.
+- **The LLM has no say.** It can't write or choose a step, and an entity it names counts only if it's a curated brand.
+- **Plain text in the UI.** The "What to do next" list is rendered with `textContent` and never turned into links.
+
+Tests (`tests/unit/test_next_steps.py`) check the advice for every eval sample, so any URL or phone number in it must be a curated official contact. A property-based test plants random scam domains and numbers and checks they never come back. See [`SECURITY.md`](SECURITY.md#next-step-advice-e1).
+
+### Adding or changing advice
+
+Edit `data/guidance.yaml`. To add a step, add a template and the rule that picks it in `guidance/next_steps.py`, and add it to `REQUIRED_STEPS`. Official contacts are added as sourced facts in `facts.yaml`, never in the template text. A new category gets its brand-specific contact and report steps automatically from its facts.
+
+### Limitations
+
+- Advice follows the evidence, so it's only as good as the signals: a scam that the rules miss gets the mild "verify" step.
+- Brands without a published phone number or report address get the generic contact and FTC reporting steps (TurboTax, QuickBooks and Credit Karma have none yet).
+- English and US-only: 7726 and ReportFraud.ftc.gov are US channels.

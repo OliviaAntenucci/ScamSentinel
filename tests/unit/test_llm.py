@@ -17,7 +17,10 @@ from scamsentinel.message.llm import (
     parse_llm_output,
 )
 
-ENTITIES = ["IRS", "TurboTax", "QuickBooks", "Credit Karma", "USPS"]
+ENTITIES = [
+    "IRS", "TurboTax", "QuickBooks", "Credit Karma", "USPS",
+    "Chase", "Bank of America", "Wells Fargo",
+]
 
 VALID = {
     "impersonated_entity": {"value": "IRS", "span": "IRS"},
@@ -97,6 +100,7 @@ def test_entity_list_comes_from_configuration():
     system = body["messages"][0]["content"]
     assert '"USPS"' in system
     assert '"delivery_hold"' in system
+    assert '"suspicious_activity"' in system
 
 
 def test_unknown_entity_becomes_other():

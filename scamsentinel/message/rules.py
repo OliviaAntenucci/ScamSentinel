@@ -7,7 +7,7 @@ text that matched in the input.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 
 from scamsentinel.data import Keywords
 from scamsentinel.ingest.phones import extract_phone_numbers
@@ -33,6 +33,13 @@ _CLICK = re.compile(
 )
 _CALL = re.compile(r"(?<!\w)(?:call|dial|contact us at)(?!\w)", re.IGNORECASE)
 _REPLY = re.compile(r"(?<!\w)(?:reply|respond|text back)(?!\w)", re.IGNORECASE)
+# A code being delivered ("Your verification code for Amazon is 482913", "Access code:
+# 4829") is what a real one-time-code text looks like; it isn't a request for one.
+# Both are used with pattern.match(text, pos), which anchors at pos (a "^" wouldn't).
+_CODE_DELIVERED = re.compile(r"[^.!?\n]{0,30}?(?:\bis|:)\s*\d{4,8}\b", re.IGNORECASE)
+# "Your debit card ending in 4421" refers to a card by its last digits, the way banks do;
+# it doesn't ask for the card details.
+_MASKED_REFERENCE = re.compile(r"\s*(?:ending|that ends|which ends)\s+(?:in|with)\s+\d{4}\b")
 
 
 def phrase_pattern(phrases: Iterable[str]) -> re.Pattern[str]:
@@ -55,6 +62,16 @@ class RuleExtractor:
         # A negation word followed by the rest of the same clause, up to the match. Commas
         # end the clause too, so "Do not delay, send bitcoin" still counts as a request.
         self._negated_clause = re.compile(rf"{negations}[^.!?;:,\n]*$", re.IGNORECASE)
+        self._received_clause = (
+            re.compile(
+                # Same clause, but amounts ("$1,200.00") don't end it.
+                rf"{phrase_pattern(keywords.payment_received_markers).pattern}"
+                r"(?:[^.!?;:,\n]|[.,](?=\d))*$",
+                re.IGNORECASE,
+            )
+            if keywords.payment_received_markers
+            else None
+        )
 
     def extract(self, text: str) -> MessageFeatures:
         urls = extract_urls(text)
@@ -62,11 +79,11 @@ class RuleExtractor:
 
         payments = [
             PaymentMethod(method=key, span=m.group(), source="rule")
-            for key, m in self._affirmed(self._payments, text)
+            for key, m in self._affirmed(self._payments, text, skip=self._money_received)
         ]
         sensitive = [
             SensitiveRequest(type=key, span=m.group(), source="rule")
-            for key, m in self._affirmed(self._sensitive, text)
+            for key, m in self._affirmed(self._sensitive, text, skip=_not_a_request)
         ]
         threats = [
             Threat(type=key, span=m.group(), source="rule")
@@ -107,17 +124,29 @@ class RuleExtractor:
         return Impersonation(value=first[1], span=first[2], source="rule")
 
     def _affirmed(
-        self, patterns: Mapping[str, re.Pattern[str]], text: str
+        self,
+        patterns: Mapping[str, re.Pattern[str]],
+        text: str,
+        skip: Callable[[str, str, re.Match[str]], bool] | None = None,
     ) -> Iterator[tuple[str, re.Match[str]]]:
-        """First non-negated match per category ("we will never ask for your SSN" is skipped)."""
+        """First non-negated match per category ("we will never ask for your SSN" is skipped).
+        `skip(key, text, match)` rules out other matches that aren't requests or demands."""
         for key, pattern in patterns.items():
             for m in pattern.finditer(text):
-                if not self._negated(text, m.start()):
-                    yield key, m
-                    break
+                if self._negated(text, m.start()) or (skip and skip(key, text, m)):
+                    continue
+                yield key, m
+                break
 
     def _negated(self, text: str, start: int) -> bool:
         return bool(self._negated_clause.search(text[max(0, start - NEGATION_WINDOW) : start]))
+
+    def _money_received(self, key: str, text: str, m: re.Match[str]) -> bool:
+        """'You received $40 from Sam via Zelle' reports incoming money; it isn't a demand."""
+        if self._received_clause is None:
+            return False
+        before = text[max(0, m.start() - NEGATION_WINDOW) : m.start()]
+        return bool(self._received_clause.search(before))
 
     @staticmethod
     def _call_to_action(
@@ -133,6 +162,15 @@ class RuleExtractor:
         if m := _REPLY.search(text):
             return CallToAction(value="reply", span=m.group(), source="rule")
         return None
+
+
+def _not_a_request(key: str, text: str, m: re.Match[str]) -> bool:
+    """A code being delivered, or a card or account named by its last four digits."""
+    if key == "mfa_code":
+        return bool(_CODE_DELIVERED.match(text, m.end()))
+    if key in ("card", "bank_account"):
+        return bool(_MASKED_REFERENCE.match(text, m.end()))
+    return False
 
 
 def _patterns(groups: Mapping[str, list[str]]) -> dict[str, re.Pattern[str]]:

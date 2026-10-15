@@ -17,6 +17,11 @@ categories:
     description: >-
       Package-delivery smishing: "package on hold" or "incomplete address" lures that push
       a lookalike link, a small redelivery fee, or card details.
+  bank:
+    description: >-
+      Bank impersonation: fake fraud alerts and "confirm this charge" texts that push a
+      lookalike sign-in page, ask for one-time codes or passwords, or talk you into
+      moving money "to protect it" (often to yourself through Zelle).
 
 brands:
   - name: IRS
@@ -54,3 +59,27 @@ brands:
     tokens: [usps]
     official_domains: [usps.com, uspis.gov]
     sources: [https://www.usps.com/, https://www.uspis.gov/]
+
+  # "chase" is an ordinary word: whole-word only ("purchase" is not Chase), and never
+  # matched by edit distance ("phase" and "chose" are one letter away).
+  - name: Chase
+    category: bank
+    tokens: [chase]
+    boundary_tokens: [chase]
+    no_typo_tokens: [chase]
+    official_domains: [chase.com]
+    sources: [https://www.chase.com/]
+
+  # bofa.com is Bank of America's own reporting domain (abuse@bofa.com).
+  - name: Bank of America
+    category: bank
+    tokens: [bankofamerica, bofa]
+    boundary_tokens: [bofa]
+    official_domains: [bankofamerica.com, bofa.com]
+    sources: [https://www.bankofamerica.com/]
+
+  - name: Wells Fargo
+    category: bank
+    tokens: [wellsfargo]
+    official_domains: [wellsfargo.com]
+    sources: [https://www.wellsfargo.com/]

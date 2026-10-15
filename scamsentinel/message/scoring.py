@@ -14,7 +14,7 @@ _LABELS = {
     # sensitive requests
     "ssn": "a Social Security number",
     "bank_account": "bank account details",
-    "password": "a password",
+    "password": "a password or PIN",
     "mfa_code": "a verification (MFA) code",
     "card": "card details",
     "id_photo": "a photo of an ID",
@@ -31,6 +31,7 @@ _LABELS = {
     "account_suspension": "account suspension",
     "refund_loss": "losing your refund",
     "delivery_hold": "a held or undeliverable package",
+    "suspicious_activity": "suspicious activity on your account",
     "penalty": "penalties",
     "legal_action": "legal action",
     # calls to action

@@ -87,5 +87,118 @@ facts:
     data:
       report_to: spam@uspis.gov
 
+  # --- bank -------------------------------------------------------------------------
+  # Banks do text and email their customers (fraud alerts, receipts), so unlike the IRS
+  # and USPS they get no disallowed_first_contact_channels fact. What they publish is what
+  # they never ask for: disallowed_requests lists SensitiveRequest types, optionally
+  # limited to the channels the bank's statement names.
+
+  - id: bofa_never_asks_codes_or_passwords
+    entity: Bank of America
+    statement: >-
+      Bank of America may ask you to confirm account activity, but will never ask for your
+      password or verification code.
+    source: https://web.bankofamerica.com/en/security/library/review-scam-alert
+    last_reviewed: 2026-10-15
+    data:
+      disallowed_requests: [password, mfa_code]
+
+  - id: bofa_never_asks_to_send_money
+    entity: Bank of America
+    statement: >-
+      Bank of America will never ask you to send money to it or anyone else (its Zelle FAQ
+      adds: including to yourself).
+    source: https://web.bankofamerica.com/en/security/library/review-scam-alert
+    last_reviewed: 2026-10-15
+    data:
+      disallowed_payment_methods: [zelle, wire, gift_card, crypto, cash_app, venmo]
+
+  - id: bofa_official_domains
+    entity: Bank of America
+    statement: Official Bank of America websites are on bankofamerica.com (and bofa.com).
+    source: https://www.bankofamerica.com/
+    last_reviewed: 2026-10-15
+    data:
+      official_domains: [bankofamerica.com, bofa.com]
+
+  - id: bofa_customer_service_phone
+    entity: Bank of America
+    statement: Bank of America line for reporting suspicious activity on most accounts.
+    source: https://web.bankofamerica.com/en/security/report-suspicious-activity
+    last_reviewed: 2026-10-15
+    data:
+      phone_numbers: ["+18004321000"]
+
+  - id: bofa_report_phishing
+    entity: Bank of America
+    statement: >-
+      Forward suspicious emails or texts that use Bank of America's name to abuse@bofa.com.
+    source: https://web.bankofamerica.com/en/security/report-suspicious-activity
+    last_reviewed: 2026-10-15
+    data:
+      report_to: abuse@bofa.com
+
+  - id: wells_fargo_never_asks_codes_by_text_or_email
+    entity: Wells Fargo
+    statement: >-
+      Wells Fargo will never ask for your password, PIN, or one-time access codes through
+      email or text.
+    source: https://www.wellsfargo.com/privacy-security/fraud/report/phish/
+    last_reviewed: 2026-10-15
+    data:
+      disallowed_requests: [password, mfa_code]
+      channels: [sms, email]
+
+  - id: wells_fargo_official_domains
+    entity: Wells Fargo
+    statement: Official Wells Fargo websites are on wellsfargo.com.
+    source: https://www.wellsfargo.com/
+    last_reviewed: 2026-10-15
+    data:
+      official_domains: [wellsfargo.com]
+
+  - id: wells_fargo_fraud_phone
+    entity: Wells Fargo
+    statement: Wells Fargo fraud line, for anyone who responded to a suspicious message.
+    source: https://www.wellsfargo.com/privacy-security/fraud/report/phish/
+    last_reviewed: 2026-10-15
+    data:
+      phone_numbers: ["+18668675568"]
+
+  - id: wells_fargo_report_phishing
+    entity: Wells Fargo
+    statement: Forward suspicious emails and texts claiming to be from Wells Fargo to reportphish@wellsfargo.com.
+    source: https://www.wellsfargo.com/privacy-security/fraud/report/phish/
+    last_reviewed: 2026-10-15
+    data:
+      report_to: reportphish@wellsfargo.com
+
+  # Chase's security pages (reviewed 2026-10-15) only say "legitimate banks" don't ask
+  # you to move money, not Chase specifically, so Chase has no request or payment policy
+  # facts yet. Add them only from a statement Chase itself publishes.
+  - id: chase_official_domains
+    entity: Chase
+    statement: Official Chase websites are on chase.com.
+    source: https://www.chase.com/
+    last_reviewed: 2026-10-15
+    data:
+      official_domains: [chase.com]
+
+  - id: chase_fraud_phone
+    entity: Chase
+    statement: Chase line for reporting fraud on personal checking, savings and debit cards.
+    source: https://www.chase.com/digital/resources/privacy-security/security/report-fraud
+    last_reviewed: 2026-10-15
+    data:
+      phone_numbers: ["+18009359935"]
+
+  - id: chase_report_phishing
+    entity: Chase
+    statement: Forward suspicious emails claiming to be from Chase to phishing@chase.com.
+    source: https://www.chase.com/digital/resources/privacy-security/security/report-fraud
+    last_reviewed: 2026-10-15
+    data:
+      report_to: phishing@chase.com
+
   # TODO(M2): add Intuit (TurboTax/QuickBooks) and Credit Karma facts (official support
   # channels, payment policies) from their published security/phishing pages.

@@ -28,15 +28,20 @@ class Brand(BaseModel):
     # Tokens that only match as a whole word, e.g. "irs" (not inside "first") or
     # "intuit" (not inside "intuition"). Their neighbors must be other known words.
     boundary_tokens: list[str] = []
+    # Tokens that are ordinary words a single edit away from other ordinary words
+    # ("chase" vs. "phase", "chose"). They match literally or through lookalike
+    # characters, never by edit distance.
+    no_typo_tokens: list[str] = []
     # Registrable domains (Public Suffix List), matched exactly, never by substring.
     official_domains: list[str]
     sources: list[str] = []
 
     @model_validator(mode="after")
-    def _boundary_tokens_are_tokens(self) -> Brand:
-        unknown = set(self.boundary_tokens) - set(self.tokens)
-        if unknown:
-            raise ValueError(f"boundary_tokens not in tokens: {sorted(unknown)}")
+    def _token_options_are_tokens(self) -> Brand:
+        for field in ("boundary_tokens", "no_typo_tokens"):
+            unknown = set(getattr(self, field)) - set(self.tokens)
+            if unknown:
+                raise ValueError(f"{field} not in tokens: {sorted(unknown)}")
         return self
 
     @field_validator("official_domains")
@@ -91,6 +96,7 @@ class Keywords(BaseModel):
     stuffing_keywords: list[str]
     urgency_phrases: list[str]
     payment_methods: dict[str, list[str]]
+    payment_received_markers: list[str] = []
     sensitive_requests: dict[str, list[str]]
     threats: dict[str, list[str]]
     injection_phrases: list[str]

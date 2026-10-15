@@ -12,7 +12,8 @@ Detection is organized into **scam categories**, each backed by its own trusted 
 |---|---|---|
 | **Tax-season impersonation** | IRS, TurboTax, QuickBooks, Credit Karma | ✅ Baseline: 152 labeled samples |
 | **Package-delivery smishing** | USPS | ✅ 39 labeled samples |
-| Bank impersonation, account takeover, job, tech support | — | Planned, one at a time |
+| **Bank impersonation** | Chase, Bank of America, Wells Fargo | ✅ 39 labeled samples |
+| Account takeover, job, tech support | — | Planned, one at a time |
 
 A category isn't claimed as supported until it has sourced facts, hard negatives and its own reported metrics. The promise is "analyzes scam patterns and explains the evidence", not "knows every brand".
 
@@ -31,7 +32,19 @@ A category isn't claimed as supported until it has sourced facts, hard negatives
 
 No black-box answers. The LLM only **extracts features**. Deterministic rules produce the verdict, and every rule that fires appears in `reasons`.
 
-> **Status:** MVP complete (M0–M6), plus a Certificate Transparency watcher (P1) and a brand-agnostic core with a second scam category (G1). Text, URL, email and screenshot analysis work end to end, the security defenses below are implemented and tested, and accuracy is measured per category on held-out test splits ([Evaluation](#evaluation)). See [Roadmap](#roadmap).
+Every result also says **what to do next**. The advice is picked by the evidence and written from fixed templates, and it never repeats a link or phone number from the message:
+
+```json
+"next_steps": [
+  { "id": "dont_open_link_brand", "text": "Don't open the link in this message. It doesn't go to an official IRS website." },
+  { "id": "dont_share", "text": "Don't reply with or type in your Social Security number. Legitimate organizations don't ask for it this way." },
+  { "id": "contact_brand_with_phone", "text": "If you're worried, contact IRS yourself: type irs.gov into your browser, or call 1-800-829-1040. Don't use the contact details in this message.", "source": "https://www.irs.gov/help/telephone-assistance" },
+  { "id": "already_acted", "text": "If you already shared information or paid, contact your bank or card issuer right away, and change any password you gave out." },
+  { "id": "report_brand_text", "text": "Report it: send the details to phishing@irs.gov, and forward the text to 7726 (SPAM).", "source": "https://www.irs.gov/privacy-disclosure/report-phishing" }
+]
+```
+
+> **Status:** MVP complete (M0–M6), plus a Certificate Transparency watcher (P1) and a brand-agnostic core with a second scam category (G1) and a third, bank impersonation (G2), and "what should I do next?" advice on every result (E1). Text, URL, email and screenshot analysis work end to end, the security defenses below are implemented and tested, and accuracy is measured per category on held-out test splits ([Evaluation](#evaluation)). See [Roadmap](#roadmap).
 
 ---
 
@@ -46,6 +59,7 @@ ScamSentinel accepts hostile input by design: attacker-written text, phishing UR
 | **Malicious uploads** | Decompression bomb, polyglot PNG, oversized file, EXIF GPS data | Magic-byte allowlist, pixel limits read from the header, body-size cap. Images are never decoded locally: they're rebuilt byte by byte from display-critical chunks only, which strips metadata and appended payloads before the vision model sees them |
 | **Attacks on the local API** | A website in your browser POSTs to `127.0.0.1:8000` | Loopback-only bind, `Host` allowlist, no CORS, JSON-only POSTs, `Origin` check, rate limit |
 | **PII leakage** | A message contains a real SSN or card number | Redacted from responses, storage and logs; raw input never stored; 7-day retention |
+| **Advice turned against the user** | A scam says *"call 1-888-555-0143 to confirm"*, hoping the tool repeats it | Next steps come from fixed templates, and only official contacts from `data/facts.yaml` are filled in. A property-based test plants random scam domains and numbers, and another checks the advice for every eval sample |
 
 Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURITY.md).
 
@@ -60,7 +74,8 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 5. **Risk aggregator** ✅: combines module scores into one score, verdict, and list of reasons.
 6. **Evaluation harness** ✅: 191 labeled samples in two categories, with leak-free train/dev/test splits stratified by category, reporting precision, recall, F1 and false-positive rate per category, input type and brand, plus ablations.
 7. **Fact check for unknown organizations** ✅: when a message claims to be from an organization outside the curated categories ("Acme Bank"), an LLM is asked for that organization's official domains, and links that conflict with them are flagged. Because that answer is model knowledge, not a published source, it's labeled as such, worth fewer points, and **can only add risk**: a "matching" link never lowers the score. Needs a Groq key. See [`architecture.md` §17](architecture.md#17-fact-check-for-organizations-without-curated-facts).
-8. **Certificate Transparency watcher** ✅: polls crt.sh every 6 hours for new certificates whose names contain a brand token, scores each name with the domain engine, and lists the lookalikes at `GET /v1/ct/candidates`. It finds phishing domains before anyone reports them, and never visits them. See [`architecture.md` §15](architecture.md#15-certificate-transparency-watcher-p1).
+8. **"What should I do next?"** ✅: up to six short, cautious steps chosen by the evidence that fired: don't open the link, don't share what was asked for, don't pay (citing the organization's own payment policy when it has one), don't call the number, contact the organization through its official site and published number, and where to report it. Wording comes from `data/guidance.yaml` and contacts from `data/facts.yaml`, with sources. The LLM can't write or pick advice, and a "likely legitimate" result still says to verify through a channel you trust. Shown in the UI under "What to do next". See [`architecture.md` §18](architecture.md#18-what-should-i-do-next-e1).
+9. **Certificate Transparency watcher** ✅: polls crt.sh every 6 hours for new certificates whose names contain a brand token, scores each name with the domain engine, and lists the lookalikes at `GET /v1/ct/candidates`. It finds phishing domains before anyone reports them, and never visits them. See [`architecture.md` §15](architecture.md#15-certificate-transparency-watcher-p1).
 
 **Brand-agnostic core.** Brands, categories, trusted facts and phrase lists are data (`data/brands.yaml`, `facts.yaml`, `keywords.yaml`). The domain engine, LLM schema, verification checks, scoring floors and CT watcher all read them, so no code names a specific organization. See [`architecture.md` §16](architecture.md#16-scam-categories-and-the-brand-agnostic-core).
 
@@ -73,12 +88,13 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 | M0–M6 | MVP: domain engine, message analyzer + verification, aggregator + API, security hardening, screenshots, evaluation | ✅ |
 | P1 | Certificate Transparency watcher | ✅ |
 | G1 | Brand-agnostic core + scam categories; package delivery (USPS) as the second category | ✅ |
-| G2+ | One new category at a time (bank impersonation, account takeover, job scams, tech support), each with sourced facts, signals, synthetic samples and its own metrics | Planned |
-| E1–E4 | Explain and guide: "what should I do next?" advice, richer domain explanations, a fact-check summary, named scenarios per category | Planned |
+| G2 | Bank impersonation (Chase, Bank of America, Wells Fargo) | ✅ |
+| G3+ | One new category at a time (account takeover, job scams, tech support), each with sourced facts, signals, synthetic samples and its own metrics | Planned |
+| E1 | "What should I do next?" advice on every result | ✅ |
+| E2–E4 | Explain and guide: richer domain explanations, a fact-check summary, named scenarios per category | Planned |
 | P2–P4 | Page fetching with an SSRF guard, a Playwright sandbox, Docker packaging | Planned |
 
-The explain-and-guide items:
-- **"What should I do next?"**: short, cautious next steps based on the evidence found, e.g. *"Don't reply with personal information. Contact the organization using a number from its official website or your paperwork, not the message."* Advice never repeats or recommends links or numbers from the suspicious message.
+The remaining explain-and-guide items:
 - **Why a domain looks suspicious**, spelled out: the swapped characters, the brand misspelling, the misleading extra words.
 - **Fact-check summary**: which claims match, conflict with, or can't be checked against the trusted facts.
 - **Named scenarios** per category, such as refund delays, payment demands, identity verification, or "package on hold".
@@ -228,7 +244,22 @@ The delivery test split is **tiny** (7 samples): the 95% intervals are roughly 4
 - **A "returned to sender, call this number" text** lands in *suspicious* (55): no link, no data request, just an unverified callback number.
 - **`usps-postal-fee.top`** scores as "brand in label" (50): "postal" and "fee" aren't trust keywords.
 
-Reproduce: `python -m scamsentinel.eval --split test --category tax` (or `--category delivery`; omit it for everything; add `--report reports/eval-test.md` for a markdown report, and `--ablation full` for the LLM, cached in `var/eval.db`). Methodology: [`architecture.md` §10](architecture.md#10-evaluation-harness).
+### Bank impersonation (Chase, Bank of America, Wells Fargo)
+
+Measured 2026-10-15, rules only. 39 hand-written samples (21 scams, 18 legitimate), including hard negatives: real-style fraud alerts that ask only for a YES/NO reply, incoming-Zelle notices, one-time-code texts, statement emails, "chase" as a verb, and `purchase.edu` / `phaseone.com` (which contain "chase" or sit one letter from it). Two fixes were made on the dev split: a card named by its last four digits ("card ending in 4421") is no longer read as a request for card details, and a received Zelle payment isn't a payment demand. The test split was then run once.
+
+| Data | Precision | Recall | FPR | Triage recall | Triage FPR |
+|---|---|---|---|---|---|
+| Test split (6) | 100% (2/2) | 67% (2/3) | 0% (0/3) | 100% | 0% |
+| All samples (39) | 100% (18/18) | 86% (18/21) | 0% (0/18) | 95% | 11% |
+
+The test split is **tiny**, so treat it as a smoke test. What the numbers show:
+- **Sourced bank policies.** Bank of America and Wells Fargo publish that they never ask for passwords or one-time codes (Wells Fargo: "through email or text"), and Bank of America that it never asks you to send money to anyone. A new `request_policy` check cites those pages. Chase's security pages only say "legitimate banks" don't ask you to move money, so Chase has no policy facts yet and scores on message signals and domains.
+- **Brandless scams** ("Your bank account has been temporarily restricted…") land in *suspicious*, as in the other categories.
+- **Real fraud alerts that use scam vocabulary** ("Unusual activity was detected on your card…") reach *suspicious* (35). So does a merchant receipt that mentions a Chase card and links to the merchant: any brand mention counts as a claim to be that brand.
+- **"Did you try to send $500? Text back NO"**, with no link, code or payment request yet, scores as legitimate. That scam continues by phone.
+
+Reproduce: `python -m scamsentinel.eval --split test --category tax` (or `--category delivery` / `bank`; omit it for everything; add `--report reports/eval-test.md` for a markdown report, and `--ablation full` for the LLM, cached in `var/eval.db`). Methodology: [`architecture.md` §10](architecture.md#10-evaluation-harness).
 
 ---
 
