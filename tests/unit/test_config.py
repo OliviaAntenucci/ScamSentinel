@@ -37,6 +37,26 @@ def test_llm_key_follows_provider():
     assert s.llm_api_key is None
 
 
+@pytest.mark.parametrize(
+    "content",
+    [
+        "GROQ_API_KEY=gsk_from_file\n",
+        "﻿GROQ_API_KEY=gsk_from_file\n",  # UTF-8 with BOM (Notepad, some editors)
+        "# comment\nGROQ_API_KEY = gsk_from_file\n",
+        'GROQ_API_KEY="gsk_from_file"\r\n',
+        "SCAMSENTINEL_GROQ_API_KEY=gsk_from_file\n",
+    ],
+)
+def test_groq_key_loads_from_env_file(tmp_path, monkeypatch, content):
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("SCAMSENTINEL_GROQ_API_KEY", raising=False)
+    env_file = tmp_path / ".env"
+    env_file.write_bytes(content.encode("utf-8"))
+    settings = Settings(_env_file=env_file)
+    assert settings.llm_api_key is not None
+    assert settings.llm_api_key.get_secret_value() == "gsk_from_file"
+
+
 def test_empty_api_key_counts_as_missing():
     assert make(llm_provider="groq", groq_api_key="  ").llm_api_key is None
 

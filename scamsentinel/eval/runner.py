@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Literal
 
@@ -57,9 +59,23 @@ def build_service(settings: Settings, ablation: Ablation, db_path: Path) -> Anal
     return AnalysisService(engine=engine, analyzer=analyzer, scoring=scoring, store=store)
 
 
-def run(samples: list[Sample], service: AnalysisService) -> list[Prediction]:
+RATE_LIMITED = "llm_unavailable:rate_limited"
+
+
+def run(
+    samples: list[Sample],
+    service: AnalysisService,
+    *,
+    rate_limit_retries: int = 0,
+    rate_limit_wait: float = 20.0,
+    sleep: Callable[[float], None] = time.sleep,
+    progress: Callable[[str], None] | None = None,
+) -> list[Prediction]:
+    """Analyze each sample. With retries > 0, a sample whose LLM call was rate limited
+    (free-tier quotas) is retried after `rate_limit_wait` seconds instead of silently
+    being scored rules-only. Successful LLM results are cached, so retries are cheap."""
     predictions = []
-    for sample in samples:
+    for index, sample in enumerate(samples, 1):
         common = {
             "id": sample.id,
             "input_type": sample.input_type,
@@ -70,6 +86,14 @@ def run(samples: list[Sample], service: AnalysisService) -> list[Prediction]:
         request = AnalyzeRequest(**{_FIELD[sample.input_type]: sample.content})
         try:
             result = service.analyze(request)
+            for attempt in range(1, rate_limit_retries + 1):
+                if RATE_LIMITED not in result.degraded:
+                    break
+                if progress:
+                    wait = f"{rate_limit_wait:g}s"
+                    progress(f"  {sample.id}: rate limited, retry {attempt} in {wait}")
+                sleep(rate_limit_wait)
+                result = service.analyze(request)
         except InvalidHost as exc:
             # Counted as "not flagged", and listed in the report so it's visible.
             predictions.append(
@@ -88,4 +112,6 @@ def run(samples: list[Sample], service: AnalysisService) -> list[Prediction]:
                 degraded=result.degraded,
             )
         )
+        if progress and index % 10 == 0:
+            progress(f"  {index}/{len(samples)} samples")
     return predictions

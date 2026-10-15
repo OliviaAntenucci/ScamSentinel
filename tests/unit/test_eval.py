@@ -10,6 +10,8 @@ from scamsentinel.eval.dataset import Sample, assign_splits, load_samples, selec
 from scamsentinel.eval.metrics import STRICT, TRIAGE, Prediction, confusion
 from scamsentinel.eval.report import markdown, summary
 from scamsentinel.eval.runner import build_service, run
+from scamsentinel.message.features import MessageFeatures
+from scamsentinel.message.llm import LlmUnavailable
 from scamsentinel.models import Verdict
 
 DATASET = Path(__file__).resolve().parents[2] / "data" / "eval" / "samples.jsonl"
@@ -133,6 +135,44 @@ def test_runner_and_report_on_a_few_samples(settings, tmp_path):
     assert "## Overall" in report
     assert "| strict |" in report
     assert summary(predictions)["strict"]["n"] == len(predictions)
+
+
+class FlakyLlm:
+    """Rate limited for the first `failures` calls, then returns empty features."""
+
+    def __init__(self, failures: int):
+        self.failures = failures
+        self.calls = 0
+
+    def extract(self, text):
+        self.calls += 1
+        if self.calls <= self.failures:
+            raise LlmUnavailable("rate_limited")
+        return MessageFeatures()
+
+
+def test_rate_limited_samples_are_retried(make_service):
+    sample = next(s for s in SAMPLES if s.id == "t-s-001")
+    llm = FlakyLlm(failures=2)
+    waits: list[float] = []
+    [prediction] = run(
+        [sample], make_service(llm), rate_limit_retries=3, rate_limit_wait=5, sleep=waits.append
+    )
+    assert prediction.llm_used
+    assert prediction.degraded == []
+    assert waits == [5, 5]
+    assert llm.calls == 3
+
+
+def test_rate_limit_retries_are_bounded(make_service):
+    sample = next(s for s in SAMPLES if s.id == "t-s-001")
+    llm = FlakyLlm(failures=99)
+    [prediction] = run(
+        [sample], make_service(llm), rate_limit_retries=2, rate_limit_wait=1, sleep=lambda s: None
+    )
+    assert not prediction.llm_used
+    assert prediction.degraded == ["llm_unavailable:rate_limited"]
+    assert llm.calls == 3
 
 
 def test_no_verify_ablation_zeroes_verification(settings, tmp_path):

@@ -14,7 +14,7 @@ from scamsentinel.config import get_settings
 from scamsentinel.eval.dataset import load_samples, select
 from scamsentinel.eval.metrics import STRICT, TRIAGE, confusion
 from scamsentinel.eval.report import markdown, pct, summary
-from scamsentinel.eval.runner import build_service, run
+from scamsentinel.eval.runner import RATE_LIMITED, build_service, run
 
 
 def main() -> None:
@@ -30,12 +30,29 @@ def main() -> None:
     parser.add_argument(
         "--db", type=Path, default=Path("var/eval.db"), help="SQLite file for the LLM cache"
     )
+    parser.add_argument(
+        "--rate-limit-retries", type=int, default=3,
+        help="retries per sample when the LLM is rate limited (free-tier quotas)",
+    )
+    parser.add_argument(
+        "--rate-limit-wait", type=float, default=20.0, help="seconds to wait before a retry"
+    )
     args = parser.parse_args()
 
     settings = get_settings()
     samples = select(load_samples(args.data), args.split)
     service = build_service(settings, args.ablation, args.db)
-    predictions = run(samples, service)
+    retries = args.rate_limit_retries if args.ablation != "rules_only" else 0
+    predictions = run(
+        samples,
+        service,
+        rate_limit_retries=retries,
+        rate_limit_wait=args.rate_limit_wait,
+        progress=lambda line: print(line, flush=True),
+    )
+    rate_limited = sum(RATE_LIMITED in p.degraded for p in predictions)
+    if rate_limited:
+        print(f"warning: {rate_limited} samples were still rate limited and scored rules-only")
 
     llm_calls = sum(p.llm_used for p in predictions)
     llm = (

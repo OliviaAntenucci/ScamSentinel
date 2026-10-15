@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="SCAMSENTINEL_",
         env_file=".env",
+        # utf-8-sig: accept UTF-8 with or without a byte-order mark. Without an explicit
+        # encoding, Windows reads .env in the locale code page, and a BOM turns the first
+        # variable name into "ï»¿GROQ_API_KEY", silently dropping the key.
+        env_file_encoding="utf-8-sig",
         extra="ignore",
         populate_by_name=True,
     )
