@@ -118,7 +118,7 @@ class MessageAnalyzer:
         max_chars: int = 20_000,
     ) -> None:
         self._rules = RuleExtractor(keywords)
-        self._verifier = Verifier(brands, facts, engine)
+        self._verifier = Verifier(brands, facts, engine, keywords.entity_mentions)
         self._message_points = message_points
         self._verify_points = verify_points
         self._llm = llm

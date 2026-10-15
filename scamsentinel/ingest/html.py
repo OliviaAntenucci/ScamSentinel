@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from html.parser import HTMLParser
 
+from scamsentinel.ingest.urls import refang
+
 _SKIP = frozenset({"script", "style", "head", "template", "noscript"})
 _BLOCK = frozenset(
     {"p", "div", "br", "li", "tr", "td", "h1", "h2", "h3", "h4", "h5", "h6", "table", "hr"}
@@ -24,9 +26,10 @@ class _TextAndLinks(HTMLParser):
         elif tag in _BLOCK:
             self.parts.append("\n")
         if tag == "a":
-            href = (dict(attrs).get("href") or "").strip()
             # The visible text of a link can say irs.gov while the href goes elsewhere,
-            # so the real targets are collected separately.
+            # so the real targets are collected separately. Defanged hrefs (hxxps://…,
+            # common in pasted threat reports) are refanged first.
+            href = refang((dict(attrs).get("href") or "").strip())
             if href.lower().startswith(("http://", "https://")):
                 self.links.append(href)
 

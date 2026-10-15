@@ -16,6 +16,7 @@ from scamsentinel.domain.normalize import InvalidHost
 from scamsentinel.ingest.email import ParsedEmail
 from scamsentinel.ingest.phones import normalize_phone
 from scamsentinel.message.features import MessageFeatures
+from scamsentinel.message.rules import phrase_pattern
 from scamsentinel.models import InputType
 
 CheckName = Literal[
@@ -46,10 +47,22 @@ class CheckResult(BaseModel):
 
 
 class Verifier:
-    def __init__(self, brands: list[Brand], facts: list[Fact], engine: DomainEngine) -> None:
+    def __init__(
+        self,
+        brands: list[Brand],
+        facts: list[Fact],
+        engine: DomainEngine,
+        entity_mentions: dict[str, list[str]] | None = None,
+    ) -> None:
         self._brands = {b.name: b for b in brands}
         self._facts = facts
         self._engine = engine
+        # How each brand is named in a sender's display name ("IRS", "Internal Revenue
+        # Service", "Intuit", ...), falling back to the brand name itself.
+        mentions = entity_mentions or {}
+        self._display_patterns = {
+            name: phrase_pattern([name, *mentions.get(name, [])]) for name in self._brands
+        }
 
     def run(
         self,
@@ -68,7 +81,7 @@ class Verifier:
             checks += self._payment_policy(entity, features)
             checks += self._phone_numbers(entity, features.claimed_phone_numbers)
         if email is not None:
-            checks += self._sender_alignment(entity, email)
+            checks += self._sender_alignment(email)
         return checks
 
     # --- checks ---------------------------------------------------------------------
@@ -174,9 +187,12 @@ class Verifier:
             )
         return checks
 
-    def _sender_alignment(self, entity: str | None, email: ParsedEmail) -> list[CheckResult]:
+    def _sender_alignment(self, email: ParsedEmail) -> list[CheckResult]:
         checks = []
         from_registrable = self._registrable(email.from_domain)
+        # Only a sender that *presents itself* as a brand is checked against that brand's
+        # domains. A friend's email that merely mentions TurboTax isn't impersonation.
+        entity = self._brand_in_display(email.from_display)
 
         if entity and from_registrable:
             brand = self._brands[entity]
@@ -223,6 +239,14 @@ class Verifier:
         return checks
 
     # --- helpers --------------------------------------------------------------------
+
+    def _brand_in_display(self, display: str | None) -> str | None:
+        if not display:
+            return None
+        for name, pattern in self._display_patterns.items():
+            if pattern.search(display):
+                return name
+        return None
 
     def _facts_with(self, entity: str, key: str) -> list[Fact]:
         return [f for f in self._facts if f.entity == entity and key in f.data]
