@@ -74,7 +74,8 @@ scamsentinel/
   pipeline.py     # orchestrator: ingest -> domain/message -> verify -> aggregate
   api/            # FastAPI app, routes, request schemas, middleware
   ingest/         # eml parsing, html→text, URL extraction (incl. defanged)
-  domain/         # registrable-domain parsing, homoglyphs, distance, keywords, scorer
+  domain/         # registrable-domain parsing, homoglyphs, distance, keywords, scorer;
+                  #   explain.py (E2): how a lookalike imitates its brand
   message/        # feature schema, rule extractor, LLM extractor, merger
   verify/         # trusted-facts checks
   ocr/            # vision.py: Groq vision transcriber + cache
@@ -367,7 +368,7 @@ The CT tables (`ct/store.py`) live in the same file. They hold public certificat
 
 ## 14. Post-MVP roadmap
 
-Built only after the MVP works end to end and has evaluation numbers. Done: P1 (CT watcher), G1 (brand-agnostic core + delivery category), G2 (bank impersonation), E1 (next steps). Next: G3+ (one category at a time) and E2–E4, then P2 → P3 → P4.
+Built only after the MVP works end to end and has evaluation numbers. Done: P1 (CT watcher), G1 (brand-agnostic core + delivery category), G2 (bank impersonation), E1 (next steps), E2 (domain explanations). Next: G3+ (one category at a time) and E3–E4, then P2 → P3 → P4.
 
 ### Scam categories (G1 ✅, G2 ✅, G3+)
 
@@ -380,7 +381,7 @@ ScamSentinel's angle is being an explainable checker that runs locally and shows
 | Phase | What | Notes |
 |---|---|---|
 | **E1** ✅ | **"What should I do next?"** (built: see [§18](#18-what-should-i-do-next-e1)) | Each result gets a short, cautious `next_steps[]` list, chosen from fixed templates by the evidence that fired. Examples: a sensitive-data request → "Don't reply with personal information"; an IRS or brand impersonation → "Contact the agency using a number from its official website or your paperwork, not the one in the message"; a gift-card or crypto demand → "The IRS doesn't take payment this way. Don't pay." Official contact details come only from `data/facts.yaml`, with sources. **Links and phone numbers found in the analyzed message are never repeated, opened or recommended.** Advice is worded cautiously and never promises safety; a `likely_legitimate` verdict still says to verify through a channel you already trust. Shown in the UI below the verdict. |
-| **E2** | **Richer domain explanations** | Today each domain technique carries a one-line `detail`. Add a structured explanation of *what* differs from the real brand: the swapped characters (`0` for `o`, Cyrillic `і` for `i`), the misspelling (`turbotxa` vs. `turbotax`), the misleading extra words (`-refund-secure`), or the real owner of a brand-in-subdomain URL. Built from data the engine already computes (skeleton, edit operations, keywords, PSL split). |
+| **E2** ✅ | **Richer domain explanations** (built: see [§19](#19-richer-domain-explanations-e2)) | Before E2, each domain technique carried only a one-line `detail`. Add a structured explanation of *what* differs from the real brand: the swapped characters (`0` for `o`, Cyrillic `і` for `i`), the misspelling (`turbotxa` vs. `turbotax`), the misleading extra words (`-refund-secure`), or the real owner of a brand-in-subdomain URL. Built from data the engine already computes (skeleton, edit operations, keywords, PSL split). |
 | **E3** | **Fact-check summary** | The verification layer already evaluates every check as matched / conflicts / can't verify (`CheckResult.verified`), but only failures and mitigations reach the response, as reasons. Expose the full list as `fact_checks[]`: each claim in the message, the trusted fact it was compared with, the outcome, and the fact's source and last-reviewed date. Shown in the UI as a matches / conflicts table. |
 | **E4** | **Named scenarios per category** | Recognize named scenarios, such as (tax) refund delay or "refund on hold", balance due or payment demand, identity verification, fake tax-prep or "IRS agent" offers, and (delivery) "package on hold", incomplete address, redelivery fee. Each scenario is a rule over existing signals in a new `data/scenarios.yaml` with a plain-language description and its own E1 next steps. Reported as `scenario` on the result (0 points: it explains the score and doesn't change it). New scenarios are added over time as data, each with eval samples. |
 
@@ -546,3 +547,41 @@ Edit `data/guidance.yaml`. To add a step, add a template and the rule that picks
 - Advice follows the evidence, so it's only as good as the signals: a scam that the rules miss gets the mild "verify" step.
 - Brands without a published phone number or report address get the generic contact and FTC reporting steps (TurboTax, QuickBooks and Credit Karma have none yet).
 - English and US-only: 7726 and ReportFraud.ftc.gov are US channels.
+
+---
+
+## 19. Richer domain explanations (E2)
+
+A technique name like `homoglyph` or `typosquat` says *that* a domain imitates a brand. It doesn't say *how*, and "how" is what lets someone spot the next one themselves. Every non-official domain that scores against a brand now carries an `explanation`, built from data the engine already computes. It changes no score.
+
+```
+DomainEngine.score("turb0tax-refund.com")
+  techniques that fired for the winning brand ─▶ _explain()   (domain/explain.py)
+    homoglyph          ─▶ align label and brand token through their skeletons ─▶ swapped_characters
+    typosquat          ─▶ closest part of the label, as written ─▶ misspelled + spelling_edits
+    brand or misspelling present ─▶ trust keywords left over   ─▶ extra_words
+    brand_in_subdomain ─▶ the registrable domain               ─▶ real_owner
+    tld_swap           ─▶ the suffix                           ─▶ wrong_ending
+  ─▶ summary[]: plain-language lines built only from the fields above
+```
+
+| Field | Example | How it's found |
+|---|---|---|
+| `swapped_characters` | `turb0tax` → `0` instead of `o`; `bankofarnerica` → `rn` instead of `m`; `turbоtax` → Cyrillic `о` instead of `o` (with its Unicode name) | `Normalizer.segments()` splits the label and the brand token into (characters, skeleton) pairs, including multi-character classes like `rn` → `m`. The two are aligned where their skeletons meet, and each aligned chunk that reads differently is a swap. If the segments don't reproduce the engine's skeleton exactly, no swaps are reported rather than wrong ones |
+| `misspelled`, `spelling_edits` | `turbotxa`: `a` and `x` swapped; `quickbook`: a missing `s`; `turbotaxx`: an extra `x`; `turbotzx`: `z` instead of `a` | The hyphen-separated part (or window) of the label closest to the brand token, compared as written rather than skeletonized. A Damerau-Levenshtein backtrace gives `swapped`, `replaced`, `extra` and `missing` edits |
+| `extra_words` | `turbotax-refund-secure` → refund, secure | Stuffing keywords left after removing the brand (or its misspelling), with hyphens kept as word breaks |
+| `real_owner` | `turbotax.com.evil.net` → evil.net | The registrable domain from the Public Suffix List split |
+| `wrong_ending` | `turbotax.net` → .net (real: turbotax.com) | The suffix of a tld_swap |
+
+`summary` always ends with the brand's official sites. A domain that only uses the brand name ("myturbotaxfiling.com") gets "Uses the TurboTax name, but … is not a TurboTax domain."
+
+**Where it appears.** On every `DomainResult` (so `GET /v1/domain/score` returns it), and on analysis results as `domain_explanations[]`: one per lookalike registrable domain, highest score first, at most five. The UI shows them under "Why the link looks fake". Official and unrelated domains get none.
+
+**Safety.** The domain is attacker-chosen. Explanations quote it as plain text: the UI renders them with `textContent` and never as a link, and they go through the same SSN/card redaction as reasons (a hostname can carry digits). Only data the engine computed is used; nothing is fetched or resolved.
+
+**Tests:** `tests/unit/test_domain_explain.py` covers each field, punycode input, the summary wording (including the README example), official and clean domains getting none, results and redaction, and fuzzes the character alignment.
+
+**Limitations.**
+- The explanation describes the winning brand only. A domain that imitates two brands is explained for the higher-scoring one.
+- A label that is both misspelled *and* uses lookalike characters may get only one of the two explanations: the misspelling is found on the label as written, the swaps on the skeleton.
+- The engine's own reason text still finds keywords with hyphens removed, so `turbotax-refund-secure` is reported there as "refunds, secure" ("refund" plus the "s" of "secure"). The explanation keeps hyphens and gets it right. Fixing the reason text is left alone because it could change scores.

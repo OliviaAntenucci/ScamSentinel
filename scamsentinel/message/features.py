@@ -54,6 +54,9 @@ ThreatType = Literal[
     "refund_loss",
     "delivery_hold",
     "suspicious_activity",
+    "access_loss",
+    "device_infected",
+    "job_offer_loss",
     "penalty",
     "legal_action",
 ]

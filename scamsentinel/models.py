@@ -8,6 +8,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from scamsentinel.domain.explain import DomainExplanation
+
 InputType = Literal["text", "url", "email", "image"]
 
 
@@ -69,3 +71,5 @@ class AnalysisResult(BaseModel):
     disagreements: list[str] = []
     # "What should I do next?", most important first.
     next_steps: list[NextStep] = []
+    # How each lookalike link imitates a brand (E2), highest-scoring domain first.
+    domain_explanations: list[DomainExplanation] = []

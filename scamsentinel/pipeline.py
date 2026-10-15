@@ -13,11 +13,12 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
-from scamsentinel.aggregate.aggregator import aggregate
+from scamsentinel.aggregate.aggregator import MAX_DOMAINS_IN_REASONS, aggregate
 from scamsentinel.api.schemas import AnalyzeRequest
 from scamsentinel.config import Settings
 from scamsentinel.data import ScoringConfig, load_scoring
 from scamsentinel.domain.engine import DomainEngine, DomainResult, get_engine
+from scamsentinel.domain.explain import DomainExplanation
 from scamsentinel.domain.normalize import InvalidHost
 from scamsentinel.guidance.next_steps import NextStepsGuide
 from scamsentinel.ingest.email import parse_eml
@@ -201,6 +202,7 @@ class AnalysisService:
                 if self._guide
                 else []
             ),
+            domain_explanations=_explanations(domains),
         )
         # SSN/card numbers quoted as evidence never reach the response, disk or logs.
         analysis = redact_result(analysis)
@@ -231,3 +233,12 @@ class AnalysisService:
                 seen.add(result.host)
                 results.append(result)
         return results
+
+
+def _explanations(domains: list[DomainResult]) -> list[DomainExplanation]:
+    """One explanation per lookalike registrable domain, highest score first (E2)."""
+    explained: dict[str, DomainExplanation] = {}
+    for d in sorted(domains, key=lambda d: d.score, reverse=True):
+        if d.explanation is not None and d.registrable not in explained:
+            explained[d.registrable] = d.explanation
+    return list(explained.values())[:MAX_DOMAINS_IN_REASONS]

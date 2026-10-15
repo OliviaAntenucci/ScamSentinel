@@ -37,6 +37,27 @@ _REPLY = re.compile(r"(?<!\w)(?:reply|respond|text back)(?!\w)", re.IGNORECASE)
 # 4829") is what a real one-time-code text looks like; it isn't a request for one.
 # Both are used with pattern.match(text, pos), which anchors at pos (a "^" wouldn't).
 _CODE_DELIVERED = re.compile(r"[^.!?\n]{0,30}?(?:\bis|:)\s*\d{4,8}\b", re.IGNORECASE)
+# The same with the code first: "G-482913 is your Google verification code", "Use 4829 as
+# Microsoft account security code". Searched in the text just before the match. Digits
+# right after a hyphen are excluded so a phone number ("555-0143 is your") doesn't count.
+_CODE_BEFORE = re.compile(
+    r"(?<![\d-])(?:[A-Z]-)?\d{4,8}\s+(?:is\s+your|is\s+the|as\s+(?:your\s+)?)[^.!?\n\d]{0,40}$",
+    re.IGNORECASE,
+)
+# A password mentioned without being asked for: one that changed or expires ("your password
+# was changed", "your password expires today"), or what someone else did or should do with
+# it ("someone knows your password", "reset your password in the app"). A lure to reset it
+# still scores through its link and threat; it just isn't a request for the password.
+_PASSWORD_STATE = re.compile(
+    r"\s+(?:(?:was|were|has\s+been|have\s+been|is|will(?:\s+be)?)\s+)?"
+    r"(?:changed|reset|updated|expire[sd]?|expiring|manager)\b",
+    re.IGNORECASE,
+)
+_PASSWORD_ACTION = re.compile(
+    r"\b(?:reset|change|changed|forgot|forgotten|knows|recover|create|update)\s+"
+    r"(?:your\s+|the\s+|a\s+(?:new\s+)?)?(?:\w+\s+)?$",
+    re.IGNORECASE,
+)
 # "Your debit card ending in 4421" refers to a card by its last digits, the way banks do;
 # it doesn't ask for the card details.
 _MASKED_REFERENCE = re.compile(r"\s*(?:ending|that ends|which ends)\s+(?:in|with)\s+\d{4}\b")
@@ -165,9 +186,14 @@ class RuleExtractor:
 
 
 def _not_a_request(key: str, text: str, m: re.Match[str]) -> bool:
-    """A code being delivered, or a card or account named by its last four digits."""
+    """A code being delivered, a password mentioned but not asked for, or a card or account
+    named by its last four digits."""
     if key == "mfa_code":
-        return bool(_CODE_DELIVERED.match(text, m.end()))
+        before = text[max(0, m.start() - 60) : m.start()]
+        return bool(_CODE_DELIVERED.match(text, m.end()) or _CODE_BEFORE.search(before))
+    if key == "password":
+        before = text[max(0, m.start() - 40) : m.start()]
+        return bool(_PASSWORD_STATE.match(text, m.end()) or _PASSWORD_ACTION.search(before))
     if key in ("card", "bank_account"):
         return bool(_MASKED_REFERENCE.match(text, m.end()))
     return False

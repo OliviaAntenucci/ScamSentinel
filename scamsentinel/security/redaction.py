@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import re
+from typing import Any
 
 from scamsentinel.models import AnalysisResult
 
@@ -41,7 +42,8 @@ def redact(text: str) -> str:
 
 
 def redact_result(result: AnalysisResult) -> AnalysisResult:
-    """Copy of `result` with SSN/card numbers removed from every reason."""
+    """Copy of `result` with SSN/card numbers removed from every reason and every domain
+    explanation (a hostname can carry digits too)."""
     reasons = [
         r.model_copy(
             update={
@@ -51,7 +53,20 @@ def redact_result(result: AnalysisResult) -> AnalysisResult:
         )
         for r in result.reasons
     ]
-    return result.model_copy(update={"reasons": reasons})
+    explanations = [
+        type(e).model_validate(_redact_strings(e.model_dump())) for e in result.domain_explanations
+    ]
+    return result.model_copy(update={"reasons": reasons, "domain_explanations": explanations})
+
+
+def _redact_strings(value: Any) -> Any:
+    if isinstance(value, str):
+        return redact(value)
+    if isinstance(value, list):
+        return [_redact_strings(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _redact_strings(v) for k, v in value.items()}
+    return value
 
 
 class RedactingFilter(logging.Filter):

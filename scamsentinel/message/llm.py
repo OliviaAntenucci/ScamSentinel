@@ -29,7 +29,8 @@ from scamsentinel.store import Store
 
 # v2: the impersonated-entity list comes from data/brands.yaml; "delivery_hold" threat.
 # v3: "suspicious_activity" threat (bank category); PINs and access codes named explicitly.
-PROMPT_VERSION = "v3"
+# v4: "access_loss", "device_infected" and "job_offer_loss" threats (G3 categories).
+PROMPT_VERSION = "v4"
 GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
 # Models that support Groq's strict (constrained-decoding) JSON schema mode.
 # Others get JSON-object mode and rely on our own validation.
@@ -78,7 +79,11 @@ message claims to be from. Use "other" for an organization not in the list.
 "span": quote}}
 - threats: [{{"type": one of {threats}; "span": quote}}]. "delivery_hold" means a package \
 is said to be held, undeliverable or about to be returned. "suspicious_activity" means an \
-account or card is said to show suspicious, unusual or unauthorized activity.
+account or card is said to show suspicious, unusual or unauthorized activity. \
+"access_loss" means a password is said to expire or an account to be deleted, closed or \
+lost. "device_infected" means a computer or phone is said to be infected, locked or hacked. \
+"job_offer_loss" means a job offer or position is said to be withdrawn or given to someone \
+else.
 - injection_attempt: {{"detected": boolean, "span": quote}}
 """
 

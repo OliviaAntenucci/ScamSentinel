@@ -22,6 +22,21 @@ categories:
       Bank impersonation: fake fraud alerts and "confirm this charge" texts that push a
       lookalike sign-in page, ask for one-time codes or passwords, or talk you into
       moving money "to protect it" (often to yourself through Zelle).
+  account_takeover:
+    description: >-
+      Account takeover: fake sign-in alerts, "your password expires today" and "your
+      account will be deleted" notices that push a lookalike sign-in page or ask for the
+      password or a one-time code of the email and cloud accounts that reset everything else.
+  tech_support:
+    description: >-
+      Tech-support scams: fake virus warnings, locked-computer pop-ups and "call this
+      number" alerts posing as Microsoft, which end in remote access, a password or card
+      request, or payment for "support" in gift cards or cryptocurrency.
+  job:
+    description: >-
+      Job scams: fake recruiters and offers, often in a real company's name, that ask for
+      an upfront fee, payment for equipment, or an SSN, ID photo or bank details before
+      any real interview.
 
 brands:
   - name: IRS
@@ -83,3 +98,45 @@ brands:
     tokens: [wellsfargo]
     official_domains: [wellsfargo.com]
     sources: [https://www.wellsfargo.com/]
+
+  # Google's other services (googleapis.com, googleusercontent.com, country sites such as
+  # google.co.uk) aren't listed: anyone can host pages on the first two, and the country
+  # sites would need a sourced list. Links to them score as unofficial.
+  - name: Google
+    category: account_takeover
+    tokens: [google, gmail]
+    official_domains: [google.com, gmail.com]
+    sources: [https://www.google.com/]
+
+  # "apple" is an ordinary word: whole word only ("pineapple" is not Apple), and never
+  # matched by edit distance ("apply" and "ample" are one letter away). "appleid" is its
+  # own token because "id" is too short to be a stuffing keyword.
+  - name: Apple
+    category: account_takeover
+    tokens: [apple, appleid, icloud]
+    boundary_tokens: [apple]
+    no_typo_tokens: [apple]
+    official_domains: [apple.com, icloud.com]
+    sources: [https://www.apple.com/]
+
+  # "outlook" is an ordinary word ("the weather outlook"), so it's whole word only and
+  # never matched by edit distance. live.com hosts Microsoft account sign-in
+  # (login.live.com), microsoftonline.com work and school sign-in.
+  - name: Microsoft
+    category: tech_support
+    tokens: [microsoft, outlook, hotmail, onedrive]
+    boundary_tokens: [outlook]
+    no_typo_tokens: [outlook]
+    official_domains:
+      [microsoft.com, live.com, outlook.com, office.com, microsoftonline.com, hotmail.com]
+    sources: [https://www.microsoft.com/]
+
+  # "indeed" is an ordinary word ("Indeed, the meeting moved"), so it's whole word only,
+  # never matched by edit distance, and only named-company forms count as a mention.
+  - name: Indeed
+    category: job
+    tokens: [indeed]
+    boundary_tokens: [indeed]
+    no_typo_tokens: [indeed]
+    official_domains: [indeed.com]
+    sources: [https://www.indeed.com/]

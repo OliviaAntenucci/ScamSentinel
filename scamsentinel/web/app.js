@@ -188,6 +188,24 @@ function renderNextSteps(steps) {
   }
 }
 
+function renderDomainExplanations(explanations) {
+  const box = document.querySelector("#domain-explanations");
+  const list = document.querySelector("#domain-explanations-list");
+  list.replaceChildren();
+  box.hidden = !explanations.length;
+  for (const explanation of explanations) {
+    // The domain is attacker-chosen: plain text only, never a link.
+    const item = document.createElement("div");
+    item.className = "domain-explanation";
+    addText(item, "span", "domain-name", explanation.domain);
+    const lines = document.createElement("ul");
+    lines.className = "domain-summary";
+    for (const line of explanation.summary ?? []) addText(lines, "li", "", line);
+    item.append(lines);
+    list.append(item);
+  }
+}
+
 function renderResult(result) {
   const verdicts = {
     likely_legitimate: ["Likely legitimate", "No major warning signs found", "legitimate"],
@@ -222,6 +240,7 @@ function renderResult(result) {
     notes.textContent = "";
   }
   renderNextSteps(result.next_steps ?? []);
+  renderDomainExplanations(result.domain_explanations ?? []);
   renderEvidence(result.reasons ?? []);
   resultSection.hidden = false;
   resultSection.scrollIntoView({ behavior: "smooth", block: "start" });

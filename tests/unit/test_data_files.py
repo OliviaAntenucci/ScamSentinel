@@ -20,16 +20,21 @@ def test_brands_load(settings):
     assert set(brands) == {
         "IRS", "TurboTax", "QuickBooks", "Credit Karma", "USPS",
         "Chase", "Bank of America", "Wells Fargo",
+        "Google", "Apple", "Microsoft", "Indeed",
     }
     assert "irs.gov" in brands["IRS"].official_domains
     assert brands["IRS"].boundary_tokens == ["irs"]
-    assert {b.category for b in brands.values()} == {"tax", "delivery", "bank"}
+    assert {b.category for b in brands.values()} == CATEGORIES
     assert brands["USPS"].category == "delivery"
     assert brands["Chase"].no_typo_tokens == ["chase"]
+    assert brands["Microsoft"].category == "tech_support"
+
+
+CATEGORIES = {"tax", "delivery", "bank", "account_takeover", "tech_support", "job"}
 
 
 def test_categories_load(settings):
-    assert set(load_categories(settings.data_dir)) == {"tax", "delivery", "bank"}
+    assert set(load_categories(settings.data_dir)) == CATEGORIES
 
 
 def test_no_typo_tokens_must_be_tokens():

@@ -44,6 +44,26 @@ stuffing_keywords:
   - fraud
   - card
   - transfer
+  # account takeover
+  - password
+  - recovery
+  - reset
+  - unlock
+  - auth
+  # tech support
+  - tech
+  - helpdesk
+  - windows
+  - antivirus
+  # job
+  - careers
+  - career
+  - jobs
+  - hiring
+  - recruiting
+  - recruitment
+  - recruiter
+  - staffing
 
 urgency_phrases:
   - immediately
@@ -127,6 +147,57 @@ threats:
     - unusual sign-in
     - unrecognized sign-in
     - unrecognized device
+  # Losing the account itself: the password-expiry and deletion lures of account takeover.
+  # "Storage is full" is left out: Google and Apple send real ones.
+  access_loss:
+    - password expires
+    - password will expire
+    - password has expired
+    - password is expiring
+    - password expiration
+    - account will be deleted
+    - account will be closed
+    - account will be terminated
+    - account will be disabled
+    - will be permanently deleted
+    - lose access to your account
+    - lose access to your email
+    - lose access to your mailbox
+  device_infected:
+    - virus detected
+    - viruses detected
+    - virus has been detected
+    - malware detected
+    - spyware detected
+    - trojan detected
+    - trojan virus
+    - trojan spyware
+    - computer is infected
+    - computer has been infected
+    - device is infected
+    - device has been infected
+    - pc is infected
+    - computer has been locked
+    - computer is locked
+    - computer has been blocked
+    - computer has been hacked
+    - device has been hacked
+    - phone has been hacked
+    - system has been compromised
+    - device has been compromised
+    - do not shut down
+    - do not restart your computer
+    - do not turn off your computer
+  job_offer_loss:
+    - offer will be withdrawn
+    - offer will be rescinded
+    - offer will be cancelled
+    - given to another candidate
+    - offered to another candidate
+    - secure your position
+    - secure the position
+    - lose this opportunity
+    - lose the position
 
 # Mentions of a protected brand in message text. Keys must match names in brands.yaml.
 entity_mentions:
@@ -152,6 +223,42 @@ entity_mentions:
     - chase security
   Bank of America: [bank of america, bankofamerica, bofa]
   Wells Fargo: [wells fargo, wellsfargo]
+  # Not "google" or "gmail" alone: "Google Play cards" is a payment demand and a gmail.com
+  # sender is just a personal address, not a claim to be Google. Same for hotmail.com
+  # and outlook.com under Microsoft.
+  Google:
+    - "google:"
+    - google account
+    - google security
+    - google support
+    - google team
+    - google workspace
+    - gmail account
+    - gmail team
+    - gmail security
+    - gmail support
+  # "apple" alone is also the fruit, and "Apple Pay" or "Apple Card" in a receipt is a
+  # payment, not a claim to be Apple.
+  Apple:
+    - "apple:"
+    - apple id
+    - apple account
+    - apple support
+    - apple security
+    - apple inc
+    - icloud
+  Microsoft: [microsoft, windows defender, onedrive, outlook account, outlook team]
+  # "indeed" alone is an ordinary word, so only forms that name the company.
+  Indeed:
+    - "indeed:"
+    - indeed recruiter
+    - indeed recruiting
+    - indeed hiring
+    - indeed talent
+    - indeed careers
+    - indeed team
+    - indeed hr
+    - indeed.com
 
 # A payment method, sensitive request or threat is ignored when one of these words appears
 # shortly before it in the same clause ("The IRS will never ask for your password").

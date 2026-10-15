@@ -156,6 +156,11 @@ textarea::placeholder { color: #b2b3bf; }
 .next-steps-list { margin: 0; padding: 10px 0 0 18px; color: var(--ink); font-size: 11px; line-height: 1.55; }
 .next-step { padding: 3px 0 3px 2px; overflow-wrap: anywhere; }
 .next-step::marker { color: var(--purple); font-weight: 700; }
+.domain-explanations { margin-bottom: 18px; }
+.domain-explanation { padding: 10px 0 2px; }
+.domain-name { display: block; color: var(--ink); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; font-weight: 700; overflow-wrap: anywhere; }
+.domain-summary { margin: 4px 0 0; padding-left: 18px; color: #626478; font-size: 10px; line-height: 1.55; }
+.domain-summary li { padding: 2px 0; overflow-wrap: anywhere; }
 .evidence-item { display: grid; grid-template-columns: 78px minmax(0,1fr) auto; gap: 10px; align-items: start; padding: 11px 0; border-bottom: 1px solid #f1f1f5; }
 .module-tag { width: fit-content; padding: 4px 6px; border-radius: 4px; background: #f2f1ff; color: #6964c7; font-size: 8px; font-weight: 700; text-transform: uppercase; }
 .evidence-detail { color: #626478; font-size: 10px; line-height: 1.55; overflow-wrap: anywhere; }

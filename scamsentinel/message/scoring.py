@@ -32,6 +32,9 @@ _LABELS = {
     "refund_loss": "losing your refund",
     "delivery_hold": "a held or undeliverable package",
     "suspicious_activity": "suspicious activity on your account",
+    "access_loss": "losing access to your account",
+    "device_infected": "an infected or hacked device",
+    "job_offer_loss": "losing a job offer",
     "penalty": "penalties",
     "legal_action": "legal action",
     # calls to action

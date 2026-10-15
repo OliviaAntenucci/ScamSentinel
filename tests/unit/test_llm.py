@@ -101,6 +101,8 @@ def test_entity_list_comes_from_configuration():
     assert '"USPS"' in system
     assert '"delivery_hold"' in system
     assert '"suspicious_activity"' in system
+    for threat in ("access_loss", "device_infected", "job_offer_loss"):
+        assert f'"{threat}"' in system
 
 
 def test_unknown_entity_becomes_other():

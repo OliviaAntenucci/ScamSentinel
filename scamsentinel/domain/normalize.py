@@ -116,3 +116,29 @@ class Normalizer:
         for src, dst in self._multi:
             s = s.replace(src, dst)
         return s
+
+    def segments(self, s: str) -> list[tuple[str, str]]:
+        """`s` split into (original characters, their skeleton) pairs, for explaining which
+        characters imitate which (E2). The skeletons normally concatenate to skeleton(s);
+        callers check that before relying on the alignment."""
+        segments: list[tuple[str, str]] = []
+        for c in s:
+            piece = self.fold(c).translate(self._single)
+            if not piece and segments:
+                # A combining mark folds to nothing: it belongs to the previous character.
+                segments[-1] = (segments[-1][0] + c, segments[-1][1])
+            else:
+                segments.append((c, piece))
+        for src, dst in self._multi:
+            merged: list[tuple[str, str]] = []
+            i = 0
+            while i < len(segments):
+                window = segments[i : i + len(src)]
+                if len(window) == len(src) and "".join(p for _, p in window) == src:
+                    merged.append(("".join(o for o, _ in window), dst))
+                    i += len(src)
+                else:
+                    merged.append(segments[i])
+                    i += 1
+            segments = merged
+        return segments

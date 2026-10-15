@@ -21,6 +21,12 @@ from rapidfuzz.distance import DamerauLevenshtein
 
 from scamsentinel.config import get_settings
 from scamsentinel.data import Brand, Keywords, load_brands, load_keywords, load_scoring
+from scamsentinel.domain.explain import (
+    DomainExplanation,
+    character_swaps,
+    spelling_edits,
+    summarize,
+)
 from scamsentinel.domain.normalize import (
     InvalidHost,
     Normalizer,
@@ -47,6 +53,8 @@ class DomainResult(BaseModel):
     # Registrable domain after IDN decoding + lookalike normalization, for explainability.
     normalized: str
     reasons: list[Reason] = []
+    # How the domain imitates `brand` (E2). Set only for a non-official domain that scored.
+    explanation: DomainExplanation | None = None
 
 
 @dataclass(frozen=True)
@@ -81,6 +89,7 @@ class DomainEngine:
         self._official: dict[str, str] = {}
         # Labels of official domains per brand ("irs" for irs.gov), for tld_swap.
         self._official_labels: dict[str, set[str]] = {}
+        self._brand_domains = {b.name: list(b.official_domains) for b in brands}
         for b in brands:
             for domain in b.official_domains:
                 self._official.setdefault(domain, b.name)
@@ -197,6 +206,12 @@ class DomainEngine:
             )
         ]
         normalized_label = self._norm.skeleton(ext.domain)
+        explanation = None
+        if best is not None and best.brand is not None and score > 0:
+            techniques = {h.technique for h in hits if h.brand == best.brand}
+            explanation = self._explain(
+                ext.domain, ext.suffix, registrable, best.brand, techniques
+            )
         return DomainResult(
             input=host_or_url,
             host=host,
@@ -207,7 +222,66 @@ class DomainEngine:
             techniques=list(dict.fromkeys(h.technique for h in fired)),
             normalized=f"{normalized_label}.{ext.suffix}" if ext.suffix else normalized_label,
             reasons=reasons,
+            explanation=explanation,
         )
+
+    # --- explanation (E2) -------------------------------------------------------------
+
+    def _explain(
+        self, label: str, suffix: str, registrable: str, brand: str, techniques: set[str]
+    ) -> DomainExplanation:
+        tokens = [t for t in self._tokens if t.brand == brand]
+        contained = [t for t in tokens if self._contains(t, label)]
+        e = DomainExplanation(
+            domain=registrable, brand=brand, official_domains=self._brand_domains[brand]
+        )
+        if "homoglyph" in techniques:
+            for tok in contained:
+                if swaps := character_swaps(self._norm, label, tok.raw):
+                    e.swapped_characters = swaps
+                    break
+        if "typosquat" in techniques and (found := self._misspelling(label, tokens)):
+            e.misspelled, e.spelling_edits = found
+        brand_part = (
+            contained[0].skel
+            if contained
+            else self._norm.skeleton(e.misspelled)
+            if e.misspelled
+            else None
+        )
+        if brand_part:
+            # Keep the hyphens as word breaks, so "refund-secure" isn't read as "refunds".
+            # A brand split by a hyphen ("turbo-tax") is only found once they're removed.
+            skel = self._norm.skeleton(label)
+            text = skel if brand_part in skel else skel.replace("-", "")
+            e.extra_words = self._keywords_in(text.replace(brand_part, " ", 1).replace("-", " "))
+        if "brand_in_subdomain" in techniques:
+            e.real_owner = registrable
+        if "tld_swap" in techniques:
+            e.wrong_ending = f".{suffix}"
+        e.summary = summarize(e, self._norm.literal(label))
+        return e
+
+    def _misspelling(self, label: str, tokens: list[_Token]):
+        """The part of the label that misspells a brand token, and the edits, as written
+        (not skeletonized, so "turbotxa" reads as typed)."""
+        literal = self._norm.literal(label)
+        parts = [p for p in literal.split("-") if p]
+        best: tuple[float, str, str] | None = None
+        for tok in tokens:
+            if not tok.typo:
+                continue
+            # Whole hyphen-separated parts first, so ties go to "turbotxa", not "turbotx".
+            for candidate in _windows([*parts, literal.replace("-", "")], len(tok.raw)):
+                distance = DamerauLevenshtein.distance(candidate, tok.raw)
+                if distance == 0:
+                    continue
+                normalized = distance / max(len(candidate), len(tok.raw))
+                if best is None or normalized < best[0]:
+                    best = (normalized, candidate, tok.raw)
+        if best is None or best[0] > TYPO_MAX_NORMALIZED_DISTANCE:
+            return None
+        return best[1], spelling_edits(best[1], best[2])
 
     # --- detectors ----------------------------------------------------------------
 

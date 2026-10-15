@@ -200,5 +200,125 @@ facts:
     data:
       report_to: phishing@chase.com
 
+  # --- account takeover -------------------------------------------------------------
+
+  - id: google_gmail_never_asks_password_by_email
+    entity: Google
+    statement: >-
+      Gmail won't ever ask you for personal information, like your password, over email.
+    source: https://support.google.com/mail/answer/8253
+    last_reviewed: 2026-10-15
+    data:
+      disallowed_requests: [password]
+      channels: [email]
+
+  - id: google_official_domains
+    entity: Google
+    statement: Google account and Gmail sites are on google.com and gmail.com.
+    source: https://www.google.com/
+    last_reviewed: 2026-10-15
+    data:
+      official_domains: [google.com, gmail.com]
+
+  - id: apple_never_asks_password_or_codes
+    entity: Apple
+    statement: >-
+      Apple will never ask you to log in to any website, or to provide your password,
+      device passcode, or two-factor authentication code or to enter it into any website.
+    source: https://support.apple.com/en-us/102568
+    last_reviewed: 2026-10-15
+    data:
+      disallowed_requests: [password, mfa_code]
+
+  - id: apple_official_domains
+    entity: Apple
+    statement: Official Apple websites are on apple.com; iCloud is on icloud.com.
+    source: https://www.apple.com/
+    last_reviewed: 2026-10-15
+    data:
+      official_domains: [apple.com, icloud.com]
+
+  - id: apple_report_phishing
+    entity: Apple
+    statement: Forward suspicious messages that claim to be from Apple to reportphishing@apple.com.
+    source: https://support.apple.com/en-us/102568
+    last_reviewed: 2026-10-15
+    data:
+      report_to: reportphishing@apple.com
+
+  # --- tech support -----------------------------------------------------------------
+  # The same page also says "Microsoft error and warning messages never include phone
+  # numbers." Nothing checks that yet: it's about pop-ups, which only arrive as screenshots.
+
+  - id: microsoft_no_unsolicited_support_contact
+    entity: Microsoft
+    statement: >-
+      Microsoft doesn't send unsolicited email messages or make unsolicited phone calls to
+      request personal or financial information, or to provide technical support.
+    source: https://support.microsoft.com/en-us/windows/protect-yourself-from-tech-support-scams-2ebf91bd-f94c-2a8a-e541-f5c800d18435
+    last_reviewed: 2026-10-15
+    data:
+      disallowed_first_contact_channels: [email]
+
+  - id: microsoft_no_crypto_or_gift_cards
+    entity: Microsoft
+    statement: >-
+      Microsoft will never ask that you pay for support in the form of cryptocurrency like
+      Bitcoin, or gift cards.
+    source: https://support.microsoft.com/en-us/windows/protect-yourself-from-tech-support-scams-2ebf91bd-f94c-2a8a-e541-f5c800d18435
+    last_reviewed: 2026-10-15
+    data:
+      disallowed_payment_methods: [crypto, gift_card]
+
+  - id: microsoft_never_asks_password_by_email
+    entity: Microsoft
+    statement: Microsoft will never ask for your password in email.
+    source: https://support.microsoft.com/en-us/help/12410
+    last_reviewed: 2026-10-15
+    data:
+      disallowed_requests: [password]
+      channels: [email]
+
+  - id: microsoft_official_domains
+    entity: Microsoft
+    statement: >-
+      Official Microsoft sites are on microsoft.com; Microsoft account sign-in is on live.com
+      and microsoftonline.com, and Outlook and Microsoft 365 on outlook.com, hotmail.com and
+      office.com.
+    source: https://www.microsoft.com/
+    last_reviewed: 2026-10-15
+    data:
+      official_domains:
+        [microsoft.com, live.com, outlook.com, office.com, microsoftonline.com, hotmail.com]
+
+  - id: microsoft_report_scam
+    entity: Microsoft
+    statement: Report tech-support scams to Microsoft at microsoft.com/reportascam.
+    source: https://support.microsoft.com/en-us/windows/protect-yourself-from-tech-support-scams-2ebf91bd-f94c-2a8a-e541-f5c800d18435
+    last_reviewed: 2026-10-15
+    data:
+      report_to: microsoft.com/reportascam
+
+  # --- job ----------------------------------------------------------------------------
+  # Indeed's recruitment-fraud notice is about people posing as Indeed's own recruiters.
+  # It also says Indeed "does not conduct interviews exclusively through text-based chat
+  # or email"; nothing checks that yet.
+
+  - id: indeed_never_asks_candidates_to_pay
+    entity: Indeed
+    statement: Indeed will never ask candidates to pay fees.
+    source: https://www.indeed.com/careers/recruitment-fraud
+    last_reviewed: 2026-10-15
+    data:
+      disallowed_payment_methods: [gift_card, crypto, wire, zelle, cash_app, venmo]
+
+  - id: indeed_official_domains
+    entity: Indeed
+    statement: All official Indeed recruiting emails come from email addresses ending in @indeed.com.
+    source: https://www.indeed.com/careers/recruitment-fraud
+    last_reviewed: 2026-10-15
+    data:
+      official_domains: [indeed.com]
+
   # TODO(M2): add Intuit (TurboTax/QuickBooks) and Credit Karma facts (official support
   # channels, payment policies) from their published security/phishing pages.
