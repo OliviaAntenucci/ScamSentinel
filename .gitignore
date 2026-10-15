@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+htmlcov/
+
+# Secrets / local config
+.env
+
+# Runtime data (SQLite DB, sandbox artifacts, uploads)
+var/
+
+# Eval outputs and raw downloaded datasets (may contain live phishing URLs)
+reports/
+data/eval/raw/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

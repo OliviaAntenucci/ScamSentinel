@@ -1,0 +1,45 @@
+# Scoring configuration (architecture.md §10). Tune on the DEV split only, never on test.
+
+# Renormalized over the modules that actually ran.
+weights:
+  domain: 0.40
+  message: 0.30
+  sandbox: 0.30
+
+# 0-29 likely_legitimate, 30-59 suspicious, 60-100 likely_scam
+bands:
+  suspicious: 30
+  likely_scam: 60
+
+# Minimum score when a high-confidence combination fires.
+floors:
+  credential_form_on_lookalike: 90
+  irs_unusual_payment_demand: 85
+  homoglyph_brand_domain: 80
+  injection_plus_scam_signal: 70
+
+# Max score when every URL is official and nothing sensitive or payment-related is requested.
+mitigating_cap: 40
+
+# Domain engine technique points (architecture.md §4).
+domain_points:
+  exact_brand_unofficial: 70
+  homoglyph: 85
+  typosquat_min: 60
+  typosquat_max: 80
+  brand_plus_keywords_base: 50
+  brand_plus_keywords_per_keyword: 10
+  brand_plus_keywords_cap: 90
+  brand_in_subdomain: 75
+  tld_swap: 65
+  idn_mixed_script_bonus: 15
+  new_registration_bonus: 10
+
+# Sandbox signal points (architecture.md §8).
+sandbox_points:
+  credential_form: 30
+  brand_on_unofficial_domain: 30
+  cross_domain_form_action: 15
+  redirect_chain: 10
+  new_certificate: 10
+  hidden_instructions: 15

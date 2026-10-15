@@ -1,0 +1,25 @@
+# Protected brands (SCOPE.md).
+# official_domains are REGISTRABLE domains (Public Suffix List) and are matched exactly,
+# never by substring or prefix, so turbotax.com.evil.net or irs.gov-refund.com never match.
+
+brands:
+  - name: IRS
+    tokens: [irs]
+    short_token: true # 3 letters: only matches as a whole token or next to tax keywords
+    official_domains: [irs.gov]
+    sources: [https://www.irs.gov/]
+
+  - name: TurboTax
+    tokens: [turbotax]
+    official_domains: [turbotax.com, intuit.com]
+    sources: [https://turbotax.intuit.com/]
+
+  - name: QuickBooks
+    tokens: [quickbooks]
+    official_domains: [quickbooks.com, intuit.com]
+    sources: [https://quickbooks.intuit.com/]
+
+  - name: Credit Karma
+    tokens: [creditkarma]
+    official_domains: [creditkarma.com]
+    sources: [https://www.creditkarma.com/]

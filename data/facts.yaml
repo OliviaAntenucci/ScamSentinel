@@ -1,0 +1,42 @@
+# Trusted facts for the verification layer (architecture.md §7).
+# Every fact needs a source and a last_reviewed date. Re-check sources before relying on them.
+
+facts:
+  - id: irs_no_unsolicited_digital_contact
+    entity: IRS
+    statement: >-
+      The IRS does not initiate contact with taxpayers by email, text message, or social
+      media to request personal or financial information.
+    source: https://www.irs.gov/privacy-disclosure/report-phishing
+    last_reviewed: 2026-10-14
+    data:
+      disallowed_first_contact_channels: [sms, email, social]
+
+  - id: irs_no_unusual_payment_methods
+    entity: IRS
+    statement: >-
+      The IRS does not demand immediate payment by gift card, prepaid debit card,
+      cryptocurrency, or wire transfer.
+    source: https://www.irs.gov/newsroom/tax-scams-consumer-alerts
+    last_reviewed: 2026-10-14
+    data:
+      disallowed_payment_methods: [gift_card, crypto, wire, zelle, cash_app, venmo]
+
+  - id: irs_official_domains
+    entity: IRS
+    statement: Official IRS websites are on irs.gov.
+    source: https://www.irs.gov/
+    last_reviewed: 2026-10-14
+    data:
+      official_domains: [irs.gov]
+
+  - id: irs_individual_phone
+    entity: IRS
+    statement: IRS individual taxpayer assistance line.
+    source: https://www.irs.gov/help/telephone-assistance
+    last_reviewed: 2026-10-14
+    data:
+      phone_numbers: ["+18008291040"]
+
+  # TODO(M2): add Intuit (TurboTax/QuickBooks) and Credit Karma facts (official support
+  # channels, payment policies) from their published security/phishing pages.

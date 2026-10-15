@@ -159,7 +159,7 @@ Variants: hidden text on a page (`display:none`, white-on-white, zero-width char
 |---|---|
 | Abuse as an attack proxy (using the detonator to scan or flood third parties) | Per-IP rate limits, one navigation per job, no form submission, no custom headers/methods/bodies from users |
 | Cost/DoS via LLM | Input caps, content-hash cache, one LLM call per input, per-IP quotas |
-| API exposed beyond the local machine | Uvicorn and the Docker port mapping bind to `127.0.0.1` only (`127.0.0.1:8000:8000`); startup refuses `0.0.0.0` unless explicitly overridden for tests |
+| API exposed beyond the local machine | Uvicorn and the Docker port mapping bind to `127.0.0.1` only (`127.0.0.1:8000:8000`); startup refuses any non-loopback address unless `SCAMSENTINEL_ALLOW_NON_LOOPBACK_BIND` is set, which only the API container does (inside it, uvicorn must listen on `0.0.0.0` for the port mapping to work) |
 | A malicious website in the user's own browser calling `http://127.0.0.1:8000` (DNS rebinding / cross-origin requests to localhost) | Reject requests whose `Host` header isn't `127.0.0.1:8000` or `localhost:8000`; no CORS headers; POST endpoints require `Content-Type: application/json` or `multipart/form-data` |
 | Captured page content interpreted as HTML (no UI, but a user might open an artifact in a browser) | API responds only with `application/json` or `image/png`; captured DOM text is returned as JSON strings, never as HTML; `X-Content-Type-Options: nosniff` on every response |
 | Leaking PII in logs | Redaction of SSN/card/phone patterns before logging; 7-day retention |

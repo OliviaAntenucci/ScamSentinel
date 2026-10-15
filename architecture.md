@@ -71,11 +71,15 @@ ScamSentinel is **API-only**. There is no web UI. It runs on the user's own comp
 
 ---
 
-## 3. Repository layout (planned)
+## 3. Repository layout
 
 ```
 scamsentinel/
-  api/            # FastAPI app, routes, request/response schemas
+  config.py       # Settings (env vars, localhost-only bind policy)
+  models.py       # Verdict, Reason, ModuleResult, AnalysisResult
+  data.py         # validated loaders for data/*.yaml and config/scoring.yaml
+  pipeline.py     # orchestrator: ingest -> modules -> verify -> aggregate
+  api/            # FastAPI app, routes, request/response schemas, middleware
   ingest/         # eml parsing, html→text, URL extraction (incl. defanged)
   domain/         # registrable-domain parsing, homoglyphs, distance, keywords, scorer
   ct/             # crt.sh client, scheduler, candidate store
@@ -86,6 +90,8 @@ scamsentinel/
   aggregate/      # weights, overrides, verdict bands, reason assembly
   security/       # url_guard.py, upload_guard.py, redaction.py (shared)
   eval/           # dataset loader, runner, metrics, ablations, report
+config/
+  scoring.yaml    # weights, bands, floors, technique/signal points
 data/
   brands.yaml     # protected brands, official domains, brand tokens
   keywords.yaml   # stuffing keywords, urgency phrases, payment methods
@@ -95,8 +101,10 @@ data/
 tests/
   unit/ integration/ security/
 docker/
-  sandbox.Dockerfile ocr.Dockerfile egress-proxy/
+  api.Dockerfile sandbox.Dockerfile ocr.Dockerfile egress-proxy/
 ```
+
+`confusables.txt` is added in M1.
 
 ---
 
