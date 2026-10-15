@@ -112,7 +112,7 @@ def make_analyzer(engine):
     data, config = REPO_ROOT / "data", REPO_ROOT / "config"
     scoring = load_scoring(config)
 
-    def factory(llm=None) -> MessageAnalyzer:
+    def factory(llm=None, org_facts=None) -> MessageAnalyzer:
         return MessageAnalyzer(
             keywords=load_keywords(data),
             brands=load_brands(data),
@@ -121,6 +121,7 @@ def make_analyzer(engine):
             message_points=scoring.message_points,
             verify_points=scoring.verify_points,
             llm=llm,
+            org_facts=org_facts,
         )
 
     return factory

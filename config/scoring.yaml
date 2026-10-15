@@ -62,3 +62,5 @@ verify_points:
   sender_brand_mismatch: 25
   reply_to_mismatch: 15
   sender_verified: -10
+  # From the LLM's knowledge, not a published source, so worth less and never mitigating.
+  org_domain_mismatch_unverified: 10

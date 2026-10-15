@@ -19,6 +19,7 @@ from scamsentinel.message.llm import CachedExtractor, build_extractor
 from scamsentinel.models import Verdict
 from scamsentinel.pipeline import AnalysisService
 from scamsentinel.store import Store
+from scamsentinel.verify.org_facts import build_org_fact_checker
 
 Ablation = Literal["full", "rules_only", "no_verify"]
 _FIELD = {"text": "text", "url": "url", "email": "email_raw"}
@@ -40,10 +41,12 @@ def build_service(settings: Settings, ablation: Ablation, db_path: Path) -> Anal
         )
 
     llm = None
+    org_facts = None
     if ablation != "rules_only":
         built = build_extractor(settings)
         if built is not None:
             llm = CachedExtractor(built, store, settings.llm_provider, settings.resolved_llm_model)
+        org_facts = build_org_fact_checker(settings, store)
 
     engine = get_engine(settings.data_dir, settings.config_dir)
     analyzer = MessageAnalyzer(
@@ -54,6 +57,7 @@ def build_service(settings: Settings, ablation: Ablation, db_path: Path) -> Anal
         message_points=scoring.message_points,
         verify_points=scoring.verify_points,
         llm=llm,
+        org_facts=org_facts,
         max_chars=settings.max_text_chars,
     )
     return AnalysisService(engine=engine, analyzer=analyzer, scoring=scoring, store=store)

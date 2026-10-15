@@ -169,7 +169,10 @@ Evaluation
          deterministic and unit-testable.
   NFR-6  Cost: at most one LLM call per input (two for a screenshot:
          transcription + feature extraction); responses are cached by
-         content hash. Works on Groq's free tier.
+         content hash. Works on Groq's free tier. Since G1, one more
+         call when a message names an organization without curated
+         facts and contains links (the organization fact check,
+         architecture.md section 17); cached by organization name.
   NFR-7  Abuse resistance: per-client rate limit (e.g. 30 analyses/min).
   NFR-8  Portability: runs in a Python virtual environment on a laptop.
          Nothing else to install; screenshots use a Groq vision model.

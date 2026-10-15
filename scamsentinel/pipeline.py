@@ -2,7 +2,8 @@
 
 MVP rule: URLs are only analyzed as strings. The pipeline never connects to a
 user-supplied URL, which removes SSRF by design (SECURITY.md T1). The only outbound
-calls go to the configured LLM provider.
+calls go to the configured LLM provider (feature extraction, screenshot transcription,
+and the fact check for organizations without curated facts).
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ from scamsentinel.security.image_sanitize import sanitize_image
 from scamsentinel.security.redaction import redact_result
 from scamsentinel.security.upload_guard import validate_image_upload
 from scamsentinel.store import Store
+from scamsentinel.verify.org_facts import OrgFactChecker, build_org_fact_checker
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +73,11 @@ class AnalysisService:
         settings: Settings,
         llm: FeatureExtractor | None = None,
         transcriber: Transcriber | None = None,
+        org_facts: OrgFactChecker | None = None,
     ) -> AnalysisService:
         store = Store(settings.db_path, settings.retention_days)
+        if org_facts is None:
+            org_facts = build_org_fact_checker(settings, store)
         if llm is None:
             built = build_extractor(settings)
             llm = (
@@ -82,7 +87,7 @@ class AnalysisService:
             )
         return cls(
             engine=get_engine(settings.data_dir, settings.config_dir),
-            analyzer=MessageAnalyzer.from_settings(settings, llm=llm),
+            analyzer=MessageAnalyzer.from_settings(settings, llm=llm, org_facts=org_facts),
             scoring=load_scoring(settings.config_dir),
             store=store,
             transcriber=transcriber or build_transcriber(settings, store),

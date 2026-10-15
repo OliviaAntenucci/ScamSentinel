@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the **MVP**, plus what has been built since: the Certificate Transparency watcher ([§15](#15-certificate-transparency-watcher-p1)) and the brand-agnostic core with scam categories ([§16](#16-scam-categories-and-the-brand-agnostic-core)). Planned work is in [§14 Post-MVP roadmap](#14-post-mvp-roadmap). Examples throughout use the tax category (the baseline); the same machinery serves every category.
+This document describes the **MVP**, plus what has been built since: the Certificate Transparency watcher ([§15](#15-certificate-transparency-watcher-p1)), the brand-agnostic core with scam categories ([§16](#16-scam-categories-and-the-brand-agnostic-core)), and the LLM fact check for organizations without curated facts ([§17](#17-fact-check-for-organizations-without-curated-facts)). Planned work is in [§14 Post-MVP roadmap](#14-post-mvp-roadmap). Examples throughout use the tax category (the baseline); the same machinery serves every category.
 
 ## 1. Design principles
 
@@ -452,3 +452,36 @@ New trust keywords are shared by every brand's domain scoring. Adding the delive
 - **Brandless scams** are the weak spot in every category: the strongest evidence (lookalike domains, fact checks, floors) depends on knowing which organization is being impersonated.
 - **Facts are uneven across brands.** The IRS has a published payment policy, so a gift-card demand hits the 85 floor; USPS has no equivalent sourced fact, so the same demand scores on message signals only.
 - **Short tokens** (`usps`, 4 letters) only get typosquat detection for an added character (`uspss`); a substituted letter (`uspz`) is below the edit-distance threshold.
+
+---
+
+## 17. Fact check for organizations without curated facts
+
+Curated categories cover a handful of organizations. When a message claims to come from **any other organization**, an LLM fact check fills part of the gap: it checks the message's links against the official domains the model knows for that organization.
+
+```
+LLM features: impersonated_entity = "other", span "Acme Bank"  (grounded: verbatim in the message)
+  and the message has links
+    ─▶ second LLM call (verify/org_facts.py): "Acme Bank" inside <untrusted_name_{nonce}>
+       ─▶ {known, canonical_name, official_domains[]}  (strict schema, strict validation)
+       ─▶ sanitize: plain registrable domains only; give up if the name contains one of them
+    ─▶ each link's registrable domain vs. those domains
+       conflict ─▶ reason org_domain_mismatch_unverified (+10), labeled "model knowledge"
+       match    ─▶ recorded (verified: null), 0 points
+```
+
+**Why it's fenced in.** Curated facts come from the organization's own published pages; this comes from a model's memory, and the organization name was written by the possible scammer. So:
+
+| Guard | What it prevents |
+|---|---|
+| Runs only for a grounded `other` entity, never for curated brands | The LLM overriding sourced facts, or inventing an organization that isn't in the message |
+| Name capped at 64 chars, sent in an unguessable delimiter as data | Instructions smuggled in through the name |
+| Strict schema + strict Pydantic validation; domains must be plain registrable domains | Malformed or coerced replies |
+| No answer used if the name contains any returned domain | "Acme Bank (acme-secure-login.com)" talking the model into echoing the attacker's domain |
+| **Risk-only:** a match earns nothing, only a conflict adds points | A wrong or manipulated answer can at most suppress one 10-point reason; it can never make a scam look legitimate |
+| Fewer points than sourced checks (10 vs. 20), no floor depends on it, detail says "according to the model's knowledge, not a published source" | Overweighting unverified evidence |
+| Cached 7 days in the LLM cache table (keyed by provider, model, prompt version, name); failures aren't cached and show as `degraded: ["org_fact_check_unavailable:<reason>"]` | Repeat cost; silent failure |
+
+**Cost and switches.** One extra Groq call, only for messages that name an uncurated organization *and* contain links. Off without a Groq key, or with `SCAMSENTINEL_ORG_FACT_CHECK=false`. `/healthz` reports its state. Rules-only mode never runs it. In the eval harness it runs only with `--ablation full`.
+
+**Limitations.** The model's knowledge can be outdated or wrong, and it doesn't know small or local organizations (`known: false` → no check). Legitimate organizations often link to third-party domains (email services, payment processors, link trackers), so a conflict is "suspicious", not proof; that's why it's worth only 10 points. Email sender domains aren't checked against the model's answer, for the same reason. It isn't included in the published metrics yet, because those are rules-only.

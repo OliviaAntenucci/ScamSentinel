@@ -38,6 +38,13 @@ def healthz(request: Request) -> dict[str, str]:
         "llm_provider": settings.llm_provider,
         "llm_model": settings.resolved_llm_model,
         "llm": "configured" if settings.llm_api_key else "missing_api_key (rules-only)",
+        "org_fact_check": (
+            "off"
+            if not settings.org_fact_check
+            else "available (unverified LLM knowledge, risk-only)"
+            if settings.llm_api_key and settings.llm_provider == "groq"
+            else "unavailable (needs GROQ_API_KEY)"
+        ),
         "vision_model": settings.vision_model,
         "screenshots": (
             "available"

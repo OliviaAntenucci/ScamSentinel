@@ -16,6 +16,7 @@ from scamsentinel.ct.client import CRTSH_URL, CrtShClient
 from scamsentinel.ct.watcher import CtWatcher
 from scamsentinel.domain.normalize import InvalidHost
 from scamsentinel.message.llm import GROQ_CHAT_URL, GroqExtractor
+from scamsentinel.verify.org_facts import GroqOrgFactChecker
 
 PAYLOADS = [
     line.strip()
@@ -73,6 +74,37 @@ def test_only_outbound_request_is_to_the_llm_provider(make_service):
     text = "Verify at http://169.254.169.254/latest/meta-data/ and http://127.0.0.1:6379/"
     make_service(llm).analyze(AnalyzeRequest(text=text))
     assert [str(r.url) for r in requests] == [GROQ_CHAT_URL]
+
+
+def test_org_fact_check_only_contacts_the_llm_provider(make_analyzer, network_tripwire):
+    # A message naming an unknown organization triggers a second LLM call, which still
+    # goes only to the fixed provider endpoint, never to the message's links.
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        body = json.loads(request.content)
+        if "untrusted_name_" in body["messages"][1]["content"]:
+            content = {"known": True, "canonical_name": "Acme", "official_domains": ["acme.com"]}
+        else:
+            content = {
+                "impersonated_entity": {"value": "other", "span": "Acme Bank"},
+                "claimed_urls": ["http://169.254.169.254/login"],
+            }
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": json.dumps(content)}}]}
+        )
+
+    transport = httpx.MockTransport(handler)
+    llm = GroqExtractor("gsk_test", "openai/gpt-oss-20b", transport=transport)
+    org_facts = GroqOrgFactChecker("gsk_test", "openai/gpt-oss-20b", transport=transport)
+    text = "Acme Bank: verify at http://169.254.169.254/login"
+    analysis = make_analyzer(llm, org_facts=org_facts).analyze(text)
+
+    assert len(requests) == 2
+    assert {str(r.url) for r in requests} == {GROQ_CHAT_URL}
+    assert any(c.check == "org_official_domain" for c in analysis.checks)
+    assert network_tripwire == []
 
 
 def test_ct_watcher_only_contacts_crtsh(settings, network_tripwire):

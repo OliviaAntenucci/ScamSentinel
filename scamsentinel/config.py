@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     llm_provider: Literal["groq", "anthropic"] = "groq"
     llm_model: str | None = None  # None -> DEFAULT_LLM_MODELS[llm_provider]
     llm_timeout_seconds: float = 20.0
+    # When a message claims to be from an organization with no curated facts, ask the LLM
+    # for that organization's official domains (unverified, risk-only evidence). Needs a
+    # Groq key; costs one extra LLM call for such messages.
+    org_fact_check: bool = True
     # Screenshot transcription (M5). Groq's only vision model is a *preview* model (checked
     # 2026-10-14) and may be retired at short notice; change it here when that happens.
     vision_model: str = "qwen/qwen3.8-27b"

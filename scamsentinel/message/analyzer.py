@@ -22,13 +22,14 @@ from scamsentinel.data import (
 )
 from scamsentinel.domain.engine import DomainEngine, get_engine
 from scamsentinel.ingest.email import ParsedEmail
-from scamsentinel.message.features import MessageFeatures, Urgency
+from scamsentinel.message.features import OTHER_ENTITY, MessageFeatures, Urgency
 from scamsentinel.message.grounding import ground
 from scamsentinel.message.llm import FeatureExtractor, LlmUnavailable, build_extractor
 from scamsentinel.message.rules import RuleExtractor
 from scamsentinel.message.scoring import score_message
 from scamsentinel.models import InputType, ModuleResult
 from scamsentinel.verify.checks import CheckResult, Verifier
+from scamsentinel.verify.org_facts import OrgFactChecker, clean_org_name, sanitize_facts
 
 
 class MessageAnalysis(BaseModel):
@@ -115,8 +116,10 @@ class MessageAnalyzer:
         message_points: dict[str, int],
         verify_points: dict[str, int],
         llm: FeatureExtractor | None = None,
+        org_facts: OrgFactChecker | None = None,
         max_chars: int = 20_000,
     ) -> None:
+        self._org_facts = org_facts
         self._brand_names = {b.name for b in brands}
         unknown = set(keywords.entity_mentions) - self._brand_names
         if unknown:
@@ -130,7 +133,10 @@ class MessageAnalyzer:
 
     @classmethod
     def from_settings(
-        cls, settings: Settings, llm: FeatureExtractor | None = None
+        cls,
+        settings: Settings,
+        llm: FeatureExtractor | None = None,
+        org_facts: OrgFactChecker | None = None,
     ) -> MessageAnalyzer:
         scoring = load_scoring(settings.config_dir)
         return cls(
@@ -141,6 +147,7 @@ class MessageAnalyzer:
             message_points=scoring.message_points,
             verify_points=scoring.verify_points,
             llm=llm if llm is not None else build_extractor(settings),
+            org_facts=org_facts,
             max_chars=settings.max_text_chars,
         )
 
@@ -175,6 +182,7 @@ class MessageAnalyzer:
         # Only brands from brands.yaml count as protected (cached or fake extractors included).
         features = features.restrict_entity(self._brand_names)
         checks = self._verifier.run(features, input_type=input_type, email=email)
+        checks += self._check_unknown_org(features, degraded)
         result = score_message(features, checks, self._message_points, self._verify_points)
         return MessageAnalysis(
             features=features,
@@ -184,6 +192,30 @@ class MessageAnalyzer:
             degraded=degraded,
             disagreements=disagreements,
             dropped_llm_spans=dropped,
+        )
+
+    def _check_unknown_org(
+        self, features: MessageFeatures, degraded: list[str]
+    ) -> list[CheckResult]:
+        """LLM fact check of the links when the message names an organization we have no
+        curated facts for. Only runs when there are links to check."""
+        entity = features.impersonated_entity
+        if (
+            self._org_facts is None
+            or entity is None
+            or entity.value != OTHER_ENTITY
+            or not entity.span.strip()
+            or not features.claimed_urls
+        ):
+            return []
+        org_name = clean_org_name(entity.span)
+        try:
+            facts = sanitize_facts(self._org_facts.lookup(org_name), org_name)
+        except LlmUnavailable as exc:
+            degraded.append(f"org_fact_check_unavailable:{exc.reason}")
+            return []
+        return self._verifier.unknown_org_domains(
+            org_name, facts, features.claimed_urls, self._org_facts.model
         )
 
 

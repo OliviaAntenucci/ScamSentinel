@@ -18,6 +18,7 @@ from scamsentinel.ingest.phones import normalize_phone
 from scamsentinel.message.features import UNUSUAL_PAYMENT_METHODS, MessageFeatures
 from scamsentinel.message.rules import phrase_pattern
 from scamsentinel.models import InputType
+from scamsentinel.verify.org_facts import OrgFacts
 
 CheckName = Literal[
     "official_domain",
@@ -25,6 +26,7 @@ CheckName = Literal[
     "payment_method_policy",
     "phone_number",
     "sender_alignment",
+    "org_official_domain",
 ]
 
 # How each input type reached the user, in the vocabulary of facts.yaml.
@@ -82,6 +84,45 @@ class Verifier:
             checks += self._phone_numbers(entity, features.claimed_phone_numbers)
         if email is not None:
             checks += self._sender_alignment(email)
+        return checks
+
+    def unknown_org_domains(
+        self, org_name: str, facts: OrgFacts, urls: list[str], model: str
+    ) -> list[CheckResult]:
+        """Links checked against an LLM's (unverified) list of an organization's domains.
+
+        Only conflicts matter: a match is recorded with verified=None and earns nothing,
+        because the model's answer isn't a published source.
+        """
+        if not facts.known:
+            return []
+        official = {r for d in facts.official_domains if (r := self._registrable(d))}
+        if not official:
+            return []
+        name = facts.canonical_name or org_name
+        provenance = f"according to the {model} model's knowledge, not a published source"
+        checks = []
+        for url in urls:
+            registrable = self._registrable(url)
+            if registrable is None:
+                continue
+            match = registrable in official
+            checks.append(
+                CheckResult(
+                    check="org_official_domain",
+                    signal=(
+                        "org_domain_match_unverified" if match else "org_domain_mismatch_unverified"
+                    ),
+                    claim=url,
+                    verified=None if match else False,
+                    detail=(
+                        f"{registrable} may belong to {name} ({provenance})"
+                        if match
+                        else f"Claims to be {name}, but links to {registrable}; {name}'s sites "
+                        f"are {', '.join(sorted(official))} ({provenance})"
+                    ),
+                )
+            )
         return checks
 
     # --- checks ---------------------------------------------------------------------
