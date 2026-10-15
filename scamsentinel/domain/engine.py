@@ -269,6 +269,10 @@ class DomainEngine:
                         f"official {tok.brand} domain",
                     )
                 )
+            elif (padded := self._padded_brand(tok, label, compact)) is not None:
+                # The brand plus a stray character or two (turbotaxx, creditkarmaa): a
+                # typosquat, not a brand used inside a longer name.
+                hits.append(padded)
             else:
                 hits.append(
                     _Hit(
@@ -279,6 +283,23 @@ class DomainEngine:
                     )
                 )
         return hits
+
+    def _padded_brand(self, tok: _Token, label: str, compact: str) -> _Hit | None:
+        if len(tok.skel) < TYPO_MIN_TOKEN_LENGTH:
+            return None
+        distance = DamerauLevenshtein.distance(compact, tok.skel)
+        normalized = distance / max(len(compact), len(tok.skel))
+        if normalized > TYPO_MAX_NORMALIZED_DISTANCE:
+            return None
+        p = self._points
+        lo, hi = p["typosquat_min"], p["typosquat_max"]
+        points = round(lo + (hi - lo) * (1 - normalized / TYPO_MAX_NORMALIZED_DISTANCE))
+        return _Hit(
+            "typosquat",
+            points,
+            tok.brand,
+            f"'{label}' is the {tok.brand} name with {distance} extra character(s)",
+        )
 
     def _typosquat(self, tok: _Token, skel: str, compact: str) -> _Hit | None:
         parts = [part for part in skel.split("-") if part]

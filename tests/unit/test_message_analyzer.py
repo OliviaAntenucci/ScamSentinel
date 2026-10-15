@@ -3,7 +3,7 @@
 from email.message import EmailMessage
 
 from scamsentinel.ingest.email import parse_eml
-from scamsentinel.message.features import MessageFeatures, Threat
+from scamsentinel.message.features import MessageFeatures, PaymentMethod, Threat
 from scamsentinel.models import Module
 
 SCAM = (
@@ -47,6 +47,22 @@ def test_irs_gift_card_demand_breaks_payment_policy(make_analyzer):
     analysis = make_analyzer().analyze("IRS notice: pay your balance today with gift cards.")
     assert "payment_method_policy" in signals(analysis)
     assert "unusual_payment_method" in signals(analysis)
+    assert "contact_channel" in signals(analysis)
+
+
+def test_official_payment_channel_is_not_an_unsolicited_demand(make_analyzer, fake_llm):
+    # Regression (eval sample t-l-018): the LLM tagged "IRS Direct Pay" as a payment method,
+    # and the contact-channel rule treated that as the IRS texting a payment demand.
+    text = (
+        "Reminder: your estimated tax payment for Q2 is due June 15. "
+        "Pay through IRS Direct Pay at irs.gov/payments."
+    )
+    llm = fake_llm(
+        MessageFeatures(payment_methods=[PaymentMethod(method="other", span="IRS Direct Pay")])
+    )
+    analysis = make_analyzer(llm).analyze(text)
+    assert "contact_channel" not in signals(analysis)
+    assert analysis.result.score < 30
 
 
 def test_known_and_unknown_irs_numbers(make_analyzer):

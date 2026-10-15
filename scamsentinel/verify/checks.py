@@ -15,7 +15,7 @@ from scamsentinel.domain.engine import DomainEngine
 from scamsentinel.domain.normalize import InvalidHost
 from scamsentinel.ingest.email import ParsedEmail
 from scamsentinel.ingest.phones import normalize_phone
-from scamsentinel.message.features import MessageFeatures
+from scamsentinel.message.features import UNUSUAL_PAYMENT_METHODS, MessageFeatures
 from scamsentinel.message.rules import phrase_pattern
 from scamsentinel.models import InputType
 
@@ -119,8 +119,12 @@ class Verifier:
         unofficial_link: bool,
     ) -> list[CheckResult]:
         # The fact is about unsolicited requests for information or payment. A reminder
-        # that only links to the official site isn't one.
-        asks = bool(features.sensitive_requests or features.payment_methods or unofficial_link)
+        # that only links to the official site, or points to an ordinary official payment
+        # channel ("pay through IRS Direct Pay"), isn't one.
+        unusual_payment = any(
+            p.method in UNUSUAL_PAYMENT_METHODS for p in features.payment_methods
+        )
+        asks = bool(features.sensitive_requests or unusual_payment or unofficial_link)
         channels = _CHANNELS.get(input_type, set())
         if not asks or not channels:
             return []

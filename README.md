@@ -146,7 +146,7 @@ Full API reference (auto-generated): `http://127.0.0.1:8000/docs`.
 
 ## Evaluation
 
-Held-out **test split** (30 samples), rules only (no LLM), measured 2026-10-15. Rules and weights were tuned on the dev split only, and the test split was run once. "Likely scam" counts as a detection:
+Results are for **v2** of the scoring rules, measured 2026-10-15. Held-out **test split** (30 samples), rules only (no LLM). Rules and weights were tuned on the dev split only, and the test split was never used for tuning. "Likely scam" counts as a detection:
 
 | Metric | Test split | 95% interval (Wilson) |
 |---|---|---|
@@ -155,15 +155,32 @@ Held-out **test split** (30 samples), rules only (no LLM), measured 2026-10-15. 
 | F1 | **93.3%** | — |
 | False-positive rate | **0%** (0/14) | ~0–22% |
 
-Counting "suspicious" as a detection too (triage), recall rises to 93.8% and FPR to 7.1%. Across all 152 samples (including the dev and train data the rules were shaped on): precision 100%, recall 86.6%, F1 92.8%, FPR 0%.
+Counting "suspicious" as a detection too (triage), recall rises to 93.8% and FPR to 7.1%.
+
+**Rules only vs. rules + LLM** (Groq `openai/gpt-oss-20b`, `--ablation full`; strict):
+
+| Data | Configuration | Precision | Recall | F1 | FPR |
+|---|---|---|---|---|---|
+| Test split (30) | Rules only | 100% | 87.5% | 93.3% | 0% |
+| Test split (30) | Rules + LLM | 100% | 100% | 100% | 0% |
+| All samples (152) | Rules only | 100% | 87.8% | 93.5% | 0% |
+| All samples (152) | Rules + LLM | 100% | 93.9% | 96.9% | 0% |
+
+"All samples" includes the train and dev data the rules were shaped on, so it's context, not a held-out score. The LLM mainly recovers scams the keyword rules don't recognize (emails reach 100% recall, and brandless scams go from 0/7 to 2/7). Its cost shows up in triage: more legitimate messages land in "suspicious" (triage FPR 12.9% vs. 10.0% rules only). Because the LLM only supplies grounded features and the rules still decide, every change is traceable to specific reasons in each result. 100% on a 30-sample synthetic split is not "perfect": the 95% interval for recall is still roughly 81–100%.
+
+**v1 → v2.** The first LLM run on all samples exposed two issues in train/dev data, which were fixed:
+- **"IRS Direct Pay" false alarm.** The LLM extracted it from a genuine IRS reminder as a payment method, and the contact-channel rule counted any payment method as the IRS asking for payment. It now counts only unusual methods (gift cards, crypto, wire, P2P apps).
+- **`turbotaxx.com` scored only as "brand in label".** It's now treated as a typosquat.
+
+v1 on all samples was F1 92.8% (rules) and 95.6% with 1.4% FPR (rules + LLM). The test-split numbers didn't change.
 
 **Read these numbers with care:**
 - **Small and synthetic.** 152 hand-written samples, 30 in the test split, so the intervals above are wide. The samples were written by the same author as the rules (with deliberate hard negatives and off-vocabulary scams), which likely flatters the results. No real-world phishing corpus has been added yet ([`data/eval/SOURCES.md`](data/eval/SOURCES.md)).
-- **Brandless scams are the blind spot.** Scams that never name the IRS, TurboTax, QuickBooks or Credit Karma (e.g. "send Steam cards to the case agent", `tax-relief-2025.com`) had 0% strict recall (0 of 7), versus 90–100% for branded scams. The domain engine and verification layer are brand-focused by design.
+- **Brandless scams are the blind spot.** Every remaining miss is a scam that never names the IRS, TurboTax, QuickBooks or Credit Karma (e.g. "Federal tax relief program… call now", `tax-relief-2025.com`). Strict recall on them is 0/7 rules only and 2/7 with the LLM, versus 95–100% for branded scams. The domain engine and verification layer are brand-focused by design.
 - **Link shorteners and unbranded domains** can't be judged without visiting the page (post-MVP P2).
-- **Rules only.** The LLM path (`--ablation full`) and screenshots aren't in these numbers.
+- **Screenshots aren't in these numbers.** The LLM results depend on a free-tier model; the eval runner retries rate-limited calls and reports any sample that still fell back to rules only.
 
-Reproduce: `python -m scamsentinel.eval --split test --report reports/eval-test.md`. Methodology: [`architecture.md` §10](architecture.md#10-evaluation-harness).
+Reproduce: `python -m scamsentinel.eval --split test --report reports/eval-test.md` (add `--ablation full` for the LLM; results are cached in `var/eval.db`). Methodology: [`architecture.md` §10](architecture.md#10-evaluation-harness).
 
 ---
 

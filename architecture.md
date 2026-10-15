@@ -121,7 +121,7 @@ tests/
 | `tld_swap` | Label equals an official label, under a different suffix | `irs.gov.co`, `turbotax.net` | 65 |
 | `exact_brand_unofficial` | Compact label equals a brand token, but it isn't an official label | `turbo-tax.com`, `credit-karma.com` | 70 |
 | `brand_in_label` | Brand token plus unrecognized words | `myturbotaxfiling.com` | 50 |
-| `typosquat` | Normalized Damerau-Levenshtein ≤ 0.2 between a brand token (min length 4) and any part, or sliding window, of the label | `turbotxa.com`, `quickbook.com` | 60–80 (scaled by similarity), +10 per keyword |
+| `typosquat` | Normalized Damerau-Levenshtein ≤ 0.2 between a brand token (min length 4) and any part, or sliding window, of the label; also the brand plus a stray character or two | `turbotxa.com`, `quickbook.com`, `turbotaxx.com` | 60–80 (scaled by similarity), +10 per keyword |
 | `brand_in_subdomain` | Brand token appears in the subdomain of an unrelated registrable domain | `turbotax.com.evil.net`, `irs.gov.refund-claim.net` | 75 |
 | `idn_mixed_script` | Label mixes scripts (Latin + Cyrillic) | `сreditkarma.com` | +15 bonus |
 
@@ -188,7 +188,7 @@ The verification layer turns claims in the message into checks against `data/fac
 | Check | Input | Fails when |
 |---|---|---|
 | `official_domain` | Each URL/domain (incl. email link targets) + impersonated brand | Domain is not in the brand's official list (an official link is mitigating) |
-| `contact_channel` | Input type + entity | IRS contacting by SMS/email (or a screenshot of one) while asking for information, payment, or sending to an unofficial link |
+| `contact_channel` | Input type + entity | IRS contacting by SMS/email (or a screenshot of one) while asking for sensitive information, demanding an *unusual* payment method (gift card, crypto, wire, P2P app), or sending to an unofficial link. Pointing to an official payment channel ("pay through IRS Direct Pay") doesn't count |
 | `payment_method_policy` | Payment methods + entity | A fact says the entity doesn't take that method (IRS: gift card / crypto / wire / P2P apps) |
 | `phone_number` | Claimed phone numbers + entity | Number isn't among the entity's published numbers (reported as "can't verify", lower weight) |
 | `sender_alignment` (email) | From / Reply-To / DKIM `header.d` | Claims a brand but sent from another domain, or Reply-To goes to a different domain. An official sender with passing DKIM is mitigating |

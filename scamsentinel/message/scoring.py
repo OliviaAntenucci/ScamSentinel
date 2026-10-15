@@ -6,11 +6,9 @@ to a reason (NFR-1). Points come from config/scoring.yaml.
 
 from __future__ import annotations
 
-from scamsentinel.message.features import MessageFeatures
+from scamsentinel.message.features import UNUSUAL_PAYMENT_METHODS, MessageFeatures
 from scamsentinel.models import Module, ModuleResult, Reason
 from scamsentinel.verify.checks import CheckResult
-
-UNUSUAL_PAYMENT_METHODS = frozenset({"gift_card", "crypto", "wire", "zelle", "cash_app", "venmo"})
 
 _LABELS = {
     # sensitive requests

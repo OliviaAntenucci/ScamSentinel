@@ -14,8 +14,7 @@ from dataclasses import dataclass, field
 
 from scamsentinel.data import Bands, ScoringConfig
 from scamsentinel.domain.engine import DomainResult
-from scamsentinel.message.features import MessageFeatures
-from scamsentinel.message.scoring import UNUSUAL_PAYMENT_METHODS
+from scamsentinel.message.features import UNUSUAL_PAYMENT_METHODS, MessageFeatures
 from scamsentinel.models import Module, ModuleResult, Reason, Verdict
 
 LOOKALIKE_THRESHOLD = 60

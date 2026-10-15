@@ -186,9 +186,10 @@ Evaluation
 --------------------------------------------------------------------------------
   AC-1  Held-out test set: F1 >= 0.85 and FPR <= 5% on legitimate tax
         messages. (These are targets. README reports the measured values,
-        whatever they turn out to be.) Measured 2026-10-15, rules only, on
-        the 30-sample synthetic test split: F1 93.3%, FPR 0%. Met, with the
-        caveat that the data is small and hand-written (see README).
+        whatever they turn out to be.) Measured 2026-10-15 (scoring v2) on
+        the 30-sample synthetic test split: F1 93.3%, FPR 0% rules only;
+        F1 100%, FPR 0% with the Groq LLM. Met, with the caveat that the
+        data is small and hand-written (see README).
   AC-2  Domain engine: >= 95% recall on a generated lookalike suite
         (homoglyph, typo, keyword-stuffed, subdomain-abuse, IDN) and 0
         false positives on the official allowlist. (Met: 100% on the

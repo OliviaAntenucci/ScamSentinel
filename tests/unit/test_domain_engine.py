@@ -47,6 +47,22 @@ def test_technique_fires(engine, host, technique, brand):
     assert result.score >= 50
 
 
+@pytest.mark.parametrize(
+    ("host", "brand"),
+    [("turbotaxx.com", "TurboTax"), ("creditkarmaa.com", "Credit Karma"),
+     ("quickbooks1.com", "QuickBooks")],
+)
+def test_brand_with_stray_characters_is_a_typosquat(engine, host, brand):
+    result = engine.score(host)
+    assert result.techniques == ["typosquat"]
+    assert result.brand == brand
+    assert result.score >= 60
+
+
+def test_brand_inside_a_longer_name_is_not_a_typosquat(engine):
+    assert engine.score("myturbotaxfiling.com").techniques == ["brand_in_label"]
+
+
 def test_mixed_script_adds_bonus(engine):
     result = engine.score("turbоtax.com")
     assert "idn_mixed_script" in result.techniques

@@ -56,6 +56,10 @@ class InjectionAttempt(_Strict):
 
 PROTECTED_ENTITIES = ("IRS", "TurboTax", "QuickBooks", "Credit Karma")
 
+# Payment methods no tax agency or tax-software company demands. "other" (e.g. "IRS
+# Direct Pay", a bank transfer through an official site) is deliberately not included.
+UNUSUAL_PAYMENT_METHODS = frozenset({"gift_card", "crypto", "wire", "zelle", "cash_app", "venmo"})
+
 
 class MessageFeatures(_Strict):
     impersonated_entity: Impersonation | None = None
