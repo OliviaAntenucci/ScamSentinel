@@ -1,8 +1,20 @@
 # ScamSentinel
 
-**An explainable detector for tax-season scams that impersonate TurboTax, QuickBooks, Credit Karma, and the IRS.**
+**An explainable, threat-modeled scam and phishing analyzer that runs on your own machine.**
 
-Send it a suspicious text message, email, URL, or screenshot. ScamSentinel decides whether it is a scam aimed at taxpayers and tells you *why*, citing the specific evidence behind every point of the score.
+Send it a suspicious text message, email, URL, or screenshot. ScamSentinel decides whether it's a scam and tells you *why*, citing the specific evidence behind every point of the score: lookalike domains, impersonation, pressure tactics, payment and data demands, and claims that contradict an organization's own published policies.
+
+It's a portfolio cybersecurity project with two halves: **detection** (explainable scoring, measured per scam category) and **securing the detector itself**, which takes attacker-written input by design and is threat-modeled and tested as an attack surface.
+
+Detection is organized into **scam categories**, each backed by its own trusted facts, signals and labeled test data:
+
+| Category | Impersonated organizations | Status |
+|---|---|---|
+| **Tax-season impersonation** | IRS, TurboTax, QuickBooks, Credit Karma | ✅ Baseline: 152 labeled samples |
+| **Package-delivery smishing** | USPS | ✅ 39 labeled samples |
+| Bank impersonation, account takeover, job, tech support | — | Planned, one at a time |
+
+A category isn't claimed as supported until it has sourced facts, hard negatives and its own reported metrics. The promise is "analyzes scam patterns and explains the evidence", not "knows every brand".
 
 ```json
 {
@@ -19,7 +31,7 @@ Send it a suspicious text message, email, URL, or screenshot. ScamSentinel decid
 
 No black-box answers. The LLM only **extracts features**. Deterministic rules produce the verdict, and every rule that fires appears in `reasons`.
 
-> **Status:** MVP complete (M0–M6). Text, URL, email and screenshot analysis work end to end, the security defenses below are implemented and tested, and accuracy is measured on a held-out test split ([Evaluation](#evaluation)). See [MVP roadmap](#mvp-roadmap).
+> **Status:** MVP complete (M0–M6), plus a Certificate Transparency watcher (P1) and a brand-agnostic core with a second scam category (G1). Text, URL, email and screenshot analysis work end to end, the security defenses below are implemented and tested, and accuracy is measured per category on held-out test splits ([Evaluation](#evaluation)). See [Roadmap](#roadmap).
 
 ---
 
@@ -39,39 +51,38 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 
 ---
 
-## Components (MVP)
+## Components
 
-1. **Lookalike-domain engine** ✅: scores a domain against the protected brands using Public Suffix List parsing, Unicode/IDN homoglyph normalization, edit distance, and keyword-stuffing detection (`turbotax-refund-secure.com`).
-2. **Message analyzer** ✅: keyword rules plus an LLM (Groq by default) extract urgency, impersonation, payment-method, and sensitive-data-request signals as structured JSON.
-3. **Verification layer** ✅ (VerifyVault-style): checks claims against trusted facts, such as "is this an official IRS domain?" or "does the IRS start contact by SMS?"
+1. **Lookalike-domain engine** ✅: scores a domain against the protected brands using Public Suffix List parsing, Unicode/IDN homoglyph normalization, edit distance, and keyword-stuffing detection (`turbotax-refund-secure.com`, `usрs-delivery.com` with a Cyrillic `р`).
+2. **Message analyzer** ✅: keyword rules plus an LLM (Groq by default) extract urgency, impersonation, payment-method, sensitive-data-request and threat signals as structured JSON.
+3. **Verification layer** ✅: checks claims against sourced, trusted facts, such as "is this an official IRS domain?", "does the IRS start contact by SMS?" or "does USPS text links you didn't ask for?"
 4. **Screenshot analysis** ✅: a Groq vision model transcribes the sanitized screenshot, and the text then goes through the message analyzer like any pasted message.
 5. **Risk aggregator** ✅: combines module scores into one score, verdict, and list of reasons.
-6. **Evaluation harness** ✅: 152 labeled samples with leak-free train/dev/test splits, reporting precision, recall, F1, false-positive rate, per-slice breakdowns and ablations.
+6. **Evaluation harness** ✅: 191 labeled samples in two categories, with leak-free train/dev/test splits stratified by category, reporting precision, recall, F1 and false-positive rate per category, input type and brand, plus ablations.
+7. **Certificate Transparency watcher** ✅: polls crt.sh every 6 hours for new certificates whose names contain a brand token, scores each name with the domain engine, and lists the lookalikes at `GET /v1/ct/candidates`. It finds phishing domains before anyone reports them, and never visits them. See [`architecture.md` §15](architecture.md#15-certificate-transparency-watcher-p1).
 
-**Post-MVP:**
-- **Certificate Transparency watcher** ✅ (P1): polls crt.sh every 6 hours for new certificates whose names contain a brand token, scores each name with the domain engine, and lists the lookalikes at `GET /v1/ct/candidates`. It finds phishing domains before anyone reports them, and never visits them. See [`architecture.md` §15](architecture.md#15-certificate-transparency-watcher-p1).
-- **Next: explain and guide** (E1–E4). These build on the tax-scam focus and the explanations already behind every score:
-  - **"What should I do next?"**: short, cautious next steps based on the evidence found, e.g. *"Don't reply with personal information. Contact the agency using a number from its official website or your paperwork, not the message."* Advice never repeats or recommends links or numbers from the suspicious message.
-  - **Why a domain looks suspicious**, spelled out: the swapped characters, the brand misspelling, the misleading extra words.
-  - **Fact-check summary**: which claims match, conflict with, or can't be checked against ScamSentinel's trusted reference facts.
-  - **Tax-specific scenarios** such as refund delays, payment demands and identity-verification messages, added over time.
-- Then: page fetching, a Playwright sandbox, and Docker packaging. See [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
+**Brand-agnostic core.** Brands, categories, trusted facts and phrase lists are data (`data/brands.yaml`, `facts.yaml`, `keywords.yaml`). The domain engine, LLM schema, verification checks, scoring floors and CT watcher all read them, so no code names a specific organization. See [`architecture.md` §16](architecture.md#16-scam-categories-and-the-brand-agnostic-core).
 
 ---
 
-## MVP roadmap
+## Roadmap
 
 | Milestone | What | Status |
 |---|---|---|
-| M0 | Docs, skeleton, API, test harness | ✅ |
-| M1 | Lookalike-domain engine | ✅ |
-| M2 | Message analyzer + verification layer | ✅ |
-| M3 | Risk aggregator + `POST /v1/analyze` | ✅ |
-| M4 | Security hardening (uploads, prompt injection, no-fetch, redaction) | ✅ |
-| M5 | Screenshot analysis (Groq vision) | ✅ |
-| M6 | Evaluation + metrics | ✅ |
-| P1 | Certificate Transparency watcher (post-MVP) | ✅ |
-| E1–E4 | Next steps advice, domain explanations, fact-check summary, tax scenarios | Next |
+| M0–M6 | MVP: domain engine, message analyzer + verification, aggregator + API, security hardening, screenshots, evaluation | ✅ |
+| P1 | Certificate Transparency watcher | ✅ |
+| G1 | Brand-agnostic core + scam categories; package delivery (USPS) as the second category | ✅ |
+| G2+ | One new category at a time (bank impersonation, account takeover, job scams, tech support), each with sourced facts, signals, synthetic samples and its own metrics | Planned |
+| E1–E4 | Explain and guide: "what should I do next?" advice, richer domain explanations, a fact-check summary, named scenarios per category | Planned |
+| P2–P4 | Page fetching with an SSRF guard, a Playwright sandbox, Docker packaging | Planned |
+
+The explain-and-guide items:
+- **"What should I do next?"**: short, cautious next steps based on the evidence found, e.g. *"Don't reply with personal information. Contact the organization using a number from its official website or your paperwork, not the message."* Advice never repeats or recommends links or numbers from the suspicious message.
+- **Why a domain looks suspicious**, spelled out: the swapped characters, the brand misspelling, the misleading extra words.
+- **Fact-check summary**: which claims match, conflict with, or can't be checked against the trusted facts.
+- **Named scenarios** per category, such as refund delays, payment demands, identity verification, or "package on hold".
+
+Details: [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
 
 ---
 
@@ -82,7 +93,8 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 | [`prd.txt`](prd.txt) | Product requirements: MVP definition, requirements, acceptance criteria, milestones |
 | [`architecture.md`](architecture.md) | System design, module internals, scoring, data model, post-MVP roadmap |
 | [`SECURITY.md`](SECURITY.md) | Threat model of the tool itself, defenses, security tests, vulnerability reporting |
-| [`SCOPE.md`](SCOPE.md) | What is and isn't in the MVP, plus responsible-use rules |
+| [`SCOPE.md`](SCOPE.md) | Scam categories in scope, what's out of scope, and responsible-use rules |
+| [`data/eval/SOURCES.md`](data/eval/SOURCES.md) | Evaluation data per category, how it was made, and its limitations |
 
 ---
 
@@ -130,6 +142,10 @@ curl -s "http://127.0.0.1:8000/v1/domain/score?d=turb0tax-refund.com"
 curl -s http://127.0.0.1:8000/v1/analyze -H 'content-type: application/json' \
   -d '{"text": "IRS ALERT: Your refund is suspended. Verify at irs-refund-secure.com"}'
 
+# A package-delivery text (the delivery category)
+curl -s http://127.0.0.1:8000/v1/analyze -H 'content-type: application/json' \
+  -d '{"text": "USPS: Your package is on hold. Update your address at usps-redelivery-center.com"}'
+
 # Analyze a URL; it is scored, never visited
 curl -s http://127.0.0.1:8000/v1/analyze -H 'content-type: application/json' \
   -d '{"url": "https://turb0tax-verify.example"}'
@@ -159,7 +175,11 @@ Full API reference (auto-generated): `http://127.0.0.1:8000/docs`.
 
 ## Evaluation
 
-Results are for **v2** of the scoring rules, measured 2026-10-15. Held-out **test split** (30 samples), rules only (no LLM). Rules and weights were tuned on the dev split only, and the test split was never used for tuning. "Likely scam" counts as a detection:
+Every category is measured separately, so a new category can't hide behind the baseline's numbers or quietly add false alarms to it. Splits are stratified by category, which means adding a category never moves the existing categories' test samples.
+
+### Tax-season impersonation (baseline)
+
+Results are for **v2** of the scoring rules, measured 2026-10-15, and re-confirmed unchanged after the brand-agnostic refactor (G1). Held-out **test split** (30 samples), rules only (no LLM). Rules and weights were tuned on the dev split only, and the test split was never used for tuning. "Likely scam" counts as a detection:
 
 | Metric | Test split | 95% interval (Wilson) |
 |---|---|---|
@@ -193,10 +213,24 @@ v1 on all samples was F1 92.8% (rules) and 95.6% with 1.4% FPR (rules + LLM). Th
 - **Link shorteners and unbranded domains** can't be judged without visiting the page (post-MVP P2).
 - **Screenshots aren't in these numbers.** The LLM results depend on a free-tier model; the eval runner retries rate-limited calls and reports any sample that still fell back to rules only.
 
-Reproduce: `python -m scamsentinel.eval --split test --report reports/eval-test.md` (add `--ablation full` for the LLM; results are cached in `var/eval.db`). Methodology: [`architecture.md` §10](architecture.md#10-evaluation-harness).
+### Package-delivery smishing (USPS)
+
+Measured 2026-10-15, rules only. 39 hand-written samples (21 scams, 18 legitimate), including hard negatives: opted-in USPS tracking texts, a real missed-delivery notice linking to usps.com, UPS (one letter from "usps"), Amazon and FedEx notices, and a merchant email that mentions USPS. The test split was run once, after one dev run; nothing was tuned on it.
+
+| Data | Precision | Recall | FPR | Triage recall | Triage FPR |
+|---|---|---|---|---|---|
+| Test split (7) | 100% (3/3) | 75% (3/4) | 0% (0/3) | 75% | 0% |
+| All samples (39) | 100% (17/17) | 81% (17/21) | 0% (0/18) | 95% | 0% |
+
+The delivery test split is **tiny** (7 samples): the 95% intervals are roughly 44–100% for precision, 30–95% for recall and 0–56% for FPR. Treat it as a smoke test that the category works without false alarms, not as a performance claim. The misses show the same pattern as the tax category:
+- **Brandless scams** ("Your package delivery attempt failed… visit parcel-redeliver-now.com") score low, because the strongest signals depend on knowing which organization is being impersonated.
+- **A "returned to sender, call this number" text** lands in *suspicious* (55): no link, no data request, just an unverified callback number.
+- **`usps-postal-fee.top`** scores as "brand in label" (50): "postal" and "fee" aren't trust keywords.
+
+Reproduce: `python -m scamsentinel.eval --split test --category tax` (or `--category delivery`; omit it for everything; add `--report reports/eval-test.md` for a markdown report, and `--ablation full` for the LLM, cached in `var/eval.db`). Methodology: [`architecture.md` §10](architecture.md#10-evaluation-harness).
 
 ---
 
 ## Disclaimer
 
-ScamSentinel is an educational and portfolio project. It is not affiliated with or endorsed by Intuit, TurboTax, QuickBooks, Credit Karma, or the Internal Revenue Service. Brand names appear only to identify impersonation targets. A "likely legitimate" verdict does not guarantee safety. When in doubt, go to the organization directly through a channel you already trust, such as typing `irs.gov` yourself.
+ScamSentinel is an educational and portfolio project. It is not affiliated with or endorsed by any organization it protects against impersonation, including the Internal Revenue Service, Intuit (TurboTax, QuickBooks), Credit Karma, or the United States Postal Service. Brand names appear only to identify impersonation targets, and trusted facts are quoted from each organization's own published pages. A "likely legitimate" verdict does not guarantee safety. When in doubt, go to the organization directly through a channel you already trust, such as typing `irs.gov` or `usps.com` yourself.

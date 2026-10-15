@@ -2,6 +2,8 @@
 # Every fact needs a source and a last_reviewed date. Re-check sources before relying on them.
 
 facts:
+  # --- tax --------------------------------------------------------------------------
+
   - id: irs_no_unsolicited_digital_contact
     entity: IRS
     statement: >-
@@ -37,6 +39,35 @@ facts:
     last_reviewed: 2026-10-14
     data:
       phone_numbers: ["+18008291040"]
+
+  # --- delivery ---------------------------------------------------------------------
+
+  - id: usps_no_unrequested_messages_with_links
+    entity: USPS
+    statement: >-
+      USPS does not send text messages or emails unless the customer first requested
+      tracking updates, and those messages do not contain a link. USPS does not charge for
+      tracking.
+    source: https://www.uspis.gov/news/scam-article/smishing
+    last_reviewed: 2026-10-15
+    data:
+      disallowed_first_contact_channels: [sms, email]
+
+  - id: usps_official_domains
+    entity: USPS
+    statement: Official USPS websites are on usps.com; the Postal Inspection Service is on uspis.gov.
+    source: https://www.usps.com/
+    last_reviewed: 2026-10-15
+    data:
+      official_domains: [usps.com, uspis.gov]
+
+  - id: usps_customer_service_phone
+    entity: USPS
+    statement: USPS customer service (1-800-ASK-USPS) and package tracking lines.
+    source: https://www.usps.com/help/contact-us.htm
+    last_reviewed: 2026-10-15
+    data:
+      phone_numbers: ["+18002758777", "+18002221811"]
 
   # TODO(M2): add Intuit (TurboTax/QuickBooks) and Credit Karma facts (official support
   # channels, payment policies) from their published security/phishing pages.

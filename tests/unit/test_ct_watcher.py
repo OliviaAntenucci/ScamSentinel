@@ -60,13 +60,14 @@ def test_search_patterns_for_repo_brands(settings):
         "%-intuit%",
         "%quickbooks%",
         "%creditkarma%",
+        "%usps%",
     ]
 
 
 def test_search_patterns_dedupe_shared_tokens():
     brands = [
-        Brand(name="A", tokens=["shared", "alpha"], official_domains=["a.com"]),
-        Brand(name="B", tokens=["shared"], official_domains=["b.com"]),
+        Brand(name="A", category="c", tokens=["shared", "alpha"], official_domains=["a.com"]),
+        Brand(name="B", category="c", tokens=["shared"], official_domains=["b.com"]),
     ]
     assert search_patterns(brands) == ["%shared%", "%alpha%"]
 

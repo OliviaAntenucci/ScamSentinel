@@ -81,6 +81,7 @@ def run(
             "input_type": sample.input_type,
             "label": sample.label,
             "brand": sample.brand,
+            "category": sample.category,
             "synthetic": sample.synthetic,
         }
         request = AnalyzeRequest(**{_FIELD[sample.input_type]: sample.content})

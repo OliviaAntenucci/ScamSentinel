@@ -166,6 +166,7 @@ class AnalysisService:
             message=message.result if message else None,
             features=message.features if message else None,
             config=self._scoring,
+            checks=message.checks if message else None,
         )
         analysis = AnalysisResult(
             analysis_id=f"an_{uuid.uuid4().hex}",

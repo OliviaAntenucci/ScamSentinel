@@ -37,6 +37,10 @@ def summary(predictions: list[Prediction]) -> dict[str, Any]:
     return {
         "strict": metrics(confusion(predictions, STRICT)),
         "triage": metrics(confusion(predictions, TRIAGE)),
+        "by_category": {
+            k: metrics(v)
+            for k, v in breakdown(predictions, lambda p: p.category, STRICT).items()
+        },
         "by_input_type": {
             k: metrics(v)
             for k, v in breakdown(predictions, lambda p: p.input_type, STRICT).items()
@@ -66,6 +70,11 @@ def markdown(
         _HEADER,
         _row("strict", strict),
         _row("triage", triage),
+        "",
+        "## By category (strict)",
+        "",
+        _HEADER,
+        *(_row(k, v) for k, v in breakdown(predictions, lambda p: p.category, STRICT).items()),
         "",
         "## By input type (strict)",
         "",

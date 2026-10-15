@@ -117,6 +117,10 @@ class MessageAnalyzer:
         llm: FeatureExtractor | None = None,
         max_chars: int = 20_000,
     ) -> None:
+        self._brand_names = {b.name for b in brands}
+        unknown = set(keywords.entity_mentions) - self._brand_names
+        if unknown:
+            raise ValueError(f"entity_mentions name unknown brands: {sorted(unknown)}")
         self._rules = RuleExtractor(keywords)
         self._verifier = Verifier(brands, facts, engine, keywords.entity_mentions)
         self._message_points = message_points
@@ -168,6 +172,8 @@ class MessageAnalyzer:
                 degraded.append(f"llm_unavailable:{exc.reason}")
 
         features, disagreements = merge_features(llm_features, rules)
+        # Only brands from brands.yaml count as protected (cached or fake extractors included).
+        features = features.restrict_entity(self._brand_names)
         checks = self._verifier.run(features, input_type=input_type, email=email)
         result = score_message(features, checks, self._message_points, self._verify_points)
         return MessageAnalysis(

@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the **MVP**. Features planned for after the MVP are summarized in [§14 Post-MVP roadmap](#14-post-mvp-roadmap).
+This document describes the **MVP**, plus what has been built since: the Certificate Transparency watcher ([§15](#15-certificate-transparency-watcher-p1)) and the brand-agnostic core with scam categories ([§16](#16-scam-categories-and-the-brand-agnostic-core)). Planned work is in [§14 Post-MVP roadmap](#14-post-mvp-roadmap). Examples throughout use the tax category (the baseline); the same machinery serves every category.
 
 ## 1. Design principles
 
@@ -84,7 +84,7 @@ scamsentinel/
 config/
   scoring.yaml    # weights, bands, floors, technique points
 data/
-  brands.yaml     # protected brands, official domains, brand tokens
+  brands.yaml     # scam categories; protected brands, their category, official domains, tokens
   keywords.yaml   # stuffing keywords, urgency phrases, payment methods
   facts.yaml      # trusted facts for verification (with sources)
   confusables.txt # curated Unicode TR39 confusables subset
@@ -153,14 +153,14 @@ Regex and phrase lists from `keywords.yaml`: urgency phrases ("within 24 hours",
 
 ```json
 {
-  "impersonated_entity": { "value": "IRS|TurboTax|QuickBooks|Credit Karma|other|none", "span": "..." },
+  "impersonated_entity": { "value": "<a brand name from brands.yaml>|other|none", "span": "..." },
   "urgency":            { "level": 0, "spans": ["..."] },
   "payment_methods":    [{ "method": "gift_card|crypto|wire|zelle|cash_app|venmo|other", "span": "..." }],
   "sensitive_requests": [{ "type": "ssn|bank_account|password|mfa_code|card|id_photo|dob", "span": "..." }],
   "claimed_urls":       ["..."],
   "claimed_phone_numbers": ["..."],
   "call_to_action":     { "value": "click_link|call_number|reply|pay|none", "span": "..." },
-  "threats":            [{ "type": "arrest|account_suspension|refund_loss|penalty|legal_action", "span": "..." }],
+  "threats":            [{ "type": "arrest|account_suspension|refund_loss|delivery_hold|penalty|legal_action", "span": "..." }],
   "injection_attempt":  { "detected": false, "span": "" }
 }
 ```
@@ -253,7 +253,7 @@ High-confidence combinations set a minimum score, regardless of averaging:
 | Condition | Floor |
 |---|---|
 | Requests SSN / bank / password / MFA code **and** links to a lookalike domain (score ≥ 60) | 90 |
-| Impersonates IRS **and** demands gift card / crypto / wire | 85 |
+| Impersonates a brand **and** demands a payment method that brand's facts say it never uses (e.g. the IRS and gift cards, crypto, wire, P2P apps) | 85 |
 | Homoglyph domain of a protected brand | 80 |
 | Injection attempt detected **and** any other scam signal | 70 |
 
@@ -303,18 +303,18 @@ Weights, points, and floors live in `config/scoring.yaml`. They're tuned on the 
 
 ### Dataset (`data/eval/samples.jsonl`)
 
-152 hand-written samples (MVP): 40/35 scam/legitimate texts, 12/10 emails, 30/25 URLs, across all four brands plus brandless scams, with deliberate hard negatives and off-vocabulary scams. Composition, rules and limitations are in [`data/eval/SOURCES.md`](data/eval/SOURCES.md). Real-world corpora (OpenPhish / PhishTank URLs, public phishing-email corpora) are the planned next addition, marked `synthetic: false` and reported separately. Screenshots aren't in the set yet.
+191 hand-written samples in two categories. **Tax** (the MVP set, 152): 40/35 scam/legitimate texts, 12/10 emails, 30/25 URLs, across all four tax brands plus brandless scams. **Delivery** (39): 10/8 texts, 5/5 emails, 6/5 URLs. Both have with deliberate hard negatives and off-vocabulary scams. Composition, rules and limitations are in [`data/eval/SOURCES.md`](data/eval/SOURCES.md). Real-world corpora (OpenPhish / PhishTank URLs, public phishing-email corpora) are the planned next addition, marked `synthetic: false` and reported separately. Screenshots aren't in the set yet.
 
 Every record: `{id, group?, input_type, label, brand, content (scam URLs defanged), source, synthetic, notes?}`. Validated by `eval/dataset.py` (unique ids, known fields), and tests enforce that scam links are defanged.
 
 ### Splits (`eval/dataset.py`)
-60/20/20 train/dev/test, **stratified** by `input_type × label` and **grouped**: variants of one template share a `group`, and whole groups are ordered by a seeded SHA-256 hash and cut by position, so a template never straddles two splits and the assignment is deterministic.
+60/20/20 train/dev/test, **stratified** by `category × input_type × label` and **grouped**: variants of one template share a `group`, and whole groups are ordered by a seeded SHA-256 hash and cut by position, so a template never straddles two splits and the assignment is deterministic. Because category is part of the stratum, adding a category never moves another category's samples between splits; a test checks that the tax splits are identical with or without the other categories.
 
 **Protocol:** rules, weights and floors are tuned on **dev** only. **Test** is run once per release for the reported numbers, and its errors are reported, not fixed. (M6 example: the dev run exposed a dilution bug and two missing floors, which were fixed. The test run was then made once, and its misses, brandless scams, are documented as limitations.)
 
 ### Metrics (`eval/metrics.py`, `eval/report.py`)
 - Precision, recall, F1, FPR and confusion counts with scam as the positive class: **strict** counts `likely_scam` only; **triage** also counts `suspicious`.
-- Broken down by input type, brand, and synthetic vs. real; a verdicts-by-label table; and every misclassified sample with its score and signals.
+- Broken down by category, input type, brand, and synthetic vs. real (`--category` restricts a run to one category); a verdicts-by-label table; and every misclassified sample with its score and signals.
 - **Ablations** (`--ablation`): `rules_only` (default, no API calls), `full` (rules + LLM when `GROQ_API_KEY` is set; results cached in `var/eval.db`), `no_verify` (verification contributes 0 points).
 - **Robustness** is tested separately: the 30-variant prompt-injection paired corpus (`tests/security/test_prompt_injection.py`).
 
@@ -363,18 +363,22 @@ The CT tables (`ct/store.py`) live in the same file. They hold public certificat
 
 ## 14. Post-MVP roadmap
 
-Built only after the MVP works end to end and has evaluation numbers. Order: P1 → E1–E4 → P2 → P3 → P4.
+Built only after the MVP works end to end and has evaluation numbers. Done: P1 (CT watcher), G1 (brand-agnostic core + delivery category). Next: G2+ (one category at a time) and E1–E4, then P2 → P3 → P4.
 
-### Next: explain and guide (E1–E4)
+### Scam categories (G1 ✅, G2+)
 
-ScamSentinel's niche is being a focused, explainable checker for **tax-related** scams that runs locally and shows its evidence, not another generic scam detector. The next phase builds on that before any page fetching. All four items follow design principle 1: the output comes from deterministic templates and data files keyed on signals the rules already produce. The LLM doesn't write advice or explanations.
+See [§16](#16-scam-categories-and-the-brand-agnostic-core). Candidates for the next categories, in rough order of how well the existing signals already cover them: **bank impersonation** (fraud-alert texts, "confirm this charge"), **account takeover** (password-reset and MFA-code lures), **tech support** (pop-ups and callback numbers), **job scams** (fake offers that ask for ID documents or an upfront payment). Each one is added only with sourced facts, its own phrases, hard negatives and its own reported metrics.
+
+### Explain and guide (E1–E4)
+
+ScamSentinel's angle is being an explainable checker that runs locally and shows its evidence, not a black-box score. This phase builds on that. All four items follow design principle 1: the output comes from deterministic templates and data files keyed on signals the rules already produce. The LLM doesn't write advice or explanations.
 
 | Phase | What | Notes |
 |---|---|---|
 | **E1** | **"What should I do next?"** | Each result gets a short, cautious `next_steps[]` list, chosen from fixed templates by the evidence that fired. Examples: a sensitive-data request → "Don't reply with personal information"; an IRS or brand impersonation → "Contact the agency using a number from its official website or your paperwork, not the one in the message"; a gift-card or crypto demand → "The IRS doesn't take payment this way. Don't pay." Official contact details come only from `data/facts.yaml`, with sources. **Links and phone numbers found in the analyzed message are never repeated, opened or recommended.** Advice is worded cautiously and never promises safety; a `likely_legitimate` verdict still says to verify through a channel you already trust. Shown in the UI below the verdict. |
 | **E2** | **Richer domain explanations** | Today each domain technique carries a one-line `detail`. Add a structured explanation of *what* differs from the real brand: the swapped characters (`0` for `o`, Cyrillic `і` for `i`), the misspelling (`turbotxa` vs. `turbotax`), the misleading extra words (`-refund-secure`), or the real owner of a brand-in-subdomain URL. Built from data the engine already computes (skeleton, edit operations, keywords, PSL split). |
 | **E3** | **Fact-check summary** | The verification layer already evaluates every check as matched / conflicts / can't verify (`CheckResult.verified`), but only failures and mitigations reach the response, as reasons. Expose the full list as `fact_checks[]`: each claim in the message, the trusted fact it was compared with, the outcome, and the fact's source and last-reviewed date. Shown in the UI as a matches / conflicts table. |
-| **E4** | **Tax-specific scenarios** | Recognize named scenarios, such as refund delay or "refund on hold", balance due or payment demand, identity verification, account suspension, and fake tax-prep or "IRS agent" offers. Each scenario is a rule over existing signals in a new `data/scenarios.yaml` with a plain-language description and its own E1 next steps. Reported as `scenario` on the result (0 points: it explains the score and doesn't change it). New scenarios are added over time as data, each with eval samples. |
+| **E4** | **Named scenarios per category** | Recognize named scenarios, such as (tax) refund delay or "refund on hold", balance due or payment demand, identity verification, fake tax-prep or "IRS agent" offers, and (delivery) "package on hold", incomplete address, redelivery fee. Each scenario is a rule over existing signals in a new `data/scenarios.yaml` with a plain-language description and its own E1 next steps. Reported as `scenario` on the result (0 points: it explains the score and doesn't change it). New scenarios are added over time as data, each with eval samples. |
 
 E1–E4 change no scores, so evaluation numbers stay comparable. Each needs tests that the advice and explanations never quote a URL or phone number from the input, and that every result still has at least one reason (AC-6).
 
@@ -407,3 +411,44 @@ API:  GET /v1/ct/candidates?since=&min_score=&limit=  ─▶ reads ct_candidates
 - **Dedupe.** A name found by several patterns is scored once per pass (at most 50,000 names per pass). A domain already stored keeps its `first_seen` and first certificate; later passes refresh its score, techniques and `last_seen`. A failed query is logged and skipped, and every pass is recorded in `ct_polls`, which the API returns as `last_poll` so an empty list can be told apart from a watcher that never ran.
 - **Settings:** `SCAMSENTINEL_CT_POLL_INTERVAL_HOURS` (default 6, minimum 1), `SCAMSENTINEL_CT_MIN_SCORE` (50), `SCAMSENTINEL_CT_TIMEOUT_SECONDS` (120).
 - **Limitations.** crt.sh search is substring-based, so lookalikes that never contain a brand token literally (`turb0tax`, Cyrillic homoglyphs, `quickbook`) aren't found, even though the engine would score them. crt.sh is a free community service and is often slow or unavailable, so passes can partially fail. Candidates are unverified leads: a certificate is not proof of a live phishing site.
+
+---
+
+## 16. Scam categories and the brand-agnostic core
+
+Scams differ by lure (a held refund, a held package, a locked bank account) but share the same evidence: impersonation, lookalike links, urgency, payment and data demands, and claims that contradict the impersonated organization's own published policies. ScamSentinel's code detects that shared evidence. Everything specific to an organization or a kind of scam is **data**, grouped into categories.
+
+### What a category is
+
+| Piece | Where | Example (delivery) |
+|---|---|---|
+| Category | `data/brands.yaml` → `categories` | `delivery`: package-delivery smishing |
+| Brands | `data/brands.yaml` → `brands` (each with `category`, tokens, official domains, sources) | USPS: token `usps`, official `usps.com`, `uspis.gov` |
+| Trusted facts | `data/facts.yaml` (statement, source URL, last-reviewed date) | USPS doesn't text or email unless you asked for tracking, and those messages contain no link ([uspis.gov](https://www.uspis.gov/news/scam-article/smishing)); published phone numbers |
+| Signals | `data/keywords.yaml` | Brand mentions (`usps`, `u.s. postal service`), the `delivery_hold` threat ("package is on hold", "incomplete address", "returned to sender"), trust keywords for domains (`redelivery`, `parcel`, `tracking`) |
+| Labeled data | `data/eval/samples.jsonl` with `"category"` | 21 scams and 18 legitimate, including hard negatives |
+
+### What's generic (no organization named in code)
+
+- **Domain engine** (§4): tokens and official domains come from `brands.yaml`, so every technique (homoglyph, typosquat, keyword stuffing, TLD swap, subdomain abuse) works for any brand.
+- **Message features** (§5): `impersonated_entity` accepts any brand from `brands.yaml`, plus `other` / `none`. The LLM's JSON schema enum and prompt are built from the same list. In JSON-object mode (no enforced enum), a name outside the list becomes `other`, and the analyzer re-checks merged features, so neither the LLM nor a stale cache entry can introduce a "protected" brand the rules don't know. The entity list is part of the LLM cache key.
+- **Verification** (§6): checks are driven by each entity's facts (`official_domains`, `disallowed_first_contact_channels`, `disallowed_payment_methods`, `phone_numbers`). A brand without a given kind of fact simply doesn't get that check.
+- **Floors** (§9): `disallowed_payment_demand` (formerly `irs_unusual_payment_demand`) fires when a brand's own payment-policy fact fails, so it applies to any brand that publishes one. For the IRS it behaves exactly as before.
+- **CT watcher** (§15): search patterns come from `brands.yaml`.
+- **Load-time validation:** brand names are unique and not `other` / `none`; every brand's category is defined; `entity_mentions` names only known brands; every fact's entity is a known brand; every category has facts and at least 15 scam and 15 legitimate eval samples (tests).
+
+### Adding a category
+
+1. Define it in `brands.yaml` and add its brands with sources.
+2. Add trusted facts with sources and review dates. Only add facts the organization itself publishes.
+3. Add its phrases to `keywords.yaml`. A new threat type also needs the `ThreatType` literal and a label in `message/scoring.py` (and bumps the LLM prompt version).
+4. Write labeled samples with `"category"`: scams, hard negatives that resemble them, and off-vocabulary scams so recall isn't flattered. At least 5 per category × input type × label, so every stratum reaches dev and test.
+5. Check the existing categories' test numbers are unchanged, tune on the new category's dev split only, run its test split once, and report its metrics separately.
+
+New trust keywords are shared by every brand's domain scoring. Adding the delivery keywords left the tax category's numbers unchanged (re-run 2026-10-15), but that check is part of every new category.
+
+### Known limitations
+
+- **Brandless scams** are the weak spot in every category: the strongest evidence (lookalike domains, fact checks, floors) depends on knowing which organization is being impersonated.
+- **Facts are uneven across brands.** The IRS has a published payment policy, so a gift-card demand hits the 85 floor; USPS has no equivalent sourced fact, so the same demand scores on message signals only.
+- **Short tokens** (`usps`, 4 letters) only get typosquat detection for an added character (`uspss`); a substituted letter (`uspz`) is below the edit-distance threshold.

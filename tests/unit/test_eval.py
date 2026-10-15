@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from scamsentinel.data import load_brands, load_categories
 from scamsentinel.eval.dataset import Sample, assign_splits, load_samples, select
 from scamsentinel.eval.metrics import STRICT, TRIAGE, Prediction, confusion
 from scamsentinel.eval.report import markdown, summary
@@ -14,7 +15,8 @@ from scamsentinel.message.features import MessageFeatures
 from scamsentinel.message.llm import LlmUnavailable
 from scamsentinel.models import Verdict
 
-DATASET = Path(__file__).resolve().parents[2] / "data" / "eval" / "samples.jsonl"
+DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+DATASET = DATA_DIR / "eval" / "samples.jsonl"
 SAMPLES = load_samples(DATASET)
 
 
@@ -36,9 +38,31 @@ def test_scam_links_are_defanged():
             assert not re.search(r"https?://", s.content), s.id
 
 
-def test_brands_are_known():
-    allowed = {"IRS", "TurboTax", "QuickBooks", "Credit Karma", "none"}
-    assert {s.brand for s in SAMPLES} <= allowed
+BRANDS = {b.name: b for b in load_brands(DATA_DIR)}
+
+
+def test_brands_and_categories_are_known():
+    categories = load_categories(DATA_DIR)
+    for s in SAMPLES:
+        assert s.category in categories, s.id
+        assert s.brand == "none" or s.brand in BRANDS, s.id
+        if s.brand != "none":
+            assert BRANDS[s.brand].category == s.category, s.id
+
+
+def test_every_category_is_evaluated():
+    # A category isn't claimed as supported until it has labeled scams and hard negatives.
+    for category in load_categories(DATA_DIR):
+        labels = Counter(s.label for s in SAMPLES if s.category == category)
+        assert labels["scam"] >= 15 and labels["legitimate"] >= 15, category
+
+
+def test_new_categories_never_move_existing_splits():
+    # Category is part of the stratum, so the tax test set is the same with or without
+    # the samples of other categories.
+    tax = [s for s in SAMPLES if s.category == "tax"]
+    everything = assign_splits(SAMPLES)
+    assert assign_splits(tax) == {s.id: everything[s.id] for s in tax}
 
 
 def test_duplicate_ids_rejected(tmp_path):
@@ -66,10 +90,16 @@ def test_groups_never_straddle_splits():
 
 def test_every_stratum_has_dev_and_test_samples():
     splits = assign_splits(SAMPLES)
-    for input_type in ("text", "email", "url"):
-        for label in ("scam", "legitimate"):
-            seen = {splits[s.id] for s in SAMPLES if (s.input_type, s.label) == (input_type, label)}
-            assert {"train", "dev", "test"} <= seen, (input_type, label)
+    for category in {s.category for s in SAMPLES}:
+        for input_type in ("text", "email", "url"):
+            for label in ("scam", "legitimate"):
+                key = (category, input_type, label)
+                seen = {
+                    splits[s.id]
+                    for s in SAMPLES
+                    if (s.category, s.input_type, s.label) == key
+                }
+                assert {"train", "dev", "test"} <= seen, key
 
 
 def test_split_fractions_roughly_60_20_20():
@@ -82,6 +112,10 @@ def test_select():
     assert len(select(SAMPLES, "all")) == len(SAMPLES)
     parts = sum(len(select(SAMPLES, split)) for split in ("train", "dev", "test"))
     assert parts == len(SAMPLES)
+    delivery_test = select(SAMPLES, "test", "delivery")
+    assert delivery_test
+    assert all(s.category == "delivery" for s in delivery_test)
+    assert {s.id for s in delivery_test} <= {s.id for s in select(SAMPLES, "test")}
 
 
 # --- metrics -------------------------------------------------------------------------------

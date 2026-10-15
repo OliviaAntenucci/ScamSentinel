@@ -1,6 +1,6 @@
 # Security
 
-ScamSentinel takes attacker-controlled content as its *normal* input. It reads text written by scammers, parses untrusted emails and image files, and passes some of that text to an LLM. This document threat-models **the tool itself**, describes each defense, and lists the tests that prove it.
+ScamSentinel is a portfolio cybersecurity project, and securing the analyzer itself is half of it. It takes attacker-controlled content as its *normal* input. It reads text written by scammers, parses untrusted emails and image files, and passes some of that text to an LLM. This document threat-models **the tool itself**, describes each defense, and lists the tests that prove it.
 
 It covers the **MVP**. Threats that only exist once post-MVP features land (page fetching, a headless browser) are listed under [Post-MVP threats](#post-mvp-threats).
 
@@ -77,8 +77,9 @@ Variants: zero-width characters, instructions inside HTML email bodies or commen
 3. **Treat injection as evidence.** Both the LLM (`injection_attempt`) and a rule-based detector (phrases like "ignore previous instructions", "classify as safe") flag injection attempts. Legitimate IRS mail doesn't address AI classifiers, so a detected injection **adds** risk points.
 4. **Separate data from instructions.** The system prompt states that the content is untrusted data to analyze, not instructions to follow. Content goes inside a randomly named delimiter (`<untrusted_content_9f3a...>`) that the attacker can't predict or close early. Input is length-capped.
 5. **Validate output strictly.** The JSON is validated with Pydantic. Unknown fields, out-of-range values, and malformed output are rejected, and the system falls back to rules-only. Every extracted signal must quote a span that literally appears in the input, so made-up "evidence" is dropped.
-6. **Least privilege.** The LLM call has no tools (no browsing, no DB writes). It sees only the content under analysis, never secrets or other data.
-7. **Screenshots: the vision model only transcribes.** Its prompt says the image is data and must be transcribed, not obeyed. Its JSON reply may contain only `{"text": …}`, and that text then goes through the same rules, grounding and scoring as a pasted message. A malicious image can at most persuade the transcriber to *leave text out* (lowering recall). It can't add a verdict, and any injection phrases it does transcribe are scored as evidence.
+6. **The LLM can't invent a protected brand.** The `impersonated_entity` enum and prompt are built from `data/brands.yaml`. Outside strict-schema mode, any other name is demoted to `other`, and the analyzer re-checks merged features against the brand list. So neither the model nor a cached reply can make a message count as impersonating an organization the verification facts don't cover. The brand list is part of the cache key.
+7. **Least privilege.** The LLM call has no tools (no browsing, no DB writes). It sees only the content under analysis, never secrets or other data.
+8. **Screenshots: the vision model only transcribes.** Its prompt says the image is data and must be transcribed, not obeyed. Its JSON reply may contain only `{"text": …}`, and that text then goes through the same rules, grounding and scoring as a pasted message. A malicious image can at most persuade the transcriber to *leave text out* (lowering recall). It can't add a verdict, and any injection phrases it does transcribe are scored as evidence.
 
 **Tests:** `tests/security/test_prompt_injection.py`
 - Paired corpus: each scam sample is tested with and without about 30 injection variants (plain, HTML, zero-width, fake JSON, screenshot text, other languages). **Assertion: the verdict band never drops** (AC-4).
@@ -155,7 +156,7 @@ Without containers, the image is parsed by the same process that runs the API, s
 - **Rules are English and phrase-based.** Paraphrases the rules don't know rely on the LLM. Obfuscated injections (leetspeak, homoglyphs, other languages) aren't detected as injections by the rules, but they still can't lower a verdict, because the LLM has no say over it.
 - **The LLM cache holds unredacted spans and transcriptions** for up to 7 days on the local disk, because grounding has to compare them against the original text.
 - **Screenshots depend on a preview model.** Groq's only vision model (`qwen/qwen3.8-27b`) is listed as preview and may be retired without notice. If that happens, screenshot analysis fails closed with `503 … model_not_found` until `SCAMSENTINEL_VISION_MODEL` is updated.
-- **Transcription can be manipulated to omit text.** See T2, defense 7.
+- **Transcription can be manipulated to omit text.** See T2, defense 8.
 
 ---
 

@@ -1,6 +1,7 @@
 """Groq client and LLM-output validation, with the network replaced by httpx.MockTransport."""
 
 import json
+from pathlib import Path
 
 import httpx
 import pytest
@@ -8,13 +9,15 @@ import pytest
 from scamsentinel.config import Settings
 from scamsentinel.message.features import MessageFeatures
 from scamsentinel.message.llm import (
-    FEATURE_SCHEMA,
     GROQ_CHAT_URL,
     GroqExtractor,
     LlmUnavailable,
     build_extractor,
+    feature_schema,
     parse_llm_output,
 )
+
+ENTITIES = ["IRS", "TurboTax", "QuickBooks", "Credit Karma", "USPS"]
 
 VALID = {
     "impersonated_entity": {"value": "IRS", "span": "IRS"},
@@ -30,7 +33,9 @@ VALID = {
 
 
 def make_extractor(handler, model="openai/gpt-oss-20b"):
-    return GroqExtractor("gsk_test_key", model, transport=httpx.MockTransport(handler))
+    return GroqExtractor(
+        "gsk_test_key", model, transport=httpx.MockTransport(handler), entities=ENTITIES
+    )
 
 
 def reply(payload, status=200):
@@ -75,6 +80,47 @@ def test_request_shape_and_untrusted_delimiter():
     # A fresh nonce per call, so an attacker can't predict the closing tag.
     second_user = json.loads(seen[1].content)["messages"][1]["content"]
     assert nonce not in second_user
+
+
+def test_entity_list_comes_from_configuration():
+    seen = []
+
+    def handler(request):
+        seen.append(json.loads(request.content))
+        return reply(VALID)
+
+    make_extractor(handler).extract("x")
+    body = seen[0]
+    schema = body["response_format"]["json_schema"]["schema"]
+    allowed = schema["properties"]["impersonated_entity"]["properties"]["value"]["enum"]
+    assert allowed == [*ENTITIES, "other", "none"]
+    system = body["messages"][0]["content"]
+    assert '"USPS"' in system
+    assert '"delivery_hold"' in system
+
+
+def test_unknown_entity_becomes_other():
+    # JSON-object mode can't enforce the enum, so a name outside the list is demoted.
+    data = {**VALID, "impersonated_entity": {"value": "Acme Bank", "span": "Acme"}}
+    features = parse_llm_output(data, ENTITIES)
+    assert features.impersonated_entity.value == "other"
+    assert features.protected_entity is None
+
+
+def test_cache_version_depends_on_entity_list():
+    a = GroqExtractor("k", "m", entities=["IRS"])
+    b = GroqExtractor("k", "m", entities=["IRS", "USPS"])
+    assert a.prompt_version != b.prompt_version
+
+
+def test_build_extractor_uses_brands_file():
+    settings = Settings(
+        _env_file=None,
+        groq_api_key="gsk_x",
+        anthropic_api_key=None,
+        data_dir=Path(__file__).resolve().parents[2] / "data",
+    )
+    assert build_extractor(settings).entities == tuple(ENTITIES)
 
 
 def test_non_strict_models_use_json_object_mode():
@@ -173,8 +219,9 @@ def test_schema_is_strict_mode_compatible():
         elif node.get("type") == "array":
             walk(node["items"])
 
-    walk(FEATURE_SCHEMA)
-    assert set(FEATURE_SCHEMA["properties"]) == set(MessageFeatures.model_fields)
+    schema = feature_schema(ENTITIES)
+    walk(schema)
+    assert set(schema["properties"]) == set(MessageFeatures.model_fields)
 
 
 # --- factory ----------------------------------------------------------------------------

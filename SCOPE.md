@@ -1,6 +1,8 @@
 # Scope
 
-This document defines the **MVP**: what ScamSentinel does, what it doesn't do yet, what it won't do at all, and the rules it follows when it touches the outside world.
+This document defines what ScamSentinel does, what it doesn't do yet, what it won't do at all, and the rules it follows when it touches the outside world.
+
+ScamSentinel is a portfolio cybersecurity project: an explainable scam and phishing analyzer that runs locally, plus a threat model and tests for the analyzer itself. Detection is organized into **scam categories**. Tax-season impersonation is the baseline category; package-delivery smishing is the second.
 
 ## MVP definition
 
@@ -16,19 +18,21 @@ The MVP is done when someone can run ScamSentinel on their own computer, send it
 | M5 | Screenshot analysis (Groq vision transcription) | ✅ Done |
 | M6 | Evaluation dataset + precision/recall/F1/FPR report | ✅ Done |
 
-## In scope (MVP)
+## In scope
 
-### Targets
-Scams that impersonate these protected brands:
+### Scam categories and protected brands
 
-| Brand | Official domains (initial allowlist) |
-|---|---|
-| IRS | `irs.gov` (and subdomains) |
-| TurboTax | `turbotax.com`, `intuit.com` (incl. `turbotax.intuit.com`) |
-| QuickBooks | `quickbooks.com`, `intuit.com` (incl. `quickbooks.intuit.com`) |
-| Credit Karma | `creditkarma.com` |
+| Category | Brand | Official domains (allowlist) |
+|---|---|---|
+| Tax-season impersonation | IRS | `irs.gov` (and subdomains) |
+| | TurboTax | `turbotax.com`, `intuit.com` (incl. `turbotax.intuit.com`) |
+| | QuickBooks | `quickbooks.com`, `intuit.com` (incl. `quickbooks.intuit.com`) |
+| | Credit Karma | `creditkarma.com` |
+| Package-delivery smishing | USPS | `usps.com`, `uspis.gov` |
 
-The allowlist lives in `data/brands.yaml`. It is versioned, and each entry records its source.
+Categories and brands live in `data/brands.yaml`, versioned, with a source for each entry. The code names no organization; see [`architecture.md` §16](architecture.md#16-scam-categories-and-the-brand-agnostic-core).
+
+**Rule for growth:** add one category at a time, each with sourced trusted facts, its own signals, synthetic samples with hard negatives, and its own reported metrics. Check that existing categories' numbers don't change before describing the tool as covering the new one. Don't add brands without facts and tests.
 
 ### Inputs
 - Plain text (SMS, chat, social DMs)
@@ -37,29 +41,35 @@ The allowlist lives in `data/brands.yaml`. It is versioned, and each entry recor
 - Screenshots (PNG, JPEG, WebP)
 
 ### Scam patterns
-- Refund / "refund on hold" / identity-verification lures
-- Account suspension or lockout
-- Fake balance due and payment demands (gift cards, crypto, wire, Zelle, Cash App)
-- Credential and PII harvesting (SSN, bank, password, MFA codes, ID photos)
-- Fake tax-prep or "IRS agent" offers
-- Lookalike domains (homoglyphs, typos, keyword stuffing, subdomain tricks)
+Shared across categories:
+- Lookalike domains (homoglyphs, typos, keyword stuffing, subdomain tricks, TLD swaps)
+- Impersonation of a protected organization, and claims that contradict its published policies
+- Urgency and threats; payment demands (gift cards, crypto, wire, Zelle, Cash App)
+- Credential and PII harvesting (SSN, bank, password, MFA codes, card details, ID photos)
+- Instructions aimed at AI classifiers (prompt injection), scored as evidence
+
+Tax: refund holds, identity verification, account suspension, fake balance due, fake tax-prep or "IRS agent" offers.
+Delivery: "package on hold", incomplete address, redelivery or customs fees, "returned to sender".
 
 ### Outputs
 - Verdict (`likely_scam` / `suspicious` / `likely_legitimate`), a 0–100 score, per-module scores, and an itemized list of evidence-backed reasons
 - Domain-only scoring (`GET /v1/domain/score`)
-- Evaluation report: precision, recall, F1, FPR, confusion matrix, ablations
+- Evaluation report: precision, recall, F1, FPR, confusion matrix, ablations, per category
+- Lookalike domains found in Certificate Transparency logs (`GET /v1/ct/candidates`)
 
-## Post-MVP (planned, not in the MVP)
+## After the MVP
 
-Built in this order, only after the MVP works end to end. E1–E4 ("explain and guide") come after P1 and before P2: they deepen the tax-scam focus and explainability before any page fetching. Details in [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
+Details in [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
 
 | Phase | What | Status |
 |---|---|---|
 | P1 | Certificate Transparency watcher (crt.sh) to find newly registered lookalikes | ✅ Done |
-| E1 | "What should I do next?": short, cautious next steps chosen by the evidence found (never repeating links or numbers from the message) | Next |
-| E2 | Richer domain explanations: which characters were swapped, the misspelling, the misleading extra words | Next |
-| E3 | Fact-check summary: which claims match, conflict with, or can't be checked against the trusted facts | Next |
-| E4 | Tax-specific scenarios (refund delay, payment demand, identity verification, …), added over time | Next |
+| G1 | Brand-agnostic core and scam categories; package delivery (USPS) as the second category | ✅ Done |
+| G2+ | One new category at a time: bank impersonation, account takeover, tech support, job scams | Planned |
+| E1 | "What should I do next?": short, cautious next steps chosen by the evidence found (never repeating links or numbers from the message) | Planned |
+| E2 | Richer domain explanations: which characters were swapped, the misspelling, the misleading extra words | Planned |
+| E3 | Fact-check summary: which claims match, conflict with, or can't be checked against the trusted facts | Planned |
+| E4 | Named scenarios per category (refund delay, payment demand, package on hold, …), added over time | Planned |
 | P2 | Lightweight page fetch (no browser) to inspect forms and brand content, together with the SSRF URL guard | Planned |
 | P3 | Playwright headless-browser sandbox (screenshots, JavaScript-rendered pages, redirect chains) | Planned |
 | P4 | Docker packaging | Planned |
@@ -68,8 +78,8 @@ Built in this order, only after the MVP works end to end. E1–E4 ("explain and 
 
 | Not doing | Why |
 |---|---|
-| Brands other than the four above | Keeps the allowlist, eval set, and rules focused; adding a brand is a config change later |
-| Web UI or browser front end | API-only: run locally and use it from the command line. Keeps the attack surface small |
+| Brands or categories without sourced facts and tests | A brand list without facts and labeled data would claim coverage that isn't measured |
+| A hosted web app | The browser UI is a single local page served by the same loopback-only process. Keeps the attack surface small |
 | Remote/hosted deployment | The API binds to `127.0.0.1` only; exposing it to a network isn't supported |
 | Real-time inbox/SMS integration or blocking | ScamSentinel is an analyzer, not a filter or gateway |
 | Takedown requests, abuse reports, registrar contact | Out of scope for an educational tool |
@@ -98,10 +108,10 @@ Built in this order, only after the MVP works end to end. E1–E4 ("explain and 
 
 ### Evaluation data
 - Use public datasets under their licenses and cite them in `data/eval/SOURCES.md`.
-- Mark every synthetic sample `synthetic: true`. Report metrics on real and synthetic samples separately.
+- Mark every synthetic sample `synthetic: true`. Report metrics on real and synthetic samples separately, and per category.
 
 ## Assumptions
-- English-language US taxpayer context.
+- English-language, US context (US tax agencies and carriers).
 - One person running ScamSentinel on their own computer in a Python virtual environment, using the API from the command line at `http://127.0.0.1:8000`.
 - Screenshot analysis needs a `GROQ_API_KEY`: a Groq vision model reads the text, and the sanitized image (metadata removed) is sent to Groq. Without a key, screenshot requests return 503. Only use synthetic or public screenshots, never ones showing real people's personal data.
 - An LLM API key is available for the selected provider (Groq by default, free tier). Without one, the system runs rules-only.

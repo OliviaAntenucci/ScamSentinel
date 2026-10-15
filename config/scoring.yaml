@@ -13,7 +13,7 @@ bands:
 # Minimum score when a high-confidence combination fires.
 floors:
   sensitive_request_with_lookalike: 90
-  irs_unusual_payment_demand: 85
+  disallowed_payment_demand: 85 # brand's facts say it never takes that method (was irs_unusual_payment_demand)
   homoglyph_brand_domain: 80
   impersonation_with_lookalike: 80 # claims brand X and links to an X lookalike (added after dev eval)
   brand_sensitive_request: 75 # claims a protected brand and asks for SSN/card/password/... (dev eval)

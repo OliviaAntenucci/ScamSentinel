@@ -22,6 +22,8 @@ def load_yaml(path: Path) -> Any:
 
 class Brand(BaseModel):
     name: str
+    # Scam category this brand belongs to (a key of `categories` in brands.yaml).
+    category: str
     tokens: list[str]
     # Tokens that only match as a whole word, e.g. "irs" (not inside "first") or
     # "intuit" (not inside "intuition"). Their neighbors must be other known words.
@@ -46,12 +48,40 @@ class Brand(BaseModel):
         return domains
 
 
+class Category(BaseModel):
+    """A scam category, such as tax-season impersonation or package delivery."""
+
+    description: str
+
+
 class BrandsFile(BaseModel):
+    categories: dict[str, Category]
     brands: list[Brand]
+
+    @model_validator(mode="after")
+    def _consistent(self) -> BrandsFile:
+        names = [b.name for b in self.brands]
+        if len(set(names)) != len(names):
+            raise ValueError("brand names must be unique")
+        # "other" and "none" are reserved values of MessageFeatures.impersonated_entity.
+        if {"other", "none"} & set(names):
+            raise ValueError("'other' and 'none' are reserved and can't be brand names")
+        unknown = {b.category for b in self.brands} - set(self.categories)
+        if unknown:
+            raise ValueError(f"brands use undefined categories: {sorted(unknown)}")
+        return self
+
+
+def load_brands_file(data_dir: Path) -> BrandsFile:
+    return BrandsFile.model_validate(load_yaml(data_dir / "brands.yaml"))
 
 
 def load_brands(data_dir: Path) -> list[Brand]:
-    return BrandsFile.model_validate(load_yaml(data_dir / "brands.yaml")).brands
+    return load_brands_file(data_dir).brands
+
+
+def load_categories(data_dir: Path) -> dict[str, Category]:
+    return load_brands_file(data_dir).categories
 
 
 # --- data/keywords.yaml -------------------------------------------------------

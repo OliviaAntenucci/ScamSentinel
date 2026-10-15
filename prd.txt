@@ -8,10 +8,16 @@ Status:  MVP complete (M0-M6 done)
 --------------------------------------------------------------------------------
 1. SUMMARY
 --------------------------------------------------------------------------------
-ScamSentinel takes a suspicious SMS, email, URL, or screenshot and decides
-whether it is a scam targeting taxpayers. It focuses on impersonation of
-TurboTax, QuickBooks, Credit Karma, and the IRS. Every verdict comes with
-human-readable, evidence-backed reasons.
+ScamSentinel is a portfolio cybersecurity project: a local, explainable
+scam and phishing analyzer that is itself threat-modeled and tested as an
+attack surface. It takes a suspicious SMS, email, URL, or screenshot and
+decides whether it is a scam. Every verdict comes with human-readable,
+evidence-backed reasons.
+
+Detection is organized into scam categories, each with its own trusted
+facts, signals and labeled test data. The MVP covered tax-season
+impersonation (IRS, TurboTax, QuickBooks, Credit Karma), which remains the
+baseline. Package-delivery smishing (USPS) was added after the MVP (G1).
 
 Design principle: "The LLM extracts, the rules decide." No verdict depends on
 an opaque model output alone.
@@ -221,6 +227,13 @@ Post-MVP (in order, only after M6). E1-E4 ("explain and guide") deepen
 the tax-scam niche and explainability, and come before page fetching.
   P1  Certificate Transparency watcher (crt.sh) + GET /v1/ct/candidates
                                                                 (done)
+  G1  Brand-agnostic core + scam categories: brands, categories, facts
+      and phrases are data; the LLM schema, verification and floors
+      read them. Package delivery (USPS) as the second category, with
+      sourced facts, 39 samples and its own metrics.              (done)
+  G2+ One new category at a time (bank impersonation, account
+      takeover, tech support, job scams), each with sourced facts,
+      signals, hard negatives and separately reported metrics.
   E1  "What should I do next?": evidence-based, cautious next steps
       from fixed templates (never repeats links/numbers from the
       message; official contacts only from facts.yaml)            (next)
@@ -228,8 +241,8 @@ the tax-scam niche and explainability, and come before page fetching.
       misleading extra words, real owner of the domain)          (next)
   E3  Fact-check summary: claims that match / conflict / can't be
       verified against trusted facts, with sources                (next)
-  E4  Tax-specific scenarios (refund delay, payment demand,
-      identity verification, ...), added over time as data        (next)
+  E4  Named scenarios per category (refund delay, payment demand,
+      package on hold, ...), added over time as data              (next)
   P2  Lightweight page fetch (httpx + HTML parser) + SSRF URL guard
   P3  Playwright headless-browser sandbox in an isolated container
   P4  Docker packaging

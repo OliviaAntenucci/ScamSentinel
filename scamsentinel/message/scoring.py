@@ -30,6 +30,7 @@ _LABELS = {
     "arrest": "arrest",
     "account_suspension": "account suspension",
     "refund_loss": "losing your refund",
+    "delivery_hold": "a held or undeliverable package",
     "penalty": "penalties",
     "legal_action": "legal action",
     # calls to action

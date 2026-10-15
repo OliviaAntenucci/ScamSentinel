@@ -14,6 +14,7 @@ from scamsentinel.message.features import (
     SensitiveRequest,
 )
 from scamsentinel.models import Module, ModuleResult, Verdict
+from scamsentinel.verify.checks import CheckResult
 
 CONFIG = load_scoring(Path(__file__).resolve().parents[2] / "config")
 
@@ -70,14 +71,38 @@ def test_floor_sensitive_request_with_lookalike(engine):
     assert "floor:sensitive_request_with_lookalike" in signals(agg)
 
 
-def test_floor_irs_unusual_payment():
+def payment_policy_check(entity: str) -> CheckResult:
+    return CheckResult(
+        check="payment_method_policy",
+        signal="payment_method_policy",
+        claim=f"{entity} asking for payment by gift card",
+        verified=False,
+    )
+
+
+def test_floor_disallowed_payment_demand():
     features = MessageFeatures(
         impersonated_entity=Impersonation(value="IRS", span="IRS"),
         payment_methods=[PaymentMethod(method="gift_card", span="gift cards")],
     )
-    agg = aggregate(domains=[], message=message(40), features=features, config=CONFIG)
+    agg = aggregate(
+        domains=[], message=message(40), features=features, config=CONFIG,
+        checks=[payment_policy_check("IRS")],
+    )
     assert agg.risk_score == 85
-    assert agg.overrides_applied == ["irs_unusual_payment_demand"]
+    assert agg.overrides_applied == ["disallowed_payment_demand"]
+    floor = next(r for r in agg.reasons if r.signal == "floor:disallowed_payment_demand")
+    assert "claims to be IRS" in floor.detail
+
+
+def test_disallowed_payment_floor_needs_a_failed_policy_check():
+    # Without a fact saying the brand never takes gift cards, there's no floor.
+    features = MessageFeatures(
+        impersonated_entity=Impersonation(value="USPS", span="USPS"),
+        payment_methods=[PaymentMethod(method="gift_card", span="gift cards")],
+    )
+    agg = aggregate(domains=[], message=message(40), features=features, config=CONFIG, checks=[])
+    assert "disallowed_payment_demand" not in agg.overrides_applied
 
 
 def test_floor_homoglyph_domain(engine):

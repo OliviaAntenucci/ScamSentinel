@@ -6,11 +6,15 @@ score field: the LLM extracts, the rules decide (SECURITY.md T2).
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field
 
 Source = Literal["llm", "rule", "both"]
+
+# Values of impersonated_entity that aren't a protected brand.
+OTHER_ENTITY = "other"
+NO_ENTITY = "none"
 
 
 class _Strict(BaseModel):
@@ -25,7 +29,10 @@ class Span(_Strict):
 
 
 class Impersonation(Span):
-    value: Literal["IRS", "TurboTax", "QuickBooks", "Credit Karma", "other", "none"]
+    # A protected brand name from data/brands.yaml, "other" or "none". The brand list is
+    # configuration, so it's validated where the features are produced: the LLM parser
+    # maps unknown names to "other", and the analyzer re-checks merged features.
+    value: str = Field(min_length=1, max_length=64)
 
 
 class Urgency(_Strict):
@@ -41,8 +48,14 @@ class SensitiveRequest(Span):
     type: Literal["ssn", "bank_account", "password", "mfa_code", "card", "id_photo", "dob"]
 
 
+ThreatType = Literal[
+    "arrest", "account_suspension", "refund_loss", "delivery_hold", "penalty", "legal_action"
+]
+THREAT_TYPES: tuple[str, ...] = get_args(ThreatType)
+
+
 class Threat(Span):
-    type: Literal["arrest", "account_suspension", "refund_loss", "penalty", "legal_action"]
+    type: ThreatType
 
 
 class CallToAction(Span):
@@ -54,10 +67,9 @@ class InjectionAttempt(_Strict):
     span: str = ""
 
 
-PROTECTED_ENTITIES = ("IRS", "TurboTax", "QuickBooks", "Credit Karma")
-
-# Payment methods no tax agency or tax-software company demands. "other" (e.g. "IRS
-# Direct Pay", a bank transfer through an official site) is deliberately not included.
+# Payment methods that legitimate organizations (tax agencies, carriers, banks) don't
+# demand from consumers. "other" (e.g. "IRS Direct Pay", a bank transfer through an
+# official site) is deliberately not included.
 UNUSUAL_PAYMENT_METHODS = frozenset({"gift_card", "crypto", "wire", "zelle", "cash_app", "venmo"})
 
 
@@ -76,7 +88,18 @@ class MessageFeatures(_Strict):
     def protected_entity(self) -> str | None:
         """The protected brand the message claims to be from, if any."""
         entity = self.impersonated_entity
-        return entity.value if entity and entity.value in PROTECTED_ENTITIES else None
+        if entity is None or entity.value in (OTHER_ENTITY, NO_ENTITY):
+            return None
+        return entity.value
+
+    def restrict_entity(self, brands: set[str]) -> MessageFeatures:
+        """Copy in which an impersonated entity that isn't a known brand becomes "other"."""
+        entity = self.impersonated_entity
+        if entity is None or entity.value in brands or entity.value == OTHER_ENTITY:
+            return self
+        return self.model_copy(
+            update={"impersonated_entity": entity.model_copy(update={"value": OTHER_ENTITY})}
+        )
 
     def with_source(self, source: Source) -> MessageFeatures:
         """Copy with every span-bearing feature tagged as coming from `source`."""

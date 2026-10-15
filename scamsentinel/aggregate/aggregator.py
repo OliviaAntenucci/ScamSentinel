@@ -14,8 +14,9 @@ from dataclasses import dataclass, field
 
 from scamsentinel.data import Bands, ScoringConfig
 from scamsentinel.domain.engine import DomainResult
-from scamsentinel.message.features import UNUSUAL_PAYMENT_METHODS, MessageFeatures
+from scamsentinel.message.features import MessageFeatures
 from scamsentinel.models import Module, ModuleResult, Reason, Verdict
+from scamsentinel.verify.checks import CheckResult
 
 LOOKALIKE_THRESHOLD = 60
 # Domain reasons are listed for at most this many domains, highest-scoring first.
@@ -60,6 +61,7 @@ def aggregate(
     message: ModuleResult | None,
     features: MessageFeatures | None,
     config: ScoringConfig,
+    checks: list[CheckResult] | None = None,
 ) -> Aggregate:
     modules = [m for m in (domain_module(domains), message) if m is not None]
     if not modules:
@@ -99,7 +101,7 @@ def aggregate(
             )
         )
 
-    for name, applies, why in _floors(domains, features):
+    for name, applies, why in _floors(domains, features, checks or []):
         floor = config.floors.get(name)
         if floor is not None and applies and risk < floor:
             risk = floor
@@ -117,7 +119,7 @@ def aggregate(
 
 
 def _floors(
-    domains: list[DomainResult], features: MessageFeatures | None
+    domains: list[DomainResult], features: MessageFeatures | None, checks: list[CheckResult]
 ) -> list[tuple[str, bool, str]]:
     lookalike = any(not d.official and d.score >= LOOKALIKE_THRESHOLD for d in domains)
     homoglyph = any("homoglyph" in d.techniques for d in domains)
@@ -125,8 +127,10 @@ def _floors(
         ("homoglyph_brand_domain", homoglyph, "a link uses lookalike characters of a brand name"),
     ]
     if features is not None:
-        unusual_payment = any(
-            p.method in UNUSUAL_PAYMENT_METHODS for p in features.payment_methods
+        # The brand's own trusted facts say it never takes this payment method (e.g. the
+        # IRS and gift cards). Only brands with such facts can trigger it.
+        disallowed_payment = any(
+            c.check == "payment_method_policy" and c.verified is False for c in checks
         )
         other_signal = bool(
             lookalike
@@ -158,9 +162,10 @@ def _floors(
                 "asks for sensitive information and links to a lookalike domain",
             ),
             (
-                "irs_unusual_payment_demand",
-                features.protected_entity == "IRS" and unusual_payment,
-                "claims to be the IRS and demands an unusual payment method",
+                "disallowed_payment_demand",
+                entity is not None and disallowed_payment,
+                f"claims to be {entity} and demands a payment method {entity} says it never "
+                "uses",
             ),
             (
                 "injection_plus_scam_signal",

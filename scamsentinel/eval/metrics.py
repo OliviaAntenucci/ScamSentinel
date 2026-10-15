@@ -21,6 +21,7 @@ class Prediction(BaseModel):
     input_type: str
     label: str
     brand: str
+    category: str = "tax"
     synthetic: bool
     verdict: Verdict
     risk_score: int

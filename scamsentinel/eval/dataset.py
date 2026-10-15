@@ -24,6 +24,9 @@ class Sample(BaseModel):
     group: str | None = None
     input_type: Literal["text", "url", "email"]
     label: Label
+    # Scam category from data/brands.yaml. The original 152 samples are all "tax"; every
+    # sample of another category must set it.
+    category: str = "tax"
     brand: str = "none"
     # URLs in scam samples are stored defanged (hxxps://, [.]); ScamSentinel refangs them.
     content: str
@@ -54,16 +57,18 @@ def _rank(key: str) -> str:
 
 
 def assign_splits(samples: list[Sample]) -> dict[str, Split]:
-    """Sample id -> split. Stratified by input type × label, grouped by template.
+    """Sample id -> split. Stratified by category × input type × label, grouped by template.
 
     Within each stratum, groups are ordered by a seeded hash and cut 60/20/20, so the
-    assignment is deterministic and a group never straddles two splits.
+    assignment is deterministic and a group never straddles two splits. Because category
+    is part of the stratum, adding samples of a new category never moves an existing
+    category's samples to another split (its test set stays untouched).
     """
-    strata: dict[tuple[str, str], dict[str, list[Sample]]] = defaultdict(
+    strata: dict[tuple[str, str, str], dict[str, list[Sample]]] = defaultdict(
         lambda: defaultdict(list)
     )
     for s in samples:
-        strata[(s.input_type, s.label)][s.split_key].append(s)
+        strata[(s.category, s.input_type, s.label)][s.split_key].append(s)
 
     splits: dict[str, Split] = {}
     for groups in strata.values():
@@ -85,8 +90,13 @@ def assign_splits(samples: list[Sample]) -> dict[str, Split]:
     return splits
 
 
-def select(samples: list[Sample], split: Split | Literal["all"]) -> list[Sample]:
-    if split == "all":
-        return samples
-    splits = assign_splits(samples)
-    return [s for s in samples if splits[s.id] == split]
+def select(
+    samples: list[Sample], split: Split | Literal["all"], category: str | None = None
+) -> list[Sample]:
+    """Samples in `split` (and `category`). Splits are assigned over the whole dataset."""
+    if split != "all":
+        splits = assign_splits(samples)
+        samples = [s for s in samples if splits[s.id] == split]
+    if category is not None:
+        samples = [s for s in samples if s.category == category]
+    return samples

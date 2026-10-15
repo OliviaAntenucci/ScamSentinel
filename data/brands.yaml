@@ -1,11 +1,26 @@
-# Protected brands (SCOPE.md).
+# Protected brands, grouped into scam categories (SCOPE.md).
 # official_domains are REGISTRABLE domains (Public Suffix List) and are matched exactly,
 # never by substring or prefix, so turbotax.com.evil.net or irs.gov-refund.com never match.
 # boundary_tokens only match as whole words: "irs" must not fire on "first" or "shirts",
 # and "intuit" must not fire on "intuition".
+#
+# Adding a category: define it here, add its brands with sources, add trusted facts to
+# facts.yaml, its phrases to keywords.yaml, and labeled samples (with `category`) to
+# data/eval/samples.jsonl. Report its metrics separately before relying on it.
+
+categories:
+  tax:
+    description: >-
+      Tax-season impersonation: refund holds, identity verification, balance-due and
+      payment demands, account suspension, posing as the IRS or tax-software companies.
+  delivery:
+    description: >-
+      Package-delivery smishing: "package on hold" or "incomplete address" lures that push
+      a lookalike link, a small redelivery fee, or card details.
 
 brands:
   - name: IRS
+    category: tax
     tokens: [irs]
     boundary_tokens: [irs]
     official_domains: [irs.gov]
@@ -14,18 +29,28 @@ brands:
   # "intuit" (the parent company) is a token of both Intuit brands; a match is reported
   # under the first brand that lists it.
   - name: TurboTax
+    category: tax
     tokens: [turbotax, intuit]
     boundary_tokens: [intuit]
     official_domains: [turbotax.com, intuit.com]
     sources: [https://turbotax.intuit.com/]
 
   - name: QuickBooks
+    category: tax
     tokens: [quickbooks, intuit]
     boundary_tokens: [intuit]
     official_domains: [quickbooks.com, intuit.com]
     sources: [https://quickbooks.intuit.com/]
 
   - name: Credit Karma
+    category: tax
     tokens: [creditkarma]
     official_domains: [creditkarma.com]
     sources: [https://www.creditkarma.com/]
+
+  # uspis.gov is the U.S. Postal Inspection Service, USPS's law-enforcement arm.
+  - name: USPS
+    category: delivery
+    tokens: [usps]
+    official_domains: [usps.com, uspis.gov]
+    sources: [https://www.usps.com/, https://www.uspis.gov/]

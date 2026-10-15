@@ -30,6 +30,14 @@ stuffing_keywords:
   - gov
   - official
   - online
+  # delivery
+  - delivery
+  - redelivery
+  - package
+  - parcel
+  - tracking
+  - shipping
+  - shipment
 
 urgency_phrases:
   - immediately
@@ -74,6 +82,20 @@ threats:
     [lose your refund, forfeit your refund, refund will be cancelled, refund on hold, refund is on hold]
   penalty: [penalty, penalties, late fee]
   legal_action: [lawsuit, legal action, prosecution]
+  delivery_hold:
+    - package is on hold
+    - package on hold
+    - parcel is on hold
+    - unable to deliver
+    - could not be delivered
+    - cannot be delivered
+    - delivery failed
+    - failed delivery
+    - delivery attempt failed
+    - incomplete address
+    - address is incomplete
+    - returned to sender
+    - return to sender
 
 # Mentions of a protected brand in message text. Keys must match names in brands.yaml.
 entity_mentions:
@@ -81,6 +103,7 @@ entity_mentions:
   TurboTax: [turbotax, turbo tax, intuit]
   QuickBooks: [quickbooks, quick books]
   Credit Karma: [credit karma, creditkarma]
+  USPS: [usps, us postal service, u.s. postal service, united states postal service]
 
 # A payment method, sensitive request or threat is ignored when one of these words appears
 # shortly before it in the same clause ("The IRS will never ask for your password").

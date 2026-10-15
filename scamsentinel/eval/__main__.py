@@ -24,6 +24,9 @@ def main() -> None:
         "--ablation", choices=["full", "rules_only", "no_verify"], default="rules_only",
         help="full uses the LLM if GROQ_API_KEY is set (costs API calls; results are cached)",
     )
+    parser.add_argument(
+        "--category", help="only samples of this scam category (e.g. tax, delivery)"
+    )
     parser.add_argument("--data", type=Path, default=Path("data/eval/samples.jsonl"))
     parser.add_argument("--report", type=Path, help="write a markdown report to this path")
     parser.add_argument("--json", type=Path, help="write metrics + predictions as JSON")
@@ -40,7 +43,7 @@ def main() -> None:
     args = parser.parse_args()
 
     settings = get_settings()
-    samples = select(load_samples(args.data), args.split)
+    samples = select(load_samples(args.data), args.split, args.category)
     service = build_service(settings, args.ablation, args.db)
     retries = args.rate_limit_retries if args.ablation != "rules_only" else 0
     predictions = run(
@@ -62,7 +65,8 @@ def main() -> None:
     )
 
     strict, triage = confusion(predictions, STRICT), confusion(predictions, TRIAGE)
-    print(f"{args.split} split, {len(predictions)} samples, ablation={args.ablation}, LLM: {llm}")
+    scope = f"{args.split} split" + (f", category {args.category}" if args.category else "")
+    print(f"{scope}, {len(predictions)} samples, ablation={args.ablation}, LLM: {llm}")
     for name, c in (("strict", strict), ("triage", triage)):
         print(
             f"  {name:6}  precision {pct(c.precision):>6}  recall {pct(c.recall):>6}  "
