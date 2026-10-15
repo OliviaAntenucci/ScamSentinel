@@ -1,0 +1,56 @@
+# "What should I do next?" (E1, architecture.md §18).
+#
+# Fixed, reviewed wording. scamsentinel/guidance/next_steps.py chooses steps from the
+# evidence and fills the {placeholders} from data files only: brand names and official
+# sites (brands.yaml), published phone numbers and report addresses (facts.yaml), and the
+# references below. Nothing from the analyzed message is ever inserted, so the advice
+# can't repeat a scammer's link, phone number or chosen company name.
+
+steps:
+  dont_open_link_brand: >-
+    Don't open the link in this message. It doesn't go to an official {entity} website.
+  dont_open_link: >-
+    Don't open the link in this message.
+  dont_share: >-
+    Don't reply with or type in {requested}. Legitimate organizations don't ask for it
+    this way.
+  dont_pay_policy: >-
+    Don't pay. {entity} says it doesn't take payment by {methods}.
+  dont_pay: >-
+    Don't pay. Demands for gift cards, cryptocurrency, wire transfers or payment-app
+    transfers are a common scam sign.
+  dont_call: >-
+    Don't call the phone number in this message.
+  contact_brand_with_phone: >-
+    If you're worried, contact {entity} yourself: type {site} into your browser, or call
+    {phone}. Don't use the contact details in this message.
+  contact_brand: >-
+    If you're worried, contact {entity} yourself: type {site} into your browser, or use a
+    number from your own paperwork. Don't use the contact details in this message.
+  contact_unknown_org: >-
+    If you're worried, contact the organization it claims to be from through its official
+    website or app, found on your own. Don't use the contact details in this message.
+  contact_sender: >-
+    If it might be real, check with the sender through a contact method you already trust,
+    not the details in this message.
+  report_brand_text: >-
+    Report it: send the details to {report_to}, and forward the text to 7726 (SPAM).
+  report_brand: >-
+    Report it to {report_to}, then delete it.
+  report_text: >-
+    Report it: forward the text to 7726 (SPAM), or report it at ReportFraud.ftc.gov.
+  report: >-
+    Report it at ReportFraud.ftc.gov, then delete it.
+  already_acted: >-
+    If you already shared information or paid, contact your bank or card issuer right
+    away, and change any password you gave out.
+  verify_brand: >-
+    This looks legitimate, but if anything feels off, go to {site} by typing it in
+    yourself instead of using a link.
+  verify: >-
+    No strong warning signs, but if anything feels off, contact the sender through a
+    channel you already trust.
+
+# Sources for steps that cite a reporting channel.
+references:
+  ftc_spam_text: https://consumer.ftc.gov/articles/how-recognize-and-report-spam-text-messages

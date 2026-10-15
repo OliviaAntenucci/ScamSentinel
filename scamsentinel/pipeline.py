@@ -19,6 +19,7 @@ from scamsentinel.config import Settings
 from scamsentinel.data import ScoringConfig, load_scoring
 from scamsentinel.domain.engine import DomainEngine, DomainResult, get_engine
 from scamsentinel.domain.normalize import InvalidHost
+from scamsentinel.guidance.next_steps import NextStepsGuide
 from scamsentinel.ingest.email import parse_eml
 from scamsentinel.message.analyzer import MessageAnalysis, MessageAnalyzer
 from scamsentinel.message.llm import (
@@ -57,7 +58,9 @@ class AnalysisService:
         max_image_bytes: int = 5 * 1024 * 1024,
         max_image_pixels: int = 25_000_000,
         max_text_chars: int = 20_000,
+        guide: NextStepsGuide | None = None,
     ) -> None:
+        self._guide = guide
         self._engine = engine
         self._analyzer = analyzer
         self._scoring = scoring
@@ -94,6 +97,7 @@ class AnalysisService:
             max_image_bytes=settings.max_image_bytes,
             max_image_pixels=settings.max_image_pixels,
             max_text_chars=settings.max_text_chars,
+            guide=NextStepsGuide.from_files(settings.data_dir),
         )
 
     def analyze(self, request: AnalyzeRequest) -> AnalysisResult:
@@ -186,6 +190,17 @@ class AnalysisService:
             reasons=result.reasons,
             overrides_applied=result.overrides_applied,
             disagreements=message.disagreements if message else [],
+            next_steps=(
+                self._guide.build(
+                    verdict=result.verdict,
+                    input_type=input_type,
+                    features=message.features if message else None,
+                    domains=domains,
+                    checks=message.checks if message else [],
+                )
+                if self._guide
+                else []
+            ),
         )
         # SSN/card numbers quoted as evidence never reach the response, disk or logs.
         analysis = redact_result(analysis)

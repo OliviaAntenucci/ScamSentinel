@@ -177,6 +177,17 @@ function renderEvidence(reasons) {
   }
 }
 
+function renderNextSteps(steps) {
+  const box = document.querySelector("#next-steps");
+  const list = document.querySelector("#next-steps-list");
+  list.replaceChildren();
+  box.hidden = !steps.length;
+  for (const step of steps) {
+    // Plain text only: the advice is never rendered as HTML or turned into links.
+    addText(list, "li", "next-step", step.text);
+  }
+}
+
 function renderResult(result) {
   const verdicts = {
     likely_legitimate: ["Likely legitimate", "No major warning signs found", "legitimate"],
@@ -210,6 +221,7 @@ function renderResult(result) {
     notes.hidden = true;
     notes.textContent = "";
   }
+  renderNextSteps(result.next_steps ?? []);
   renderEvidence(result.reasons ?? []);
   resultSection.hidden = false;
   resultSection.scrollIntoView({ behavior: "smooth", block: "start" });

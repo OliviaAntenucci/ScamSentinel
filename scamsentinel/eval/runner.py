@@ -14,6 +14,7 @@ from scamsentinel.domain.engine import get_engine
 from scamsentinel.domain.normalize import InvalidHost
 from scamsentinel.eval.dataset import Sample
 from scamsentinel.eval.metrics import Prediction
+from scamsentinel.guidance.next_steps import NextStepsGuide
 from scamsentinel.message.analyzer import MessageAnalyzer
 from scamsentinel.message.llm import CachedExtractor, build_extractor
 from scamsentinel.models import Verdict
@@ -60,7 +61,13 @@ def build_service(settings: Settings, ablation: Ablation, db_path: Path) -> Anal
         org_facts=org_facts,
         max_chars=settings.max_text_chars,
     )
-    return AnalysisService(engine=engine, analyzer=analyzer, scoring=scoring, store=store)
+    return AnalysisService(
+        engine=engine,
+        analyzer=analyzer,
+        scoring=scoring,
+        store=store,
+        guide=NextStepsGuide.from_files(settings.data_dir),
+    )
 
 
 RATE_LIMITED = "llm_unavailable:rate_limited"

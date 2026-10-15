@@ -43,6 +43,16 @@ class ModuleResult(BaseModel):
     reasons: list[Reason] = []
 
 
+class NextStep(BaseModel):
+    """One piece of advice (E1). Built from fixed templates and data files only, never from
+    the analyzed content, so it can't repeat a scammer's link or phone number."""
+
+    id: str
+    text: str
+    # Where an official contact or reporting channel in the text comes from.
+    source: str | None = None
+
+
 class AnalysisResult(BaseModel):
     analysis_id: str
     created_at: datetime
@@ -57,3 +67,5 @@ class AnalysisResult(BaseModel):
     overrides_applied: list[str] = []
     # Indicators the rules found but the LLM missed (possible injection or extraction gaps).
     disagreements: list[str] = []
+    # "What should I do next?", most important first.
+    next_steps: list[NextStep] = []

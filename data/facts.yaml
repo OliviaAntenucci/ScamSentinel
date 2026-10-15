@@ -40,6 +40,16 @@ facts:
     data:
       phone_numbers: ["+18008291040"]
 
+  - id: irs_report_phishing
+    entity: IRS
+    statement: >-
+      Send IRS-impersonation emails, and the details of IRS-impersonation texts, to
+      phishing@irs.gov.
+    source: https://www.irs.gov/privacy-disclosure/report-phishing
+    last_reviewed: 2026-10-15
+    data:
+      report_to: phishing@irs.gov
+
   # --- delivery ---------------------------------------------------------------------
 
   - id: usps_no_unrequested_messages_with_links
@@ -68,6 +78,14 @@ facts:
     last_reviewed: 2026-10-15
     data:
       phone_numbers: ["+18002758777", "+18002221811"]
+
+  - id: usps_report_smishing
+    entity: USPS
+    statement: Report USPS-related smishing by emailing spam@uspis.gov.
+    source: https://www.uspis.gov/news/scam-article/smishing
+    last_reviewed: 2026-10-15
+    data:
+      report_to: spam@uspis.gov
 
   # TODO(M2): add Intuit (TurboTax/QuickBooks) and Credit Karma facts (official support
   # channels, payment policies) from their published security/phishing pages.

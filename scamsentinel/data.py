@@ -123,6 +123,33 @@ def load_facts(data_dir: Path) -> list[Fact]:
     return FactsFile.model_validate(load_yaml(data_dir / "facts.yaml")).facts
 
 
+# --- data/guidance.yaml -------------------------------------------------------
+
+
+class Guidance(BaseModel):
+    """Next-step templates (E1). Placeholders are filled from data files only."""
+
+    steps: dict[str, str]
+    references: dict[str, str] = {}
+
+    @field_validator("steps")
+    @classmethod
+    def _single_line(cls, steps: dict[str, str]) -> dict[str, str]:
+        return {k: " ".join(v.split()) for k, v in steps.items()}
+
+    @field_validator("references")
+    @classmethod
+    def _https_sources(cls, refs: dict[str, str]) -> dict[str, str]:
+        for name, url in refs.items():
+            if not url.startswith("https://"):
+                raise ValueError(f"reference {name!r} must be an https:// URL")
+        return refs
+
+
+def load_guidance(data_dir: Path) -> Guidance:
+    return Guidance.model_validate(load_yaml(data_dir / "guidance.yaml"))
+
+
 # --- config/scoring.yaml ------------------------------------------------------
 
 
