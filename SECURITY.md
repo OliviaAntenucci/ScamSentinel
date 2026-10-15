@@ -11,6 +11,7 @@ It covers the **MVP**. Threats that only exist once post-MVP features land (page
 - [T3 — Malicious file uploads](#t3--malicious-file-uploads)
 - [T4 — Attacks on the local API](#t4--attacks-on-the-local-api)
 - [T5 — Other threats](#t5--other-threats)
+- [CT watcher (P1)](#ct-watcher-p1)
 - [Post-MVP threats](#post-mvp-threats)
 - [Security test matrix](#security-test-matrix)
 
@@ -53,7 +54,7 @@ This is a portfolio project that runs locally. Out of scope: reports about third
 
 **MVP defense: never fetch user-supplied URLs.** In the MVP, URLs are only analyzed as strings: parsed, scored by the domain engine, and checked against trusted facts. ScamSentinel never opens a connection to them. With no request, there is nothing to forge. This also means the tool never contacts attacker infrastructure, which avoids alerting scammers or downloading anything.
 
-The only outbound connection the MVP makes is the HTTPS call to the configured LLM provider, whose address comes from configuration, never from user input.
+The only outbound connection the MVP makes is the HTTPS call to the configured LLM provider, whose address comes from configuration, never from user input. The optional CT watcher (P1, a separate process) adds exactly one more fixed destination, `https://crt.sh/`. See [CT watcher](#ct-watcher-p1).
 
 **Tests:** `tests/security/test_no_fetch.py` (passing) replaces `socket.getaddrinfo`, `gethostbyname`, `create_connection`, `socket.connect` and `connect_ex` with tripwires. It then analyzes every URL in `tests/security/ssrf_payloads.txt` (metadata, loopback, private ranges, alternate IP encodings, odd schemes), both as URL inputs and inside a text message, and asserts that nothing even attempts a DNS lookup or connection. A third test configures the LLM and checks that the only outbound request goes to the fixed provider endpoint, even when the message is full of internal addresses.
 
@@ -158,6 +159,22 @@ Without containers, the image is parsed by the same process that runs the API, s
 
 ---
 
+## CT watcher (P1)
+
+The Certificate Transparency watcher (`python -m scamsentinel.ct`, [`architecture.md` §15](architecture.md#15-certificate-transparency-watcher-p1)) reads public certificate logs from crt.sh. Its input is attacker-influenced: anyone can get a certificate for any name they control.
+
+| Threat | Defense |
+|---|---|
+| Contacting attacker infrastructure, or SSRF via a certificate name like `169.254.169.254` | The watcher only ever requests the fixed `https://crt.sh/` URL and doesn't follow redirects. Certificate names are scored as strings by the domain engine and never resolved or visited |
+| Hostile certificate names (odd characters, huge strings, IPs, emails) | Each name must be a plain lowercase ASCII hostname (≤ 253 chars) or it's dropped; issuer and date fields are length-capped. The domain engine is already fuzzed against arbitrary input |
+| A huge or malformed crt.sh response | Bodies over 64 MB are refused while streaming; malformed JSON or rows are rejected or skipped; at most 50,000 names are scored per pass |
+| Abusing crt.sh (it's a free community service) | Sequential requests at least 10 s apart, exponential backoff that honors `Retry-After`, a descriptive `User-Agent`, and a minimum polling interval of 1 hour |
+| Candidates shown to users | Returned as JSON only by `GET /v1/ct/candidates` (read-only, same Host/CORS protections as the rest of the API). Candidates are labeled as unverified leads |
+
+**Tests:** `tests/unit/test_ct_client.py`, `test_ct_store.py` and `test_ct_watcher.py` cover name validation, backoff, size caps, dedupe and the endpoint. `tests/security/test_no_fetch.py::test_ct_watcher_only_contacts_crtsh` feeds every SSRF payload in as a certificate name with socket tripwires in place, and checks that the only host contacted is crt.sh.
+
+---
+
 ## Post-MVP threats
 
 These come back when the corresponding post-MVP phase lands (see [`architecture.md` §14](architecture.md#14-post-mvp-roadmap)).
@@ -181,7 +198,7 @@ The payload list and test file already exist (`tests/security/ssrf_payloads.txt`
 
 | ID | Test file | Proves | Status |
 |---|---|---|---|
-| S1 | `test_no_fetch.py` | Analyzing any URL makes no DNS lookup or connection; the only outbound request is to the LLM provider | Passing |
+| S1 | `test_no_fetch.py` | Analyzing any URL makes no DNS lookup or connection; the only outbound request is to the LLM provider; the CT watcher only contacts crt.sh, never the names it finds | Passing |
 | S2 | `test_prompt_injection.py`, `test_message_features.py`, `test_llm.py` | 30-variant paired corpus × 3 samples: injection never lowers the verdict band; injection is scored as evidence; an LLM that obeys the injection can't clear a scam; LLM output can't carry a verdict; malformed output → rules-only; ungrounded spans dropped | Passing |
 | S3 | `test_uploads.py`, `test_image_sanitize.py`, `test_api_image.py` | Hostile files rejected before anything else (type, size, bombs, malformed headers, fuzzing); metadata and polyglot payloads stripped before the vision model; vision failures are errors, not verdicts | Passing |
 | S4 | `test_local_api.py` | Loopback only; foreign `Host` rejected; no CORS; security headers; local CSRF refused; body size cap; rate limit | Passing |

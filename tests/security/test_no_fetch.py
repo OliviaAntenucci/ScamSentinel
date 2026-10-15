@@ -12,6 +12,8 @@ import httpx
 import pytest
 
 from scamsentinel.api.schemas import AnalyzeRequest
+from scamsentinel.ct.client import CRTSH_URL, CrtShClient
+from scamsentinel.ct.watcher import CtWatcher
 from scamsentinel.domain.normalize import InvalidHost
 from scamsentinel.message.llm import GROQ_CHAT_URL, GroqExtractor
 
@@ -71,3 +73,24 @@ def test_only_outbound_request_is_to_the_llm_provider(make_service):
     text = "Verify at http://169.254.169.254/latest/meta-data/ and http://127.0.0.1:6379/"
     make_service(llm).analyze(AnalyzeRequest(text=text))
     assert [str(r.url) for r in requests] == [GROQ_CHAT_URL]
+
+
+def test_ct_watcher_only_contacts_crtsh(settings, network_tripwire):
+    # Certificate names are attacker-chosen. The watcher scores them as strings and only
+    # ever talks to the fixed crt.sh endpoint, never to the domains it finds.
+    requests: list[httpx.Request] = []
+    names = "\n".join(
+        ["turbotax-refund-secure.com", "*.irs-verify-account.net", "169.254.169.254", *PAYLOADS]
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json=[{"id": 1, "name_value": names, "issuer_name": "x"}])
+
+    client = CrtShClient(transport=httpx.MockTransport(handler), spacing=0)
+    watcher = CtWatcher.from_settings(settings, client=client)
+    poll = watcher.poll_once()
+
+    assert poll.new_candidates >= 2
+    assert {r.url.host for r in requests} == {httpx.URL(CRTSH_URL).host}
+    assert network_tripwire == []

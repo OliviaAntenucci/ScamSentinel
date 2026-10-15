@@ -53,12 +53,12 @@ The allowlist lives in `data/brands.yaml`. It is versioned, and each entry recor
 
 Built in this order, only after the MVP works end to end. Details in [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
 
-| Phase | What |
-|---|---|
-| P1 | Certificate Transparency watcher (crt.sh) to find newly registered lookalikes |
-| P2 | Lightweight page fetch (no browser) to inspect forms and brand content, together with the SSRF URL guard |
-| P3 | Playwright headless-browser sandbox (screenshots, JavaScript-rendered pages, redirect chains) |
-| P4 | Docker packaging |
+| Phase | What | Status |
+|---|---|---|
+| P1 | Certificate Transparency watcher (crt.sh) to find newly registered lookalikes | ✅ Done |
+| P2 | Lightweight page fetch (no browser) to inspect forms and brand content, together with the SSRF URL guard | Planned |
+| P3 | Playwright headless-browser sandbox (screenshots, JavaScript-rendered pages, redirect chains) | Planned |
+| P4 | Docker packaging | Planned |
 
 ## Out of scope
 
@@ -80,6 +80,7 @@ Built in this order, only after the MVP works end to end. Details in [`architect
 
 ### Attacker infrastructure
 - The MVP never connects to submitted URLs. Don't add code that does until the post-MVP SSRF guard (P2) exists.
+- The CT watcher (P1) only queries crt.sh: one request at a time, spaced out, with backoff and an identifying `User-Agent`. It never visits the domains it finds, and its candidates are unverified leads, not accusations.
 - Don't publish live, working phishing URLs in the repository. Store eval URLs defanged (`hxxps://example[.]com`).
 
 ### Data handling

@@ -84,6 +84,12 @@ class Settings(BaseSettings):
 
     retention_days: int = 7
 
+    # Certificate Transparency watcher (post-MVP P1). crt.sh is a free community service,
+    # so polling more often than hourly is refused.
+    ct_poll_interval_hours: float = Field(default=6.0, ge=1.0)
+    ct_min_score: int = Field(default=50, ge=0, le=100)
+    ct_timeout_seconds: float = 120.0
+
     @property
     def allowed_hosts(self) -> list[str]:
         return list(LOOPBACK_HOSTNAMES)

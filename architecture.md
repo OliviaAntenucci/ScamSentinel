@@ -79,7 +79,7 @@ scamsentinel/
   web/            # browser UI (index.html, app.js, app.css), served at / and /static
   aggregate/      # weights, floors, verdict bands, reason assembly
   security/       # upload_guard.py, image_sanitize.py, redaction.py (url_guard.py is post-MVP)
-  ct/             # post-MVP: crt.sh client, watcher, candidate store (stubs)
+  ct/             # P1: crt.sh client, CT watcher (python -m scamsentinel.ct), candidate store
   eval/           # dataset loader, runner, metrics, ablations, report
 config/
   scoring.yaml    # weights, bands, floors, technique points
@@ -328,10 +328,13 @@ Every record: `{id, group?, input_type, label, brand, content (scam URLs defange
 ```
 analyses(id PK, created_at, expires_at, input_type, input_hash, verdict, risk_score, result_json)
 llm_cache(key PK, provider, model, features_json, created_at)   -- key = sha256(provider, model, prompt version, normalized text)
-ct_candidates(...)   -- post-MVP (P1)
+ct_candidates(domain PK, registrable, score, brand, techniques, cert_id, issuer, not_before, first_seen, last_seen)   -- P1
+ct_polls(id PK, started_at, finished_at, queries, failed_queries, names_seen, candidates, new_candidates)             -- P1
 ```
 
 `scamsentinel/store.py` opens a fresh connection per call (safe under FastAPI's thread pool). The raw input is never stored, only its SHA-256 hash and the result. Expired analyses are hidden immediately and deleted on startup. Cached LLM features quote the analyzed text, so they expire on the same 7-day schedule. Uploaded images are processed in memory and never written to disk.
+
+The CT tables (`ct/store.py`) live in the same file. They hold public certificate data, not user input, so they aren't purged. The watcher process writes them and the API only reads them.
 
 ---
 
@@ -364,7 +367,28 @@ Built only after the MVP works end to end and has evaluation numbers.
 
 | Phase | What | Notes |
 |---|---|---|
-| **P1** | **Certificate Transparency watcher** | Poll crt.sh politely (every 6 h, sequential, backoff) for certificates containing brand tokens. Score each new name with the existing domain engine and store candidates ≥ 50. Expose `GET /v1/ct/candidates`. Cheap, because the domain engine already exists. Stubs live in `scamsentinel/ct/`. |
+| **P1** ✅ | **Certificate Transparency watcher** | Poll crt.sh politely (every 6 h, sequential, backoff) for certificates containing brand tokens. Score each new name with the existing domain engine and store candidates ≥ 50. Expose `GET /v1/ct/candidates`. Cheap, because the domain engine already exists. See [§15](#15-certificate-transparency-watcher-p1). |
 | **P2** | **Lightweight page fetch** | `httpx` + an HTML parser (no browser). Look for credential/SSN forms, forms posting to other domains, and brand mentions on unofficial domains. **Requires the SSRF URL guard first** (strict parsing, resolve-then-pin, reject non-global IPs, re-check every redirect hop). Guard stub and payload tests already exist. |
 | **P3** | **Headless-browser sandbox** | Playwright for JavaScript-rendered pages, screenshots and redirect chains, run in an isolated container with an egress proxy that blocks internal addresses. |
 | **P4** | **Docker packaging** | Containerize the API and (with P3) the sandbox with locked-down settings. |
+
+---
+
+## 15. Certificate Transparency watcher (P1)
+
+Phishing sites almost always get a TLS certificate, and every publicly trusted certificate lands in a Certificate Transparency log. Watching those logs finds lookalike domains *before* anyone reports them.
+
+```
+python -m scamsentinel.ct  (separate process; --once for a single pass)
+  every 6 h:  for each brand pattern ─▶ crt.sh JSON search (sequential, spaced, backoff)
+              ─▶ split SANs, validate hostnames, dedupe ─▶ domain engine (§4)
+              ─▶ keep non-official names scoring ≥ 50 ─▶ ct_candidates (SQLite)
+API:  GET /v1/ct/candidates?since=&min_score=&limit=  ─▶ reads ct_candidates
+```
+
+- **Search patterns** come from `data/brands.yaml`. Long tokens match anywhere (`%turbotax%`, `%quickbooks%`, `%creditkarma%`). Whole-word tokens (`irs`, `intuit`) are anchored to the start of a name or a `.`/`-` separator (`irs%`, `%.irs%`, `%-irs%`), because a bare `%irs%` matches every certificate for "first" or "shirts" and times out. Expired certificates are excluded.
+- **Politeness** (`ct/client.py`): one request at a time, at least 10 s apart, a descriptive `User-Agent`, up to 4 attempts with exponential backoff (30 s, 60 s, 120 s, capped at 10 min) on timeouts, network errors, 429 and 5xx, honoring `Retry-After`. Redirects aren't followed. Responses over 64 MB are refused. Polling more often than hourly is refused by the settings.
+- **Untrusted data.** Certificate names are chosen by whoever requested the certificate. Each one must be a plain lowercase ASCII hostname (wildcards reduced to their domain; IPs, emails and anything else dropped), and other fields are length-capped. Names are only scored as strings. Nothing ever resolves or connects to them.
+- **Dedupe.** A name found by several patterns is scored once per pass (at most 50,000 names per pass). A domain already stored keeps its `first_seen` and first certificate; later passes refresh its score, techniques and `last_seen`. A failed query is logged and skipped, and every pass is recorded in `ct_polls`, which the API returns as `last_poll` so an empty list can be told apart from a watcher that never ran.
+- **Settings:** `SCAMSENTINEL_CT_POLL_INTERVAL_HOURS` (default 6, minimum 1), `SCAMSENTINEL_CT_MIN_SCORE` (50), `SCAMSENTINEL_CT_TIMEOUT_SECONDS` (120).
+- **Limitations.** crt.sh search is substring-based, so lookalikes that never contain a brand token literally (`turb0tax`, Cyrillic homoglyphs, `quickbook`) aren't found, even though the engine would score them. crt.sh is a free community service and is often slow or unavailable, so passes can partially fail. Candidates are unverified leads: a certificate is not proof of a live phishing site.

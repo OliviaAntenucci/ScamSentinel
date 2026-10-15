@@ -48,7 +48,9 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 5. **Risk aggregator** ✅: combines module scores into one score, verdict, and list of reasons.
 6. **Evaluation harness** ✅: 152 labeled samples with leak-free train/dev/test splits, reporting precision, recall, F1, false-positive rate, per-slice breakdowns and ablations.
 
-**Post-MVP:** Certificate Transparency monitoring, page fetching, a Playwright sandbox, and Docker packaging. See [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
+**Post-MVP:**
+- **Certificate Transparency watcher** ✅ (P1): polls crt.sh every 6 hours for new certificates whose names contain a brand token, scores each name with the domain engine, and lists the lookalikes at `GET /v1/ct/candidates`. It finds phishing domains before anyone reports them, and never visits them. See [`architecture.md` §15](architecture.md#15-certificate-transparency-watcher-p1).
+- Planned: page fetching, a Playwright sandbox, and Docker packaging. See [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
 
 ---
 
@@ -63,6 +65,7 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 | M4 | Security hardening (uploads, prompt injection, no-fetch, redaction) | ✅ |
 | M5 | Screenshot analysis (Groq vision) | ✅ |
 | M6 | Evaluation + metrics | ✅ |
+| P1 | Certificate Transparency watcher (post-MVP) | ✅ |
 
 ---
 
@@ -138,6 +141,10 @@ curl -s http://127.0.0.1:8000/v1/analyze/image -H 'content-type: image/png' \
 
 # Run the evaluation suite (rules only; add --ablation full to use the LLM)
 python -m scamsentinel.eval --split test --report reports/eval-test.md
+
+# Certificate Transparency watcher (queries crt.sh; a separate process)
+python -m scamsentinel.ct --once   # one pass; without --once it polls every 6 hours
+curl -s "http://127.0.0.1:8000/v1/ct/candidates?min_score=70&since=2026-10-01"
 ```
 
 Full API reference (auto-generated): `http://127.0.0.1:8000/docs`.

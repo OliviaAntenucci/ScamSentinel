@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
@@ -10,6 +11,7 @@ from starlette.concurrency import run_in_threadpool
 from scamsentinel import __version__
 from scamsentinel.api.guards import rate_limited, require_local_post
 from scamsentinel.api.schemas import AnalyzeRequest
+from scamsentinel.ct.store import CtCandidateList, CtStore
 from scamsentinel.domain.engine import DomainResult, get_engine
 from scamsentinel.domain.normalize import InvalidHost
 from scamsentinel.models import AnalysisResult
@@ -108,3 +110,21 @@ def domain_score(
         return get_engine(settings.data_dir, settings.config_dir).score(d)
     except InvalidHost as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/v1/ct/candidates")
+def ct_candidates(
+    request: Request,
+    since: Annotated[datetime | None, Query(description="first seen at or after (UTC)")] = None,
+    min_score: Annotated[int | None, Query(ge=0, le=100)] = None,
+    limit: Annotated[int, Query(ge=1, le=1_000)] = 100,
+) -> CtCandidateList:
+    """Lookalike domains found in Certificate Transparency logs by the CT watcher
+    (`python -m scamsentinel.ct`). These are unverified leads; none of them was visited."""
+    store: CtStore = request.app.state.ct_store
+    if min_score is None:
+        min_score = request.app.state.settings.ct_min_score
+    candidates = store.list_candidates(since=since, min_score=min_score, limit=limit)
+    return CtCandidateList(
+        last_poll=store.last_poll(), count=len(candidates), candidates=candidates
+    )

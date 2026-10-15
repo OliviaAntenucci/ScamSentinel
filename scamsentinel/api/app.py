@@ -15,6 +15,7 @@ from scamsentinel.api.guards import BodySizeLimitMiddleware, RateLimiter
 from scamsentinel.api.middleware import SecurityHeadersMiddleware
 from scamsentinel.api.routes import router
 from scamsentinel.config import Settings, get_settings
+from scamsentinel.ct.store import CtStore
 from scamsentinel.pipeline import AnalysisService
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
@@ -28,6 +29,8 @@ def create_app(
     app = FastAPI(title="ScamSentinel", version=__version__)
     app.state.settings = settings
     app.state.service = service or AnalysisService.from_settings(settings)
+    # Read-only here: the CT watcher runs as its own process and writes the candidates.
+    app.state.ct_store = CtStore(settings.db_path)
     app.state.rate_limiter = RateLimiter(settings.rate_limit_per_minute)
 
     # Middleware added later wraps earlier ones, so the order below is innermost first.

@@ -180,6 +180,8 @@ Evaluation
   GET  /v1/analysis/{id}     Fetch a stored result
   GET  /v1/domain/score?d=   Domain engine only (done)
   GET  /healthz              Status, LLM provider/model, key configured
+  GET  /v1/ct/candidates     Post-MVP P1: lookalikes found in CT logs
+                             (?since=&min_score=&limit=)
 
 --------------------------------------------------------------------------------
 9. SUCCESS METRICS / ACCEPTANCE CRITERIA (MVP)
@@ -217,6 +219,7 @@ MVP
 
 Post-MVP (in order, only after M6)
   P1  Certificate Transparency watcher (crt.sh) + GET /v1/ct/candidates
+                                                                (done)
   P2  Lightweight page fetch (httpx + HTML parser) + SSRF URL guard
   P3  Playwright headless-browser sandbox in an isolated container
   P4  Docker packaging
