@@ -10,6 +10,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from pagefixtures import page_response
 
 from scamsentinel.page.fetch import PageFetcher
 from scamsentinel.security.url_guard import UrlRejected, is_public, validate_url
@@ -75,7 +76,7 @@ def test_any_private_address_among_several_is_enough_to_reject():
 @pytest.mark.parametrize(
     "address",
     ["::ffff:127.0.0.1", "::ffff:169.254.169.254", "fd00:ec2::254", "100.64.0.1", "224.0.1.1",
-     "2002:a9fe:a9fe::1", "0.0.0.0"],
+     "2002:a9fe:a9fe::1", "0.0.0.0"],  # noqa: S104 - test data, nothing binds
 )
 def test_resolved_addresses_that_arent_public(address):
     assert not is_public(ipaddress.ip_address(address))
@@ -132,7 +133,7 @@ def test_dns_rebinding_resolves_once():
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(request)
-        return httpx.Response(200, headers={"content-type": "text/html"}, text="<p>hi</p>")
+        return page_response(200, {"content-type": "text/html"}, "<p>hi</p>")
 
     page = PageFetcher(
         mode="live", resolver=rebinding, transport=httpx.MockTransport(handler)

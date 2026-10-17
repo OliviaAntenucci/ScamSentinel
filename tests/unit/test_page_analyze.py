@@ -50,7 +50,8 @@ def test_apple_phishing_page(analyzer):
     assert report.brand == "Apple"
     assert "password" in found["sensitive_fields"]
     assert "card details" not in found["sensitive_fields"]  # the hidden field doesn't count
-    assert "collector.example.net" in found["form_posts_elsewhere"]
+    # Named by its registrable domain: who actually owns the site that receives the data.
+    assert "sends what you type to example.net" in found["form_posts_elsewhere"]
     assert "appleid-unlock-support.com" in found["brand_on_unofficial_page"]
     assert "apple.com" in found["brand_on_unofficial_page"]
 
@@ -93,8 +94,8 @@ def test_mailto_form(analyzer):
 
 
 def test_meta_refresh_to_another_domain(analyzer):
-    html = '<meta http-equiv="refresh" content="0; url=https://next-hop.example/x">'
-    assert "next-hop.example" in signals(analyzer.analyze(page(html)))["meta_refresh"]
+    html = '<meta http-equiv="refresh" content="0; url=https://next-hop.net/x">'
+    assert "next-hop.net" in signals(analyzer.analyze(page(html)))["meta_refresh"]
 
 
 def test_redirect_to_a_lookalike_is_explained(analyzer):

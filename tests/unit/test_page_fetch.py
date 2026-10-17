@@ -10,6 +10,7 @@ import sys
 
 import httpx
 import pytest
+from pagefixtures import page_response
 
 from scamsentinel.page.fetch import USER_AGENT, PageFetcher
 from scamsentinel.security.egress import EgressBlocked
@@ -70,7 +71,7 @@ def test_fetches_html_with_fixed_headers_only():
 
     def handler(request):
         seen.append(request)
-        return httpx.Response(200, headers=HTML, text="<title>Hi</title>")
+        return page_response(200, HTML,"<title>Hi</title>")
 
     page = live(handler).fetch("https://example.com/login")
     assert page.error is None
@@ -93,7 +94,7 @@ def test_relative_redirects_are_followed_and_revalidated():
             return httpx.Response(302, headers={"location": "/next"})
         if request.url.path == "/next":
             return httpx.Response(301, headers={"location": "https://final.example/page"})
-        return httpx.Response(200, headers=HTML, text="ok")
+        return page_response(200, HTML,"ok")
 
     page = live(handler).fetch("https://start.example/start")
     assert page.redirects == ["https://start.example/next", "https://final.example/page"]
@@ -115,7 +116,7 @@ def test_cookies_are_never_sent_on_to_the_next_hop():
         seen.append(request)
         if request.url.path == "/":
             return httpx.Response(302, headers={"location": "/b", "set-cookie": "sid=abc; Path=/"})
-        return httpx.Response(200, headers=HTML, text="ok")
+        return page_response(200, HTML,"ok")
 
     live(handler).fetch("https://example.com/")
     assert "cookie" not in seen[1].headers
@@ -139,7 +140,7 @@ def test_responses_that_arent_analyzed(status, headers, error):
 
 def test_body_is_capped():
     body = b"a" * 50_000
-    page = live(lambda r: httpx.Response(200, headers=HTML, content=body), max_bytes=10_000)
+    page = live(lambda r: page_response(200, HTML, body), max_bytes=10_000)
     result = page.fetch("https://example.com/")
     assert result.truncated
     assert len(result.html) == 10_000
@@ -149,7 +150,7 @@ def test_gzip_bomb_cannot_expand_past_the_cap():
     bomb = gzip.compress(b"\0" * 20_000_000)  # about 20 KB on the wire
     assert len(bomb) < 100_000
     headers = {**HTML, "content-encoding": "gzip"}
-    page = live(lambda r: httpx.Response(200, headers=headers, content=bomb), max_bytes=10_000)
+    page = live(lambda r: page_response(200, headers,bomb), max_bytes=10_000)
     result = page.fetch("https://example.com/")
     assert result.truncated
     assert len(result.html) == 10_000
@@ -158,7 +159,7 @@ def test_gzip_bomb_cannot_expand_past_the_cap():
 def test_gzip_page_is_decoded():
     headers = {**HTML, "content-encoding": "gzip"}
     body = gzip.compress(b"<p>Sign in</p>")
-    page = live(lambda r: httpx.Response(200, headers=headers, content=body)).fetch(
+    page = live(lambda r: page_response(200, headers,body)).fetch(
         "https://example.com/"
     )
     assert page.html == "<p>Sign in</p>"
@@ -180,7 +181,7 @@ def test_network_failures_are_reported(exception, error):
 def test_one_deadline_for_the_whole_fetch():
     ticks = iter([0.0, 0.0, 100.0, 100.0, 100.0])
     page = live(
-        lambda r: httpx.Response(200, headers=HTML, text="x"), timeout=5, clock=lambda: next(ticks)
+        lambda r: page_response(200, HTML,"x"), timeout=5, clock=lambda: next(ticks)
     ).fetch("https://example.com/")
     assert page.error == "timeout"
 
@@ -203,7 +204,7 @@ def test_egress_lock_is_active_during_the_request():
             sys.audit("socket.connect", None, ("10.0.0.1", 80))
         except EgressBlocked:
             observed.append("blocked")
-        return httpx.Response(200, headers=HTML, text="ok")
+        return page_response(200, HTML,"ok")
 
     page = live(handler).fetch("https://example.com/")
     assert observed == ["blocked"]
@@ -217,7 +218,7 @@ def test_circuit_breaker_turns_live_fetching_off():
         calls.append(str(request.url))
         # Something below the guard tried to go elsewhere: the egress lock fires.
         sys.audit("socket.connect", None, ("169.254.169.254", 80))
-        return httpx.Response(200, headers=HTML, text="never read")
+        return page_response(200, HTML,"never read")
 
     fetcher = live(handler)
     first = fetcher.fetch("https://example.com/")
@@ -231,7 +232,7 @@ def test_circuit_breaker_turns_live_fetching_off():
 def test_rate_limit():
     now = [0.0]
     fetcher = live(
-        lambda r: httpx.Response(200, headers=HTML, text="ok"),
+        lambda r: page_response(200, HTML,"ok"),
         max_per_minute=2,
         clock=lambda: now[0],
     )

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from pagefixtures import page_response
 from pydantic import ValidationError
 
 from scamsentinel.api.schemas import AnalyzeRequest
@@ -78,7 +79,7 @@ def test_dry_run_reports_blocked_links(settings, no_network):
 def test_live_findings_are_reported(make_service, engine):
     service = with_live_pages(
         make_service(), engine,
-        lambda r: httpx.Response(200, headers={"content-type": "text/html"}, text=PHISH_HTML),
+        lambda r: page_response(200, {"content-type": "text/html"},PHISH_HTML),
     )
     result = service.analyze(AnalyzeRequest(url=PHISH_URL))
     report = result.pages[0]
@@ -93,7 +94,7 @@ def test_page_findings_add_no_points(make_service, engine):
     plain = make_service().analyze(AnalyzeRequest(url=PHISH_URL))
     with_pages = with_live_pages(
         make_service(), engine,
-        lambda r: httpx.Response(200, headers={"content-type": "text/html"}, text=PHISH_HTML),
+        lambda r: page_response(200, {"content-type": "text/html"},PHISH_HTML),
     ).analyze(AnalyzeRequest(url=PHISH_URL))
     assert with_pages.pages
     assert (with_pages.risk_score, with_pages.verdict) == (plain.risk_score, plain.verdict)
@@ -104,7 +105,7 @@ def test_only_non_official_links_are_fetched_once_per_host(make_service, engine)
     seen: list[str] = []
     service = with_live_pages(
         make_service(), engine,
-        lambda r: httpx.Response(200, headers={"content-type": "text/html"}, text="<p>x</p>"),
+        lambda r: page_response(200, {"content-type": "text/html"},"<p>x</p>"),
         seen,
     )
     text = (
@@ -122,7 +123,7 @@ def test_email_sender_domains_are_not_fetched(make_service, engine):
     seen: list[str] = []
     service = with_live_pages(
         make_service(), engine,
-        lambda r: httpx.Response(200, headers={"content-type": "text/html"}, text="<p>x</p>"),
+        lambda r: page_response(200, {"content-type": "text/html"},"<p>x</p>"),
         seen,
     )
     eml = (
@@ -149,7 +150,7 @@ def test_page_titles_are_redacted(make_service, engine):
     html = "<title>Confirm SSN 078-05-1120 now</title>"
     service = with_live_pages(
         make_service(), engine,
-        lambda r: httpx.Response(200, headers={"content-type": "text/html"}, text=html),
+        lambda r: page_response(200, {"content-type": "text/html"},html),
     )
     result = service.analyze(AnalyzeRequest(url=PHISH_URL))
     assert "078-05-1120" not in result.pages[0].title

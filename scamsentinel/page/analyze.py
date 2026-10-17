@@ -158,14 +158,15 @@ class PageAnalyzer:
         findings += self._form_findings(collector, fetched.final_url, page_domain)
 
         brand = self._brand(title, text)
-        if brand and page_domain and page_domain not in self._brands[brand].official_domains:
+        official = self._brands[brand].official_domains if brand else []
+        if brand and page_domain and page_domain not in official:
             report.brand = brand
             findings.append(
                 PageFinding(
                     signal="brand_on_unofficial_page",
                     detail=(
                         f"The page presents itself as {brand}, but it's on {page_domain}, not an "
-                        f"official {brand} domain ({', '.join(self._brands[brand].official_domains)})"
+                        f"official {brand} domain ({', '.join(official)})"
                     ),
                 )
             )
@@ -183,7 +184,9 @@ class PageAnalyzer:
 
     # --- findings -----------------------------------------------------------------------
 
-    def _redirect_findings(self, fetched: FetchedPage, page_domain: str | None) -> list[PageFinding]:
+    def _redirect_findings(
+        self, fetched: FetchedPage, page_domain: str | None
+    ) -> list[PageFinding]:
         start = self._registrable(fetched.requested_url)
         if not fetched.redirects or not page_domain or page_domain == start:
             return []

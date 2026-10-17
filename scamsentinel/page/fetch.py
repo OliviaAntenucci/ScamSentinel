@@ -235,7 +235,7 @@ class PageFetcher:
                 except httpx.ConnectError:
                     page.error = "unreachable"  # includes TLS certificate failures
                     return page
-                except httpx.HTTPError:
+                except (httpx.HTTPError, httpx.StreamError):
                     page.error = "failed"
                     return page
         page.error = "too_many_redirects"
