@@ -371,7 +371,7 @@ The CT tables (`ct/store.py`) live in the same file. They hold public certificat
 
 ## 14. Post-MVP roadmap
 
-Built only after the MVP works end to end and has evaluation numbers. Done: P1 (CT watcher), G1 (brand-agnostic core + delivery category), G2 (bank impersonation), E1 (next steps), E2 (domain explanations), E3 (fact-check summary), G3 (account takeover, tech support, job scams), E4 (named scenarios). Next: P2 → P3 → P4.
+Built only after the MVP works end to end and has evaluation numbers. Done: P1 (CT watcher), G1 (brand-agnostic core + delivery category), G2 (bank impersonation), E1 (next steps), E2 (domain explanations), E3 (fact-check summary), G3 (account takeover, tech support, job scams), E4 (named scenarios), P2a (page fetch, off by default, informational). Next: P2b (scoring with page evidence, once there's a snapshot set to measure it) → P3 → P4.
 
 ### Scam categories (G1 ✅, G2 ✅, G3 ✅)
 
@@ -395,7 +395,7 @@ E1–E4 change no scores, so evaluation numbers stay comparable. Each needs test
 | Phase | What | Notes |
 |---|---|---|
 | **P1** ✅ | **Certificate Transparency watcher** | Poll crt.sh politely (every 6 h, sequential, backoff) for certificates containing brand tokens. Score each new name with the existing domain engine and store candidates ≥ 50. Expose `GET /v1/ct/candidates`. Cheap, because the domain engine already exists. See [§15](#15-certificate-transparency-watcher-p1). |
-| **P2** | **Lightweight page fetch** | `httpx` + an HTML parser (no browser). Look for credential/SSN forms, forms posting to other domains, and brand mentions on unofficial domains. **Requires the SSRF URL guard first** (strict parsing, resolve-then-pin, reject non-global IPs, re-check every redirect hop). Guard stub and payload tests already exist. |
+| **P2** ✅ (P2a) | **Lightweight page fetch** (built: see [§23](#23-lightweight-page-fetch-p2); off by default, findings informational) | `httpx` + an HTML parser (no browser). Look for credential/SSN forms, forms posting to other domains, and brand mentions on unofficial domains. **Requires the SSRF URL guard first** (strict parsing, resolve-then-pin, reject non-global IPs, re-check every redirect hop). Guard stub and payload tests already exist. |
 | **P3** | **Headless-browser sandbox** | Playwright for JavaScript-rendered pages, screenshots and redirect chains, run in an isolated container with an egress proxy that blocks internal addresses. |
 | **P4** | **Docker packaging** | Containerize the API and (with P3) the sandbox with locked-down settings. |
 
@@ -782,3 +782,73 @@ Each result carries `resources[]`: links where the reader can learn about the ty
 **Tests:** `tests/unit/test_resources.py`.
 
 **Limitations:** links can go stale or be renamed (the IRS consumer-alerts page is now titled "Recognize tax scams and fraud"), so they need re-checking like facts. The pages are US English.
+
+---
+
+## 23. Lightweight page fetch (P2)
+
+Until P2, a link was judged only by its name, so a `bit.ly` link or a neutral domain like `parcel-redeliver-now.com` scored 0. P2 can look at the page behind the link: one plain GET, like `curl`, not a browser. It's **off by default**, and in this first step (P2a) its findings are **informational: 0 points**, so published metrics are unchanged.
+
+### Modes (`SCAMSENTINEL_PAGE_FETCH`)
+
+| Mode | What happens |
+|---|---|
+| `off` (default) | Links are analyzed as strings only, exactly as before. No `pages` in the result |
+| `dry_run` | The links that would be fetched go through the URL checks and are reported as "would fetch" (or "blocked"). **Nothing is resolved or connected to** |
+| `live` | Those links are fetched through every layer below |
+
+Which links are inspected: the submitted URL, or the first `page_fetch_max_links` (3) non-official links of a message. That covers email link targets, but never sender domains. There's one fetch per host. Bare domains are fetched as `https://`.
+
+### How a page is visited (live)
+
+```
+URL ─▶ validate_url(): http/https, port 80/443, no userinfo, IDNA host
+       IP literal (incl. 2852039166, 0xA9FEA9FE, 127.1)? check it
+       else resolve ONCE ─▶ reject if ANY address isn't public ─▶ pin one IP
+    ─▶ only_connect_to(pinned ip, port)      egress lock (audit hook)
+         GET https://<pinned ip>/path   Host: real.host   TLS SNI: real.host (cert verified)
+    ─▶ 3xx? Location ─▶ back to validate_url (max 5 hops)
+    ─▶ text/html only ─▶ read ≤ 2 MB counted after decompression ─▶ PageAnalyzer
+```
+
+### Layers of protection, each a fallback for the one before
+
+1. **Mode switch:** nothing touches the network unless `live` is set. `dry_run` exercises everything else without network access.
+2. **URL guard** (`security/url_guard.py`): resolve, check every address, pin the IP, re-check every redirect hop.
+3. **Egress lock** (`security/egress.py`): during the request, a Python audit hook allows socket lookups and connections only to the pinned IP and port. A second DNS lookup, a proxy, a Unix socket or any other address raises `EgressBlocked` before the system call. Outside a fetch nothing is restricted, so LLM calls and the CT watcher are unaffected.
+4. **Circuit breaker:** if the egress lock ever fires, a lower layer failed. Live fetching turns itself off for the rest of the process (`disabled:safety`) and the event is logged as an error.
+5. **Fail closed:** every failure is a "not fetched" report with a stable code, and the analysis continues on strings. Nothing is retried with weaker settings: no `http` after `https`, no unverified TLS, no second lookup. An unexpected exception becomes `internal_error`, never a broken analysis.
+
+**Limits:**
+- GET only;
+- no cookies (cleared between hops), no environment proxies (`trust_env=False`), no user-controlled headers or methods;
+- one deadline per fetch (8 s);
+- `text/html` only;
+- `Accept-Encoding: gzip, deflate`, decompressed by a bounded `zlib` object, so a 20 KB gzip bomb stops at the 2 MB cap;
+- a global rate limit (20 per minute);
+- a descriptive User-Agent.
+
+### What the page analyzer reads
+
+The HTML is attacker-written, so it goes through the standard library's pure-Python `html.parser`: no C parser, no DOM, nothing executed. Scripts, styles and templates are skipped. Findings (`pages[].findings`):
+
+| Signal | Example detail |
+|---|---|
+| `sensitive_fields` | "The page asks you to type in: password, verification code". Hidden fields don't count |
+| `form_posts_elsewhere` | "A form sends what you type to collector.example.net, not to appleid-unlock-support.com" (or emails it via `mailto:`) |
+| `brand_on_unofficial_page` | "The page presents itself as Apple, but it's on appleid-unlock-support.com, not an official Apple domain (apple.com, icloud.com)". Uses the curated mention phrases ("Apple ID", not "apple") from the title, or repeated in the text |
+| `redirected` | "The link redirected 2 times and ended at appleid-unlock-support.com, which looks like an Apple domain but isn't one" |
+| `meta_refresh` | "The page sends you on to next-hop.example automatically" |
+
+Titles are capped at 150 characters, visible text at 50,000. Titles, URLs and findings go through the SSN/card redaction, and the UI ("What the linked page shows") renders them as plain text, never links.
+
+### Next: P2b
+
+Page evidence should eventually feed the score and the brand-dependent pipeline: a brand found on the page would unlock fact checks, scenarios, next steps and help links for brandless scams. That needs measuring first. The eval domains are invented, so it needs a set of saved page snapshots linked to samples, a fetcher that reads them, and a "no page" ablation.
+
+### Limitations
+
+- **Not a browser:** pages built with JavaScript, pages that show bots something harmless (cloaking), and pages already taken down look empty or clean. P3 covers those.
+- **Live mode reveals the visit:** the scam site sees this machine's IP address and the ScamSentinel User-Agent. That's why `live` is opt-in.
+- **The system resolver's own timeout applies to DNS.** The fetch deadline starts after resolution.
+- **The egress lock is per process:** it covers this Python process, not a separate browser process (P3 needs a network-level egress proxy).

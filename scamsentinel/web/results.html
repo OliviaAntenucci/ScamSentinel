@@ -81,6 +81,10 @@
               <p class="empty-detail" id="no-fact-checks" hidden>No claims could be checked against available facts.</p>
             </div>
           </section>
+          <section class="detail-card" id="pages-card" hidden>
+            <div class="detail-title"><span class="detail-icon">⧉</span><div><h2>What the linked page shows</h2><p>Checked through the SSRF guard; nothing on a page is ever run</p></div></div>
+            <div id="page-reports"></div>
+          </section>
           <section class="detail-card signals-card">
             <div class="detail-title"><span class="detail-icon">!</span><div><h2>Signals detected</h2><p id="signal-count"></p></div><span class="signals-score" id="signals-score"></span></div>
             <div class="evidence-list" id="evidence-list"></div>

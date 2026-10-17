@@ -69,6 +69,33 @@ class Resource(BaseModel):
     last_reviewed: date
 
 
+class PageFinding(BaseModel):
+    """Something the fetched page shows (P2), e.g. a password field or a form that posts
+    to another domain. Informational: page findings add no points yet."""
+
+    signal: str
+    detail: str
+
+
+class PageReport(BaseModel):
+    """What one linked page showed (P2). Only present when page fetching isn't "off"
+    (SCAMSENTINEL_PAGE_FETCH). In "dry_run" mode the URL is checked but never fetched."""
+
+    requested_url: str
+    final_url: str | None = None
+    redirects: list[str] = []
+    status: Literal["analyzed", "dry_run", "blocked", "failed"]
+    # Stable code when the page wasn't analyzed (dry_run, blocked:non_public_address,
+    # blocked:egress, disabled:safety, timeout, http_404, ...). Never evidence that the
+    # link is safe.
+    error: str | None = None
+    title: str | None = None
+    # The curated brand the page presents itself as, when that isn't its own domain.
+    brand: str | None = None
+    findings: list[PageFinding] = []
+    truncated: bool = False
+
+
 class NextStep(BaseModel):
     """One piece of advice (E1). Built from fixed templates and data files only, never from
     the analyzed content, so it can't repeat a scammer's link or phone number."""
@@ -126,3 +153,5 @@ class AnalysisResult(BaseModel):
     # Where to read more: about this type of scam, and the impersonated organization's
     # own help pages.
     resources: list[Resource] = []
+    # What the linked pages showed (P2). Empty unless page fetching is turned on.
+    pages: list[PageReport] = []

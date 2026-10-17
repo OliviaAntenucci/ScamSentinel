@@ -83,6 +83,59 @@ function renderDomainExplanations(explanations) {
   $("#no-domain-explanations").hidden = explanations.length > 0;
 }
 
+const PAGE_ERRORS = {
+  timeout: "The page took too long to answer.",
+  unreachable: "The site couldn’t be reached (or its certificate isn’t valid).",
+  not_html: "The link doesn’t lead to a web page.",
+  too_many_redirects: "The link redirected too many times.",
+  unsupported_encoding: "The page used an encoding ScamSentinel doesn’t read.",
+};
+
+function describePageError(error) {
+  if (!error) return "The page couldn’t be analyzed.";
+  if (error === "blocked:egress" || error === "disabled:safety") {
+    return "Not fetched: a safety check stopped page fetching, so it’s turned off until ScamSentinel restarts.";
+  }
+  if (error.startsWith("blocked:")) {
+    return "Not fetched: the link points to a private or disallowed address, so ScamSentinel refused to connect.";
+  }
+  if (error === "rate_limited") return "Not fetched: too many pages were fetched in the last minute.";
+  if (error.startsWith("http_")) return `The site answered with an error (HTTP ${error.slice(5)}).`;
+  return PAGE_ERRORS[error] ?? "The page couldn’t be analyzed.";
+}
+
+function renderPages(pages) {
+  const card = $("#pages-card");
+  if (!card) return;
+  card.hidden = !pages.length;
+  const list = $("#page-reports");
+  list.replaceChildren();
+  for (const page of pages) {
+    // Everything here comes from an attacker-written page: plain text only, no links.
+    const item = document.createElement("div");
+    item.className = "page-report";
+    text(item, "span", "domain-name", page.final_url || page.requested_url);
+    if (page.redirects?.length) {
+      text(item, "span", "page-meta", `Redirects: ${[page.requested_url, ...page.redirects].join(" → ")}`);
+    }
+    if (page.title) text(item, "span", "page-meta", `Title: “${page.title}”`);
+    const lines = document.createElement("ul");
+    lines.className = "domain-summary";
+    if (page.status === "dry_run") {
+      text(lines, "li", "", "Dry run: the link passed the safety checks and would be fetched in live mode. Nothing was looked up or downloaded.");
+    } else if (page.status !== "analyzed") {
+      text(lines, "li", "", `${describePageError(page.error)} That doesn’t mean the link is safe.`);
+    } else if (!page.findings?.length) {
+      text(lines, "li", "", "Nothing suspicious found on the page. That doesn’t make it safe.");
+    } else {
+      for (const finding of page.findings) text(lines, "li", "", finding.detail);
+    }
+    if (page.truncated) text(lines, "li", "", "Only the first part of a very large page was read.");
+    item.append(lines);
+    list.append(item);
+  }
+}
+
 const FACT_OUTCOMES = {
   conflicts: ["Conflicts", "conflicts"],
   cannot_verify: ["Can’t verify", "unverified"],
@@ -194,6 +247,7 @@ function renderResult(result) {
   renderResources(result.resources ?? []);
   renderDomainExplanations(result.domain_explanations ?? []);
   renderFactChecks(result.fact_checks ?? []);
+  renderPages(result.pages ?? []);
   renderEvidence(result.reasons ?? [], result.risk_score);
   $("#analysis-view").hidden = false;
   currentResult = result;

@@ -183,6 +183,12 @@ def healthz(request: Request) -> dict[str, str]:
             if settings.llm_api_key and settings.llm_provider == "groq"
             else "unavailable (needs GROQ_API_KEY)"
         ),
+        "page_fetch": {
+            "off": "off (links are analyzed as strings only)",
+            "dry_run": "dry_run (links are checked but never resolved or fetched)",
+            "live": "live (linked pages are fetched through the SSRF guard and egress lock; "
+            "informational, 0 points)",
+        }[settings.page_fetch],
         "vision_model": settings.vision_model,
         "screenshots": (
             "available"

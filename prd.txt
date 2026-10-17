@@ -8,7 +8,7 @@ Status:  MVP complete (M0-M6 done)
 --------------------------------------------------------------------------------
 1. SUMMARY
 --------------------------------------------------------------------------------
-ScamSentinel is a portfolio cybersecurity project: a local, explainable
+ScamSentinel is a cybersecurity project: a local, explainable
 scam and phishing analyzer that is itself threat-modeled and tested as an
 attack surface. It takes a suspicious SMS, email, URL, or screenshot and
 decides whether it is a scam. Every verdict comes with human-readable,
@@ -250,7 +250,10 @@ the tax-scam niche and explainability, and come before page fetching.
       package on hold, ...), added over time as data: 21 scenarios
       in data/scenarios.yaml with sourced descriptions, their own
       next step, and hand-labeled eval samples                    (done)
-  P2  Lightweight page fetch (httpx + HTML parser) + SSRF URL guard
+  P2  Lightweight page fetch (httpx + HTML parser) + SSRF URL guard,
+      egress lock and circuit breaker. Off by default; dry_run mode
+      never connects; findings informational (P2a)                (done)
+      P2b: score page evidence once a page-snapshot eval set exists
   P3  Playwright headless-browser sandbox in an isolated container
   P4  Docker packaging
 

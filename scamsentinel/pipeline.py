@@ -1,9 +1,12 @@
 """Analysis orchestrator: ingest -> domain/message -> verify -> aggregate -> store.
 
-MVP rule: URLs are only analyzed as strings. The pipeline never connects to a
-user-supplied URL, which removes SSRF by design (SECURITY.md T1). The only outbound
+By default URLs are only analyzed as strings: the pipeline never connects to a
+user-supplied URL, which removes SSRF by design (SECURITY.md T1), and the only outbound
 calls go to the configured LLM provider (feature extraction, screenshot transcription,
-and the fact check for organizations without curated facts).
+and the fact check for organizations without curated facts). With page fetching set to
+"live" (P2, SCAMSENTINEL_PAGE_FETCH; "off" by default, "dry_run" never connects), the
+first few non-official links are also fetched, only through the SSRF guard
+(security/url_guard.py) and the egress lock (security/egress.py).
 """
 
 from __future__ import annotations
@@ -16,12 +19,13 @@ from datetime import UTC, datetime
 from scamsentinel.aggregate.aggregator import MAX_DOMAINS_IN_REASONS, aggregate
 from scamsentinel.api.schemas import AnalyzeRequest
 from scamsentinel.config import Settings
-from scamsentinel.data import ScoringConfig, load_scoring
+from scamsentinel.data import ScoringConfig, load_brands, load_keywords, load_scoring
 from scamsentinel.domain.engine import DomainEngine, DomainResult, get_engine
 from scamsentinel.domain.explain import DomainExplanation
 from scamsentinel.domain.normalize import InvalidHost
 from scamsentinel.guidance.next_steps import NextStepsGuide
 from scamsentinel.ingest.email import parse_eml
+from scamsentinel.ingest.urls import refang
 from scamsentinel.message.analyzer import MessageAnalysis, MessageAnalyzer
 from scamsentinel.message.llm import (
     CachedExtractor,
@@ -29,8 +33,10 @@ from scamsentinel.message.llm import (
     LlmUnavailable,
     build_extractor,
 )
-from scamsentinel.models import AnalysisResult, InputType, Module, Reason
+from scamsentinel.models import AnalysisResult, InputType, Module, PageReport, Reason
 from scamsentinel.ocr.vision import OcrUnavailable, Transcriber, build_transcriber
+from scamsentinel.page.analyze import PageAnalyzer
+from scamsentinel.page.fetch import PageFetcher
 from scamsentinel.security.image_sanitize import sanitize_image
 from scamsentinel.security.redaction import redact_result
 from scamsentinel.security.upload_guard import validate_image_upload
@@ -61,8 +67,15 @@ class AnalysisService:
         max_image_pixels: int = 25_000_000,
         max_text_chars: int = 20_000,
         guide: NextStepsGuide | None = None,
+        page_fetcher: PageFetcher | None = None,
+        page_analyzer: PageAnalyzer | None = None,
+        max_page_links: int = 3,
     ) -> None:
         self._guide = guide
+        # P2: both None unless page fetching was turned on.
+        self._page_fetcher = page_fetcher
+        self._page_analyzer = page_analyzer
+        self._max_page_links = max_page_links
         self._engine = engine
         self._analyzer = analyzer
         self._scoring = scoring
@@ -90,8 +103,24 @@ class AnalysisService:
                 if built is not None
                 else None
             )
+        engine = get_engine(settings.data_dir, settings.config_dir)
+        page_fetcher = page_analyzer = None
+        if settings.page_fetch != "off":
+            page_fetcher = PageFetcher(
+                mode=settings.page_fetch,
+                max_per_minute=settings.page_fetch_max_per_minute,
+                timeout=settings.page_fetch_timeout_seconds,
+                max_bytes=settings.page_fetch_max_bytes,
+                max_redirects=settings.page_fetch_max_redirects,
+                allow_private=settings.allow_private_targets,
+            )
+            page_analyzer = PageAnalyzer(
+                load_brands(settings.data_dir),
+                load_keywords(settings.data_dir).entity_mentions,
+                engine,
+            )
         return cls(
-            engine=get_engine(settings.data_dir, settings.config_dir),
+            engine=engine,
             analyzer=MessageAnalyzer.from_settings(settings, llm=llm, org_facts=org_facts),
             scoring=load_scoring(settings.config_dir),
             store=store,
@@ -100,6 +129,9 @@ class AnalysisService:
             max_image_pixels=settings.max_image_pixels,
             max_text_chars=settings.max_text_chars,
             guide=NextStepsGuide.from_files(settings.data_dir),
+            page_fetcher=page_fetcher,
+            page_analyzer=page_analyzer,
+            max_page_links=settings.page_fetch_max_links,
         )
 
     def analyze(self, request: AnalyzeRequest) -> AnalysisResult:
@@ -125,7 +157,10 @@ class AnalysisService:
             hosts = [raw]
 
         domains = self._score_domains(hosts, strict=input_type == "url")
-        return self._finish(input_type, raw.encode(), message, domains)
+        # Links whose pages may be inspected (P2): the submitted URL, or the message's own
+        # links. Never the email's sender domains.
+        links = [refang(raw.strip())] if message is None else message.features.claimed_urls
+        return self._finish(input_type, raw.encode(), message, domains, links)
 
     def analyze_image(self, data: bytes) -> AnalysisResult:
         """Analyze a screenshot.
@@ -160,7 +195,7 @@ class AnalysisService:
         )
         message.result.reasons.insert(0, transcribed)
         domains = self._score_domains(message.features.claimed_urls, strict=False)
-        return self._finish("image", data, message, domains)
+        return self._finish("image", data, message, domains, message.features.claimed_urls)
 
     def get_analysis(self, analysis_id: str) -> AnalysisResult | None:
         return self._store.get_analysis(analysis_id)
@@ -171,6 +206,7 @@ class AnalysisService:
         raw: bytes,
         message: MessageAnalysis | None,
         domains: list[DomainResult],
+        links: list[str] | None = None,
     ) -> AnalysisResult:
         result = aggregate(
             domains=domains,
@@ -228,6 +264,8 @@ class AnalysisService:
                 if self._guide
                 else []
             ),
+            # P2: after scoring, so page findings can't change the score (0 points for now).
+            pages=self._inspect_pages(links or []),
         )
         # SSN/card numbers quoted as evidence never reach the response, disk or logs.
         analysis = redact_result(analysis)
@@ -243,6 +281,32 @@ class AnalysisService:
             ",".join(analysis.degraded) or "-",
         )
         return analysis
+
+    def _inspect_pages(self, links: list[str]) -> list[PageReport]:
+        """Fetch and read the first few non-official links (P2). Off unless enabled."""
+        if self._page_fetcher is None or self._page_analyzer is None:
+            return []
+        reports: list[PageReport] = []
+        seen: set[str] = set()
+        for link in links:
+            if len(reports) >= self._max_page_links:
+                break
+            try:
+                domain = self._engine.score(link)
+            except InvalidHost:
+                continue
+            if domain.official or domain.host in seen:
+                continue  # an official site isn't the scam page; one fetch per host
+            seen.add(domain.host)
+            url = link if "://" in link else f"https://{link}"
+            try:
+                reports.append(self._page_analyzer.analyze(self._page_fetcher.fetch(url)))
+            except Exception:  # fail closed: a page problem never breaks the analysis
+                logger.exception("page inspection failed")
+                reports.append(
+                    PageReport(requested_url=url, status="failed", error="internal_error")
+                )
+        return reports
 
     def _score_domains(self, hosts: list[str], *, strict: bool) -> list[DomainResult]:
         results: list[DomainResult] = []

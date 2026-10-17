@@ -87,7 +87,7 @@ Details in [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
 | E2 | Richer domain explanations: which characters were swapped, the misspelling, the misleading extra words | ✅ Done |
 | E3 | Fact-check summary: which claims match, conflict with, or can't be checked against the trusted facts | ✅ Done |
 | E4 | Named scenarios per category (refund delay, payment demand, package on hold, …), added over time | ✅ Done |
-| P2 | Lightweight page fetch (no browser) to inspect forms and brand content, together with the SSRF URL guard | Planned |
+| P2 | Lightweight page fetch (no browser) to inspect forms and brand content, together with the SSRF URL guard | ✅ Built, off by default (P2a: informational) |
 | P3 | Playwright headless-browser sandbox (screenshots, JavaScript-rendered pages, redirect chains) | Planned |
 | P4 | Docker packaging | Planned |
 
@@ -110,7 +110,8 @@ Details in [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
 ## Responsible-use rules
 
 ### Attacker infrastructure
-- The MVP never connects to submitted URLs. Don't add code that does until the post-MVP SSRF guard (P2) exists.
+- By default ScamSentinel never connects to submitted URLs (`SCAMSENTINEL_PAGE_FETCH=off`). `dry_run` checks links without connecting. Only `live` fetches pages, and only through the URL guard, the egress lock and the circuit breaker (`architecture.md` §23). Any new code that connects to a user-supplied URL must go through `PageFetcher`, never a raw HTTP client.
+- `live` tells the scam site that someone looked and reveals this machine's IP address. Only turn it on deliberately, and never on a network where that matters.
 - The CT watcher (P1) only queries crt.sh: one request at a time, spaced out, with backoff and an identifying `User-Agent`. It never visits the domains it finds, and its candidates are unverified leads, not accusations.
 - Don't publish live, working phishing URLs in the repository. Store eval URLs defanged (`hxxps://example[.]com`).
 

@@ -57,8 +57,15 @@ def redact_result(result: AnalysisResult) -> AnalysisResult:
         type(e).model_validate(_redact_strings(e.model_dump())) for e in result.domain_explanations
     ]
     checks = [type(c).model_validate(_redact_strings(c.model_dump())) for c in result.fact_checks]
+    # Page titles, URLs and findings quote attacker-written pages (P2).
+    pages = [type(p).model_validate(_redact_strings(p.model_dump())) for p in result.pages]
     return result.model_copy(
-        update={"reasons": reasons, "domain_explanations": explanations, "fact_checks": checks}
+        update={
+            "reasons": reasons,
+            "domain_explanations": explanations,
+            "fact_checks": checks,
+            "pages": pages,
+        }
     )
 
 

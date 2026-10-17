@@ -115,7 +115,8 @@ Each defense is backed by tests in `tests/security/`. See [`SECURITY.md`](SECURI
 | E2 | Richer domain explanations: swapped characters, misspellings, extra words, real owner | ✅ |
 | E3 | Fact-check summary: every claim, the fact it was checked against, and the outcome | ✅ |
 | E4 | Named scenarios: 21 scam stories across the six categories, each with a sourced description, its own advice and labeled eval samples | ✅ |
-| P2–P4 | Page fetching with an SSRF guard, a Playwright sandbox, Docker packaging | Planned |
+| P2 | Lightweight page fetch with a layered SSRF defense: a URL guard, a process-level egress lock and a circuit breaker. **Off by default**, with a `dry_run` mode that never connects; findings are informational for now | ✅ (P2a) |
+| P2b–P4 | Scoring with page evidence (needs a page-snapshot eval set), a Playwright sandbox, Docker packaging | Planned |
 
 Details: [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
 

@@ -51,6 +51,22 @@ class Settings(BaseSettings):
     # Refused in production.
     allow_private_targets: bool = False
 
+    # Lightweight page fetch (P2), architecture.md §23. OFF by default: fetching a scam
+    # page tells the scammer someone looked, reveals this machine's IP address, and
+    # contacts attacker servers.
+    #   off      links are analyzed as strings only (the MVP behavior)
+    #   dry_run  the submitted URL, or the first few non-official links of a message, go
+    #            through the URL checks and are reported as "would fetch"; nothing is
+    #            resolved or connected to
+    #   live     those links are fetched through the SSRF guard and the egress lock
+    # Findings are informational (0 points) in every mode.
+    page_fetch: Literal["off", "dry_run", "live"] = "off"
+    page_fetch_timeout_seconds: float = Field(default=8.0, gt=0, le=30)
+    page_fetch_max_bytes: int = Field(default=2_000_000, ge=10_000, le=10_000_000)
+    page_fetch_max_redirects: int = Field(default=5, ge=0, le=10)
+    page_fetch_max_links: int = Field(default=3, ge=1, le=5)
+    page_fetch_max_per_minute: int = Field(default=20, ge=1, le=120)
+
     # LLM feature extractor (M2). Without the selected provider's key: rules-only.
     llm_provider: Literal["groq", "anthropic"] = "groq"
     llm_model: str | None = None  # None -> DEFAULT_LLM_MODELS[llm_provider]

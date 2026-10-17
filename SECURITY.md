@@ -53,13 +53,34 @@ This is a portfolio project that runs locally. Out of scope: reports about third
 
 **Threat.** A user submits a URL meant to make *our* process reach something it shouldn't, such as `http://169.254.169.254/latest/meta-data/` (cloud metadata), `http://127.0.0.1:6379/` (a local service), or `http://192.168.1.1/` (the home router).
 
-**MVP defense: never fetch user-supplied URLs.** In the MVP, URLs are only analyzed as strings: parsed, scored by the domain engine, and checked against trusted facts. ScamSentinel never opens a connection to them. With no request, there is nothing to forge. This also means the tool never contacts attacker infrastructure, which avoids alerting scammers or downloading anything.
+**Default defense: never fetch user-supplied URLs.** By default (page fetching `off`), URLs are only analyzed as strings: parsed, scored by the domain engine, and checked against trusted facts. ScamSentinel never opens a connection to them. With no request, there is nothing to forge. This also means the tool never contacts attacker infrastructure, which avoids alerting scammers or downloading anything.
 
 The only outbound connection the MVP makes is the HTTPS call to the configured LLM provider, whose address comes from configuration, never from user input. The optional CT watcher (P1, a separate process) adds exactly one more fixed destination, `https://crt.sh/`. See [CT watcher](#ct-watcher-p1).
 
 **Tests:** `tests/security/test_no_fetch.py` (passing) replaces `socket.getaddrinfo`, `gethostbyname`, `create_connection`, `socket.connect` and `connect_ex` with tripwires. It then analyzes every URL in `tests/security/ssrf_payloads.txt` (metadata, loopback, private ranges, alternate IP encodings, odd schemes), both as URL inputs and inside a text message, and asserts that nothing even attempts a DNS lookup or connection. A third test configures the LLM and checks that the only outbound request goes to the fixed provider endpoint, even when the message is full of internal addresses.
 
-When page fetching arrives post-MVP, the full SSRF guard becomes mandatory. See [Post-MVP threats](#post-mvp-threats).
+### Page fetching (P2): layered, off by default
+
+Page fetching (`SCAMSENTINEL_PAGE_FETCH`, [`architecture.md` §23](architecture.md#23-lightweight-page-fetch-p2)) has three modes. `off` is the default and behaves exactly as above. `dry_run` checks URLs but never resolves or connects. Only `live` touches the network. In `live` mode each layer is a fallback for the one before:
+
+| Layer | What it stops | Where |
+|---|---|---|
+| 1. Mode switch | Any fetch unless explicitly set to `live`; `dry_run` exercises the rest without network access | `config.py` |
+| 2. URL guard | Disallowed schemes and ports, userinfo tricks, IP literals in every encoding (`2852039166`, `0xA9FEA9FE`, `0251.0376…`, `127.1`), hostnames resolving to *any* non-public address (private, loopback, link-local/metadata, CGNAT, multicast, IPv4-mapped, 6to4/Teredo). It resolves **once** and pins the IP; every redirect hop is checked again | `security/url_guard.py` |
+| 3. Egress lock | Anything that slips past the guard. During the request, a Python audit hook allows socket lookups and connections **only** to the pinned IP and port. A second DNS lookup, a proxy, a Unix socket or any other address is refused before the system call | `security/egress.py` |
+| 4. Circuit breaker | A misbehaving lower layer. If the egress lock ever fires, live fetching turns itself off until restart and the event is logged as an error | `page/fetch.py` |
+| 5. Fail closed | Weaker retries. Every failure becomes "not fetched", and the analysis continues with links as strings. There's no retry over `http`, no unverified TLS and no second lookup | `page/fetch.py`, `pipeline.py` |
+| Limits | Resource abuse. GET only; no cookies, environment proxies or user-controlled headers; one deadline per fetch; `text/html` only; at most 2 MB **after** decompression (a gzip bomb can't expand past it); at most 3 links per analysis, official sites skipped; a global rate limit (20 per minute) | `page/fetch.py`, `pipeline.py` |
+
+TLS still verifies the real hostname while connecting to the pinned IP. httpcore uses the `sni_hostname` extension as the TLS `server_hostname`.
+
+**Tests**, none of which make a real DNS lookup or connection:
+- `test_ssrf.py`: every payload rejected without reaching DNS, legacy encodings, private resolutions, rebinding (one lookup, connection to the pinned IP), and redirects to the metadata address or a private name halfway through a chain.
+- `test_egress.py`: the lock, driven through `sys.audit` events.
+- `test_page_fetch.py`: limits, the gzip bomb, dry run under socket tripwires, the breaker and the rate limit.
+- `test_page_pipeline.py`: off by default, dry run doesn't connect, failures fail closed, 0 points.
+
+**What it can't prevent:** in `live` mode the scam site sees a visit from this machine's IP address and ScamSentinel's User-Agent. That's why `live` is opt-in.
 
 ---
 
@@ -207,14 +228,7 @@ Every result carries `next_steps`: advice such as "don't open the link" or "cont
 
 These come back when the corresponding post-MVP phase lands (see [`architecture.md` §14](architecture.md#14-post-mvp-roadmap)).
 
-**Full SSRF (P2 page fetch, P3 headless browser).** Once ScamSentinel fetches pages, a naive `ipaddress.ip_address(host).is_private` check is not enough. It misses hostnames that *resolve* to private IPs, alternate IP encodings (`http://2852039166/`), IPv4-mapped IPv6, redirects to internal addresses, DNS rebinding, and (with a browser) every subresource the page loads. The planned guard (`security/url_guard.py`):
-1. Allow `http`/`https` on ports 80/443 only, and reject userinfo.
-2. Resolve A/AAAA and reject if **any** address is not globally routable.
-3. Connect to the pinned, already-checked IP, so DNS rebinding can't swap it.
-4. Re-run the check on every redirect hop (and, with a browser, every request via route interception).
-5. With the P3 sandbox: an egress proxy that blocks internal ranges at the network layer as a backstop.
-
-The payload list and test file already exist (`tests/security/ssrf_payloads.txt`, `test_ssrf.py`, skipped until P2).
+**Full SSRF with a browser (P3).** P2's guard and egress lock are built ([T1](#page-fetching-p2-layered-off-by-default)). A headless browser also loads every subresource the page asks for, so P3 needs the same check on every request (route interception), plus an egress proxy that blocks internal ranges at the network layer, since the in-process audit hook can't see a separate browser process.
 
 **Browser exploits (P3).** A malicious page exploiting Chromium. Planned defenses: a disposable, locked-down container, Chromium's sandbox kept on, no secrets inside, downloads and permissions denied, and time/redirect/size caps.
 
@@ -234,6 +248,7 @@ The payload list and test file already exist (`tests/security/ssrf_payloads.txt`
 | S7 | `test_redaction.py` | SSN/card numbers removed from responses, storage and logs | Passing |
 | S5 | `test_allowlist.py` | Subdomain/suffix tricks never match the official allowlist | Passing |
 | S9 | `test_next_steps.py`, `test_scenarios.py` | Next-step advice never repeats a link, phone number or uncurated organization name from the input (every eval sample, plus property-based fuzzing); only curated official contacts appear. Scenario steps carry no links or numbers, scenario evidence quotes only our vocabulary, and scenarios never change a score | Passing |
-| S6 | `test_ssrf.py` | URL guard blocks internal targets via any encoding, redirect or rebind | Post-MVP (P2) |
+| S6 | `test_ssrf.py` | URL guard blocks internal targets via any encoding, redirect or rebind; payloads never reach DNS | Passing |
+| S10 | `test_egress.py`, `test_page_fetch.py`, `test_page_pipeline.py` | During a fetch only the pinned IP and port can be reached; the circuit breaker stops live fetching if that ever fires; dry run never resolves or connects; failures fail closed; page findings add no points | Passing |
 
 All security tests run in CI on every push.

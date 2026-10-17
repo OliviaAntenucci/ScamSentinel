@@ -1,4 +1,6 @@
-"""S1: the MVP never connects to a user-supplied URL (SECURITY.md T1, AC-3).
+"""S1: with page fetching "off" (the default), ScamSentinel never connects to a
+user-supplied URL (SECURITY.md T1, AC-3). "dry_run" doesn't either (test_page_pipeline.py);
+only "live" fetches, through the SSRF guard and egress lock (test_ssrf.py, test_egress.py).
 
 All socket-level network functions are replaced with tripwires, then every SSRF payload
 is analyzed as a URL input and inside a text message. Nothing may try to connect.
