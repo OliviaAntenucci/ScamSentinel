@@ -1,0 +1,12 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+# Hard negative: signing in goes to a separate government sign-in service's domain.
+url: hxxps://www.usajobs[.]gov/
+status: 200
+---
+<html><head><title>USAJOBS - The Federal Government's official employment site</title></head>
+<body>
+<form action="hxxps://secure.login-service-example[.]gov/openid" method="post">
+  <button>Sign in with Login.gov</button>
+</form>
+</body></html>

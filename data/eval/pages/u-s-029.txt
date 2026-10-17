@@ -1,0 +1,13 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://refund-status-center[.]com
+status: 200
+---
+<html><head><title>Federal Tax Refund Status | Internal Revenue Service</title></head>
+<body>
+<form action="/status" method="post">
+  <input name="ssn" placeholder="SSN or ITIN">
+  <input name="cc-number" autocomplete="cc-number" placeholder="Card number to receive your refund">
+  <button>Check status</button>
+</form>
+</body></html>

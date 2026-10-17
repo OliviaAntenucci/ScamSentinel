@@ -1,0 +1,14 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+# Hard negative: a checkout that posts card details to a separate payment processor.
+url: hxxps://www.karmaloop[.]com
+status: 200
+---
+<html><head><title>Karmaloop - Streetwear | Checkout</title></head>
+<body>
+<form action="hxxps://checkout.payment-processor-example[.]com/charge" method="post">
+  <input autocomplete="cc-number" name="number" placeholder="Card number">
+  <input autocomplete="cc-exp" name="exp" placeholder="MM/YY">
+  <button>Place order</button>
+</form>
+</body></html>

@@ -4,6 +4,7 @@
 weights:
   domain: 0.55
   message: 0.45
+  page: 0.45 # P2b: only weighted when a fetched page scored > 0, like the domain module
 
 # 0-29 likely_legitimate, 30-59 suspicious, 60-100 likely_scam
 bands:
@@ -18,6 +19,9 @@ floors:
   impersonation_with_lookalike: 80 # claims brand X and links to an X lookalike (added after dev eval)
   brand_sensitive_request: 75 # claims a protected brand and asks for SSN/card/password/... (dev eval)
   injection_plus_scam_signal: 70
+  # P2b: the fetched page presents itself as a brand on a domain that isn't the brand's,
+  # and asks for a password, card, verification code or SSN.
+  page_credential_harvest: 85
 
 # Max score when every URL is official and nothing sensitive or payment-related is requested.
 mitigating_cap: 40
@@ -65,3 +69,16 @@ verify_points:
   sender_verified: -10
   # From the LLM's knowledge, not a published source, so worth less and never mitigating.
   org_domain_mismatch_unverified: 10
+
+# Page evidence (P2b, architecture.md §23). Only from pages that were fetched (live) or
+# read from snapshots (evaluation). Points come mostly from combinations: every real login
+# page has a password field, so a field alone is worth little.
+page_points:
+  brand_on_unofficial_page: 40
+  field_password: 10
+  field_card: 10
+  field_code: 15
+  field_ssn: 20
+  fields_cap: 30
+  form_posts_elsewhere: 15
+  meta_refresh: 5

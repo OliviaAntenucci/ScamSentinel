@@ -1,0 +1,14 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://intuit-security-alert[.]com
+status: 200
+---
+<html><head><title>Intuit Security Alert</title></head>
+<body>
+<h1>Someone tried to sign in to your account</h1>
+<form action="/alert/verify" method="post">
+  <input name="email" placeholder="Email">
+  <input type="password" name="password" placeholder="Password">
+  <button>It wasn't me</button>
+</form>
+</body></html>

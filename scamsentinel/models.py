@@ -24,6 +24,8 @@ class Module(StrEnum):
     MESSAGE = "message"
     VERIFY = "verify"
     OCR = "ocr"
+    # P2b: evidence from a fetched (or, in evaluation, snapshot) page.
+    PAGE = "page"
     # Reasons the aggregator adds itself: the weighting math, floors and caps.
     AGGREGATE = "aggregate"
 
@@ -71,7 +73,7 @@ class Resource(BaseModel):
 
 class PageFinding(BaseModel):
     """Something the fetched page shows (P2), e.g. a password field or a form that posts
-    to another domain. Informational: page findings add no points yet."""
+    to another domain. Scored through the page module (P2b, config page_points)."""
 
     signal: str
     detail: str
@@ -90,8 +92,12 @@ class PageReport(BaseModel):
     # link is safe.
     error: str | None = None
     title: str | None = None
-    # The curated brand the page presents itself as, when that isn't its own domain.
+    # The curated brand the page presents itself as (title or logo), when that isn't its
+    # own domain.
     brand: str | None = None
+    # What its input fields ask for: password, card details, verification code,
+    # Social Security number.
+    asks_for: list[str] = []
     findings: list[PageFinding] = []
     truncated: bool = False
 

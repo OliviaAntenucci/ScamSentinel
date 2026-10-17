@@ -57,8 +57,32 @@ def test_apple_phishing_page(analyzer):
 
 
 def test_text_inside_scripts_is_ignored(analyzer):
-    # The script names Wells Fargo three times; only visible text and the title count.
+    # The script names Wells Fargo three times; only the title and logos count.
     assert analyzer.analyze(page(APPLE_PHISH)).brand == "Apple"
+
+
+def test_brand_mentions_in_body_text_dont_count(analyzer):
+    # Tax-prep sites mention the IRS constantly without claiming to be it.
+    html = (
+        "<title>File your taxes online | Example Tax</title>"
+        "<p>We're an IRS-authorized e-file provider. Track your IRS refund. IRS IRS.</p>"
+        '<form action="/login"><input type="password"></form>'
+    )
+    report = analyzer.analyze(page(html, url="https://example-tax.com/"))
+    assert report.brand is None
+    assert "brand_on_unofficial_page" not in signals(report)
+
+
+def test_brand_in_a_logo_counts(analyzer):
+    html = '<img alt="Wells Fargo"><form><input type="password"></form>'
+    assert analyzer.analyze(page(html, url="https://secure-banking-check.com/")).brand == (
+        "Wells Fargo"
+    )
+
+
+def test_asks_for_is_structured(analyzer):
+    report = analyzer.analyze(page('<input name="ssn"><input autocomplete="cc-number">'))
+    assert report.asks_for == ["Social Security number", "card details"]  # field order
 
 
 def test_the_brands_own_site_is_not_flagged(analyzer):

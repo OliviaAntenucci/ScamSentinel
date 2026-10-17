@@ -1,0 +1,15 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+# Hard negative: a real service that signs you in with a one-time code and mentions the IRS.
+url: hxxps://www.cashapp[.]com/taxes
+status: 200
+---
+<html><head><title>Cash App Taxes - File for free</title></head>
+<body>
+<p>Free federal and state filing. Your IRS refund can go straight to Cash App.</p>
+<form action="/login" method="post">
+  <input name="phone_or_email" placeholder="Phone or email">
+  <input autocomplete="one-time-code" name="code" placeholder="Sign-in code">
+  <button>Continue</button>
+</form>
+</body></html>

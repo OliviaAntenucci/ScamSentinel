@@ -15,7 +15,8 @@ from dataclasses import dataclass, field
 from scamsentinel.data import Bands, ScoringConfig
 from scamsentinel.domain.engine import DomainResult
 from scamsentinel.message.features import MessageFeatures
-from scamsentinel.models import Module, ModuleResult, Reason, Verdict
+from scamsentinel.models import Module, ModuleResult, PageReport, Reason, Verdict
+from scamsentinel.page.score import credential_harvest
 from scamsentinel.verify.checks import CheckResult
 
 LOOKALIKE_THRESHOLD = 60
@@ -62,17 +63,26 @@ def aggregate(
     features: MessageFeatures | None,
     config: ScoringConfig,
     checks: list[CheckResult] | None = None,
+    page: ModuleResult | None = None,
+    page_reports: list[PageReport] | None = None,
 ) -> Aggregate:
-    modules = [m for m in (domain_module(domains), message) if m is not None]
+    modules = [m for m in (domain_module(domains), message, page) if m is not None]
     if not modules:
         raise ValueError("nothing to aggregate")
 
     # "No link looks like a brand" isn't evidence that a message is legitimate (only
     # official links are, and those are handled by the mitigating cap). So a domain
     # module that found nothing doesn't dilute the message score; it's still reported.
+    # The same goes for a page that showed nothing (P2b).
     weighted_modules = [
-        m for m in modules if m.module != Module.DOMAIN or m.score > 0 or message is None
+        m
+        for m in modules
+        if m.score > 0
+        or m.module == Module.MESSAGE
+        or (m.module == Module.DOMAIN and message is None and page is None)
     ]
+    if not weighted_modules:
+        weighted_modules = [m for m in modules if m.module == Module.DOMAIN] or modules[:1]
     weights = {m.module: config.weights.get(m.module, 0.0) for m in weighted_modules}
     total_weight = sum(weights.values())
     weighted = sum(m.score * weights[m.module] / total_weight for m in weighted_modules)
@@ -82,8 +92,9 @@ def aggregate(
         f"{m.module.value} {m.score} × {weights[m.module] / total_weight:.2f}"
         for m in weighted_modules
     )
-    if len(weighted_modules) < len(modules):
-        terms += " (domain 0 not weighted: no lookalike found)"
+    skipped = [m.module.value for m in modules if m not in weighted_modules]
+    if skipped:
+        terms += f" ({' and '.join(skipped)} 0 not weighted: nothing found)"
     reasons = [r for m in modules for r in m.reasons]
     reasons.append(
         _reason("weighted_score", f"Weighted score: {terms} = {risk}", evidence=None)
@@ -101,7 +112,19 @@ def aggregate(
             )
         )
 
-    for name, applies, why in _floors(domains, features, checks or []):
+    floors = _floors(domains, features, checks or [])
+    harvest = credential_harvest(page_reports or [])
+    floors.append(
+        (
+            "page_credential_harvest",
+            harvest is not None,
+            f"the linked page presents itself as {harvest.brand} on a domain that isn't "
+            f"{harvest.brand}'s and asks for {', '.join(harvest.asks_for)}"
+            if harvest
+            else "",
+        )
+    )
+    for name, applies, why in floors:
         floor = config.floors.get(name)
         if floor is not None and applies and risk < floor:
             risk = floor

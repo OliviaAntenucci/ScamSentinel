@@ -1,0 +1,8 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+# Parked (every 5th scam URL, decided before evaluation): nothing on it any more.
+url: hxxps://lndeed-careers[.]com
+status: 200
+---
+<html><head><title>lndeed-careers.com</title></head>
+<body><h1>This domain may be for sale</h1></body></html>

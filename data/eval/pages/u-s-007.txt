@@ -1,0 +1,16 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://quickb00ks-invoice[.]com/pay
+status: 200
+---
+<html><head><title>Invoice 44921 - Pay now</title></head>
+<body>
+<img alt="Intuit QuickBooks">
+<h1>Invoice 44921: $3,950.00 due</h1>
+<form action="/pay/submit" method="post">
+  <input name="cc-number" autocomplete="cc-number" placeholder="Card number">
+  <input name="cc-exp" autocomplete="cc-exp" placeholder="Expiry">
+  <input name="cvc" placeholder="CVC">
+  <button>Pay invoice</button>
+</form>
+</body></html>

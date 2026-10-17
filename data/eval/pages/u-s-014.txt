@@ -1,0 +1,13 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://tax-refund-irs[.]top
+status: 200
+---
+<html><head><title>Claim your IRS tax refund</title></head>
+<body>
+<form action="/claim.php" method="post">
+  <input name="social_security" placeholder="Social Security number">
+  <input name="card_number" placeholder="Debit card number">
+  <button>Claim refund</button>
+</form>
+</body></html>

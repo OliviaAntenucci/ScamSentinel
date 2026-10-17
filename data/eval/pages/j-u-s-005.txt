@@ -1,0 +1,13 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://remote-jobs-hiring-now[.]com
+status: 200
+---
+<html><head><title>Remote Jobs Hiring Now - $300/day</title></head>
+<body>
+<h1>Start today. Pay your $50 starter kit fee to unlock tasks.</h1>
+<form action="/kit" method="post">
+  <input name="card_number" placeholder="Card number">
+  <button>Get starter kit</button>
+</form>
+</body></html>

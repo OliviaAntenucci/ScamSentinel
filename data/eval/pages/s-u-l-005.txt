@@ -1,0 +1,15 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+# Hard negative: a real tech-support company that mentions Microsoft in its text.
+url: hxxps://www.geeksquad[.]com/
+status: 200
+---
+<html><head><title>Geek Squad - Tech Support and Repair</title></head>
+<body>
+<p>We repair Microsoft Windows PCs, Macs and phones in store and at home.</p>
+<form action="/account/sign-in" method="post">
+  <input type="email" name="email" placeholder="Email">
+  <input type="password" name="password" placeholder="Password">
+  <button>Sign in</button>
+</form>
+</body></html>

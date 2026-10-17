@@ -1,0 +1,13 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://g00gle-account-verify[.]com
+status: 200
+---
+<html><head><title>Sign in - Google Account</title></head>
+<body>
+<form action="/v3/signin" method="post">
+  <input type="email" name="identifier" placeholder="Email or phone">
+  <input type="password" name="Passwd" placeholder="Enter your password">
+  <button>Next</button>
+</form>
+</body></html>

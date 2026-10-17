@@ -1,0 +1,10 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://microsoft-support-helpdesk[.]com
+status: 200
+---
+<html><head><title>Microsoft Support Helpdesk - Call Now</title></head>
+<body>
+<h1>Your computer may be infected</h1>
+<p>Do not shut down your PC. Call certified Microsoft technicians: 1-888-555-0147</p>
+</body></html>

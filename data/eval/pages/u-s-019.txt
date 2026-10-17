@@ -1,0 +1,14 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://turbotaxx[.]com
+status: 200
+---
+<html><head><title>TurboTax Login</title></head>
+<body>
+<form action="/auth" method="post">
+  <input name="user" placeholder="Email or phone">
+  <input type="password" name="pass" placeholder="Password">
+  <input autocomplete="one-time-code" name="code" placeholder="Code we texted you">
+  <button>Sign in</button>
+</form>
+</body></html>

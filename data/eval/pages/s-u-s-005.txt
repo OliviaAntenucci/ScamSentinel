@@ -1,0 +1,10 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://pc-virus-cleanup-alert[.]net
+status: 200
+---
+<html><head><title>Windows Security Alert - Microsoft</title></head>
+<body>
+<h1>Your PC is infected with 5 viruses</h1>
+<p>Call the Microsoft helpline now: 1-855-555-0133</p>
+</body></html>

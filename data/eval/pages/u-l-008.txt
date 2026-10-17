@@ -1,0 +1,16 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+# Hard negative: a tax-prep site that mentions the IRS without claiming to be it.
+url: hxxps://www.hrblock[.]com
+status: 200
+---
+<html><head><title>H&amp;R Block | File taxes online or with a tax pro</title></head>
+<body>
+<h1>Taxes your way</h1>
+<p>We're an IRS-authorized e-file provider. Track your IRS refund after you file.</p>
+<form action="/signin" method="post">
+  <input name="username" placeholder="Username">
+  <input type="password" name="password" placeholder="Password">
+  <button>Sign in</button>
+</form>
+</body></html>

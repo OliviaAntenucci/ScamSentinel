@@ -1,0 +1,14 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://chase-online-verify[.]com/login
+status: 200
+---
+<html><head><title>Chase Online - Sign in</title></head>
+<body>
+<form action="/login/verify" method="post">
+  <input name="username" placeholder="Username">
+  <input type="password" name="password" placeholder="Password">
+  <input name="otp" placeholder="One-time code">
+  <button>Sign in</button>
+</form>
+</body></html>

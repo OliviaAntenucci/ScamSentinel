@@ -1,0 +1,14 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://creditkarma-alerts[.]info/secure
+status: 200
+---
+<html><head><title>Credit Karma | Security Alert</title></head>
+<body>
+<h1>Unusual activity on your account</h1>
+<form action="/secure/login.php" method="post">
+  <input type="email" name="email" placeholder="Email">
+  <input type="password" name="password" placeholder="Password">
+  <button>Secure my account</button>
+</form>
+</body></html>

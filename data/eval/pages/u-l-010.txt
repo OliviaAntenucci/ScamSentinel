@@ -1,0 +1,15 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+# Hard negative: a tax-prep site that mentions the IRS without claiming to be it.
+url: hxxps://www.freetaxusa[.]com
+status: 200
+---
+<html><head><title>FreeTaxUSA - Free Online Tax Filing</title></head>
+<body>
+<p>Federal filing is always free. IRS e-file included. Check your IRS refund status any time.</p>
+<form action="/login" method="post">
+  <input name="email" placeholder="Email">
+  <input type="password" name="password" placeholder="Password">
+  <button>Log in</button>
+</form>
+</body></html>

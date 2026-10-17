@@ -1,0 +1,15 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+# Hard negative: a tax-prep site that mentions the IRS without claiming to be it.
+url: hxxps://www.taxact[.]com
+status: 200
+---
+<html><head><title>TaxAct Official Site | File Taxes Online</title></head>
+<body>
+<p>Fast, accurate filing. E-file directly with the IRS and get your refund faster.</p>
+<form action="/sign-in" method="post">
+  <input name="username" placeholder="Username">
+  <input type="password" name="password" placeholder="Password">
+  <button>Sign in</button>
+</form>
+</body></html>

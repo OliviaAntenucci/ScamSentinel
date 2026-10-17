@@ -1,0 +1,13 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://chase[.]us/login
+status: 200
+---
+<html><head><title>Sign in - Chase Bank</title></head>
+<body>
+<form action="/login/post" method="post">
+  <input name="userId" placeholder="Username">
+  <input type="password" name="password" placeholder="Password">
+  <button>Sign in</button>
+</form>
+</body></html>

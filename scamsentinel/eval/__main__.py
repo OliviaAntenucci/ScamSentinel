@@ -40,11 +40,18 @@ def main() -> None:
     parser.add_argument(
         "--rate-limit-wait", type=float, default=20.0, help="seconds to wait before a retry"
     )
+    parser.add_argument(
+        "--pages", choices=["snapshot", "off"], default="snapshot",
+        help="snapshot: read linked pages from the hand-written pages in data/eval/pages "
+        "(never touches the network); off: ignore pages (P2b ablation)",
+    )
     args = parser.parse_args()
 
     settings = get_settings()
     samples = select(load_samples(args.data), args.split, args.category)
-    service = build_service(settings, args.ablation, args.db)
+    service = build_service(
+        settings, args.ablation, args.db, pages=args.pages, pages_dir=args.data.parent / "pages"
+    )
     retries = args.rate_limit_retries if args.ablation != "rules_only" else 0
     predictions = run(
         samples,
@@ -67,7 +74,10 @@ def main() -> None:
 
     strict, triage = confusion(predictions, STRICT), confusion(predictions, TRIAGE)
     scope = f"{args.split} split" + (f", category {args.category}" if args.category else "")
-    print(f"{scope}, {len(predictions)} samples, ablation={args.ablation}, LLM: {llm}")
+    print(
+        f"{scope}, {len(predictions)} samples, ablation={args.ablation}, pages={args.pages}, "
+        f"LLM: {llm}"
+    )
     for name, c in (("strict", strict), ("triage", triage)):
         print(
             f"  {name:6}  precision {pct(c.precision):>6}  recall {pct(c.recall):>6}  "
@@ -87,8 +97,8 @@ def main() -> None:
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(
             markdown(
-                predictions, split=args.split, ablation=args.ablation, llm=llm,
-                dataset=str(args.data),
+                predictions, split=args.split, ablation=f"{args.ablation}, pages={args.pages}",
+                llm=llm, dataset=str(args.data),
             ),
             encoding="utf-8",
         )
@@ -98,6 +108,7 @@ def main() -> None:
         payload = {
             "split": args.split,
             "ablation": args.ablation,
+            "pages": args.pages,
             "llm": llm,
             "metrics": summary(predictions),
             "predictions": [p.model_dump(mode="json") for p in predictions],

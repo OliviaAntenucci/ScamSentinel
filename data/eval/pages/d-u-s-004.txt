@@ -1,0 +1,13 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://usps[.]com-track-redeliver[.]info/us
+status: 200
+---
+<html><head><title>United States Postal Service - Redelivery</title></head>
+<body>
+<form action="/us/pay" method="post">
+  <input name="card_number" placeholder="Card number">
+  <input name="exp_date" placeholder="Expiry">
+  <button>Pay redelivery fee</button>
+</form>
+</body></html>

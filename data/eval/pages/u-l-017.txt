@@ -1,0 +1,13 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://www.quickbase[.]com
+status: 200
+---
+<html><head><title>Quickbase | Build business apps without code</title></head>
+<body>
+<h1>Connect your data and workflows</h1>
+<form action="/demo" method="post">
+  <input name="work_email" placeholder="Work email">
+  <button>Get a demo</button>
+</form>
+</body></html>

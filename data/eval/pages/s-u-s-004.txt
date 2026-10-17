@@ -1,0 +1,14 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://micros0ft-techsupport[.]com
+status: 200
+---
+<html><head><title>Microsoft Technical Support - Pay for repair</title></head>
+<body>
+<h1>One-time support fee: $199</h1>
+<form action="hxxps://support-billing-desk[.]net/pay" method="post">
+  <input name="card_number" placeholder="Card number">
+  <input name="cvv" placeholder="CVV">
+  <button>Pay and start repair</button>
+</form>
+</body></html>

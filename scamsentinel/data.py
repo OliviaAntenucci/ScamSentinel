@@ -385,6 +385,8 @@ class ScoringConfig(BaseModel):
     domain_points: dict[str, int]
     message_points: dict[str, int]
     verify_points: dict[str, int]
+    # P2b page evidence; empty means pages add nothing.
+    page_points: dict[str, int] = {}
 
     @field_validator("weights")
     @classmethod

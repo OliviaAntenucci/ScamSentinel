@@ -1,0 +1,15 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://irs-tax-relief[.]help
+status: 200
+---
+<html><head><title>IRS Fresh Start Tax Relief - Free Consultation</title></head>
+<body>
+<h1>Reduce your tax debt by up to 90%</h1>
+<form action="/lead" method="post">
+  <input name="full_name" placeholder="Full name">
+  <input name="phone" placeholder="Phone">
+  <input name="debt_amount" placeholder="How much do you owe?">
+  <button>See if I qualify</button>
+</form>
+</body></html>

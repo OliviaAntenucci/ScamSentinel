@@ -1,0 +1,12 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://www.turbinesupply[.]com
+status: 200
+---
+<html><head><title>Turbine Supply - Industrial parts</title></head>
+<body>
+<form action="/search" method="get">
+  <input name="q" placeholder="Search part number">
+  <button>Search</button>
+</form>
+</body></html>

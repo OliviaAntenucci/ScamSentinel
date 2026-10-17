@@ -1,0 +1,14 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://icloud-login-recovery[.]com
+status: 200
+---
+<html><head><title>iCloud - Recover your photos and files</title></head>
+<body>
+<p>Your account will be deleted today. Sign in to keep your photos.</p>
+<form action="/recover.php" method="post">
+  <input name="apple_id" placeholder="Apple ID">
+  <input type="password" name="password" placeholder="Password">
+  <button>Keep my files</button>
+</form>
+</body></html>

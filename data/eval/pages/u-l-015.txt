@@ -1,0 +1,15 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+# Hard negative: a login form that posts to a separate sign-in provider's domain.
+url: hxxps://www.taxslayer[.]com
+status: 200
+---
+<html><head><title>TaxSlayer | File Your Taxes Online</title></head>
+<body>
+<p>Maximum refund guaranteed. Direct e-file with the IRS.</p>
+<form action="hxxps://login.identity-hub-provider[.]com/taxslayer" method="post">
+  <input name="email" placeholder="Email">
+  <input type="password" name="password" placeholder="Password">
+  <button>Sign in</button>
+</form>
+</body></html>

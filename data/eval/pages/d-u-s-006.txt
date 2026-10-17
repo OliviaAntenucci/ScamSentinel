@@ -1,0 +1,15 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://uspsparcels[.]com/address
+status: 200
+---
+<html><head><title>USPS: Incomplete Address</title></head>
+<body>
+<h1>We couldn't deliver your package</h1>
+<form action="/address/save" method="post">
+  <input name="full_name" placeholder="Full name">
+  <input name="street" placeholder="Street address">
+  <input name="zip" placeholder="ZIP code">
+  <button>Save address</button>
+</form>
+</body></html>

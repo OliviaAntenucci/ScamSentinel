@@ -1,0 +1,12 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://www.ups[.]com/track
+status: 200
+---
+<html><head><title>Tracking | UPS - United States</title></head>
+<body>
+<form action="/track" method="get">
+  <input name="tracknum" placeholder="Tracking number">
+  <button>Track</button>
+</form>
+</body></html>

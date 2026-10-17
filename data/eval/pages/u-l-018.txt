@@ -1,0 +1,13 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://www.firstbank[.]com
+status: 200
+---
+<html><head><title>FirstBank | Personal and Business Banking</title></head>
+<body>
+<form action="/online-banking/login" method="post">
+  <input name="access_id" placeholder="Access ID">
+  <input type="password" name="password" placeholder="Password">
+  <button>Log in</button>
+</form>
+</body></html>

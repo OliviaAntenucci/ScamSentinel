@@ -1,0 +1,14 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://indeed-hiring-portal[.]com/apply
+status: 200
+---
+<html><head><title>Indeed Hiring Portal - Complete your onboarding</title></head>
+<body>
+<h1>Congratulations! You've been selected.</h1>
+<form action="/apply/submit" method="post">
+  <input name="full_name" placeholder="Full name">
+  <input name="ssn" placeholder="Social Security number (for payroll)">
+  <button>Submit</button>
+</form>
+</body></html>

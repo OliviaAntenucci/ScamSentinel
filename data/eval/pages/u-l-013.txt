@@ -1,0 +1,17 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+# Hard negative: the Treasury's real tax payment site asks for an EIN/SSN and a PIN.
+url: hxxps://www.eftps[.]gov
+status: 200
+---
+<html><head><title>EFTPS: The Electronic Federal Tax Payment System</title></head>
+<body>
+<img alt="U.S. Department of the Treasury">
+<p>Pay your federal taxes to the IRS online, 24/7.</p>
+<form action="/eftps/login" method="post">
+  <input name="tin" placeholder="EIN/SSN">
+  <input type="password" name="pin" placeholder="PIN">
+  <input type="password" name="internet_password" placeholder="Internet password">
+  <button>Log in</button>
+</form>
+</body></html>

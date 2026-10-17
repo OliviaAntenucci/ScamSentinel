@@ -1,0 +1,13 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://www.paypal[.]com
+status: 200
+---
+<html><head><title>Log in to your PayPal account</title></head>
+<body>
+<form action="/signin" method="post">
+  <input type="email" name="login_email" placeholder="Email or mobile number">
+  <input type="password" name="login_password" placeholder="Password">
+  <button>Log In</button>
+</form>
+</body></html>

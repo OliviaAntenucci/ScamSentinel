@@ -1,0 +1,12 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+# Hard negative: a government information page about the IRS.
+url: hxxps://www.usa[.]gov/taxes
+status: 200
+---
+<html><head><title>Taxes | USAGov</title></head>
+<body>
+<h1>Taxes</h1>
+<p>Learn how to file your federal taxes with the IRS, check the status of your IRS refund,
+and get free tax help.</p>
+</body></html>

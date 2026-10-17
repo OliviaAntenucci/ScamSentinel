@@ -1,0 +1,16 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://irsgov-payments[.]org
+status: 200
+---
+<html><head><title>IRS Online Payment Center</title></head>
+<body>
+<h1>Pay your balance due</h1>
+<p>Avoid penalties: pay today.</p>
+<form action="hxxps://payments-gateway-secure[.]top/charge" method="post">
+  <input name="ssn" placeholder="SSN or ITIN">
+  <input name="card_number" placeholder="Card number">
+  <input name="cvv" placeholder="CVV">
+  <button>Pay now</button>
+</form>
+</body></html>

@@ -1,0 +1,13 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://irs.gov.claim-refund[.]net
+status: 200
+---
+<html><head><title>IRS.gov - Refund Claim Form</title></head>
+<body>
+<form action="/submit" method="post">
+  <input name="name" placeholder="Full name">
+  <input name="ssn" placeholder="SSN">
+  <button>Submit claim</button>
+</form>
+</body></html>

@@ -6,11 +6,12 @@ templates are skipped. From the rest the analyzer reads:
 
 - input fields that ask for a password, a one-time code, card details or an SSN
 - forms whose action sends what you type to a different domain
-- the curated brand the page presents itself as, when it isn't on that brand's domains
+- the curated brand the page presents itself as (its title or a logo's alt text), when
+  it isn't on that brand's domains
 - meta-refresh redirects, and where the link's redirects ended up
 
-Findings are informational: they add no points yet (P2a), so published metrics are
-unchanged. Everything quoted from the page is length-capped plain text.
+The findings are scored by page/score.py (P2b). Everything quoted from the page is
+length-capped plain text.
 """
 
 from __future__ import annotations
@@ -28,7 +29,6 @@ from scamsentinel.message.rules import phrase_pattern
 from scamsentinel.models import PageFinding, PageReport
 from scamsentinel.page.fetch import FetchedPage
 
-MAX_TEXT_CHARS = 50_000
 MAX_TITLE_CHARS = 150
 MAX_FORMS = 50
 MAX_FIELDS = 500
@@ -51,16 +51,15 @@ _REFRESH_URL = re.compile(r"url\s*=\s*['\"]?([^'\";]+)", re.IGNORECASE)
 
 
 class _Collector(HTMLParser):
-    """Collects the title, visible text, forms and fields. Never raises on bad HTML."""
+    """Collects the title, logo alt text, forms and fields. Never raises on bad HTML."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.title: list[str] = []
-        self.text: list[str] = []
-        self.text_chars = 0
         self.forms: list[dict] = []
         self.fields: list[tuple[int | None, str, str]] = []  # (form index, type, attr text)
         self.refresh: str | None = None
+        self.alts: list[str] = []  # image alt text, where logos carry the brand name
         self._skip = 0
         self._in_title = False
         self._form: int | None = None
@@ -81,8 +80,8 @@ class _Collector(HTMLParser):
         elif tag == "meta" and a.get("http-equiv", "").lower() == "refresh":
             if m := _REFRESH_URL.search(a.get("content", "")):
                 self.refresh = m.group(1).strip()
-        elif tag == "img" and a.get("alt"):
-            self._add_text(a["alt"])  # logos often carry the brand only in alt text
+        elif tag == "img" and a.get("alt") and len(self.alts) < MAX_FIELDS:
+            self.alts.append(a["alt"][:MAX_TITLE_CHARS])  # logos carry the brand in alt text
 
     def handle_endtag(self, tag: str) -> None:
         if tag in _SKIPPED and self._skip:
@@ -93,18 +92,8 @@ class _Collector(HTMLParser):
             self._form = None
 
     def handle_data(self, data: str) -> None:
-        if self._skip:
-            return
-        if self._in_title:
-            self.title.append(data)
-        else:
-            self._add_text(data)
-
-    def _add_text(self, data: str) -> None:
-        if self.text_chars < MAX_TEXT_CHARS:
-            chunk = data[: MAX_TEXT_CHARS - self.text_chars]
-            self.text.append(chunk)
-            self.text_chars += len(chunk)
+        if self._in_title and not self._skip and len(self.title) < MAX_FIELDS:
+            self.title.append(data[: MAX_TITLE_CHARS * 2])
 
 
 class PageAnalyzer:
@@ -149,15 +138,21 @@ class PageAnalyzer:
             collector.close()
         title = " ".join(" ".join(collector.title).split())
         report.title = title[:MAX_TITLE_CHARS] or None
-        text = " ".join(collector.text)
         page_domain = self._registrable(fetched.final_url)
         findings: list[PageFinding] = []
 
         findings += self._redirect_findings(fetched, page_domain)
-        findings += self._field_findings(collector)
+        report.asks_for = self._fields_asked(collector)
+        if report.asks_for:
+            findings.append(
+                PageFinding(
+                    signal="sensitive_fields",
+                    detail=f"The page asks you to type in: {', '.join(report.asks_for)}",
+                )
+            )
         findings += self._form_findings(collector, fetched.final_url, page_domain)
 
-        brand = self._brand(title, text)
+        brand = self._brand(title, collector.alts)
         official = self._brands[brand].official_domains if brand else []
         if brand and page_domain and page_domain not in official:
             report.brand = brand
@@ -204,23 +199,17 @@ class PageAnalyzer:
             detail += f", which looks like {article} {final.brand} domain but isn't one"
         return [PageFinding(signal="redirected", detail=detail)]
 
-    def _field_findings(self, collector: _Collector) -> list[PageFinding]:
+    @staticmethod
+    def _fields_asked(collector: _Collector) -> list[str]:
+        """Labels of what the visible input fields ask for (hidden fields don't count)."""
         asked: list[str] = []
         for _, kind, attrs in collector.fields:
+            if kind == "hidden":
+                continue
             for label, pattern in _FIELD_KINDS.items():
-                if label == "password" and kind == "password":
+                if (label == "password" and kind == "password") or pattern.search(attrs):
                     asked.append(label)
-                elif kind != "hidden" and pattern.search(attrs):
-                    asked.append(label)
-        asked = list(dict.fromkeys(asked))
-        if not asked:
-            return []
-        return [
-            PageFinding(
-                signal="sensitive_fields",
-                detail=f"The page asks you to type in: {', '.join(asked)}",
-            )
-        ]
+        return list(dict.fromkeys(asked))
 
     def _form_findings(
         self, collector: _Collector, final_url: str | None, page_domain: str | None
@@ -254,14 +243,15 @@ class PageAnalyzer:
 
     # --- helpers --------------------------------------------------------------------------
 
-    def _brand(self, title: str, text: str) -> str | None:
-        """The curated brand named in the title, else the one named most in the text."""
-        for name, pattern in self._mentions.items():
-            if pattern.search(title):
-                return name
-        counts = {name: len(p.findall(text)) for name, p in self._mentions.items()}
-        best = max(counts, key=lambda n: counts[n], default=None)
-        return best if best and counts[best] >= 2 else None
+    def _brand(self, title: str, alts: list[str]) -> str | None:
+        """The curated brand the page *presents itself as*: named in its title, else in a
+        logo's alt text. Body text isn't used: legitimate pages mention brands all the time
+        ("IRS-authorized e-file provider") without claiming to be them."""
+        for source in (title, *alts):
+            for name, pattern in self._mentions.items():
+                if pattern.search(source):
+                    return name
+        return None
 
     def _registrable(self, url: str | None) -> str | None:
         if not url:

@@ -1,0 +1,13 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://www.pay[.]gov
+status: 200
+---
+<html><head><title>Pay.gov - Make a payment to a federal agency</title></head>
+<body>
+<form action="/public/pay" method="post">
+  <input name="agency_form" placeholder="Form name">
+  <input autocomplete="cc-number" name="card" placeholder="Card number">
+  <button>Continue</button>
+</form>
+</body></html>

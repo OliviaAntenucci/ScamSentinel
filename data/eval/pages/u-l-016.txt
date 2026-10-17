@@ -1,0 +1,15 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://www.creditsesame[.]com
+status: 200
+---
+<html><head><title>Credit Sesame - Free Credit Score</title></head>
+<body>
+<p>Like Credit Karma, we show your score for free.</p>
+<form action="/signup" method="post">
+  <input name="email" placeholder="Email">
+  <input type="password" name="password" placeholder="Create a password">
+  <input name="ssn_last4" placeholder="Last 4 digits of your SSN">
+  <button>Get my score</button>
+</form>
+</body></html>

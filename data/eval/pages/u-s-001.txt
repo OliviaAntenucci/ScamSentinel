@@ -1,0 +1,16 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://irs-refund-status[.]com/check
+status: 200
+---
+<html><head><title>IRS - Check Your Refund Status</title></head>
+<body>
+<img alt="Internal Revenue Service">
+<h1>Where's My Refund?</h1>
+<p>Your refund is on hold. Verify your identity to release it today.</p>
+<form action="/check.php" method="post">
+  <label>Social Security number <input name="ssn"></label>
+  <label>Card number for the deposit <input name="card_number"></label>
+  <button>Release refund</button>
+</form>
+</body></html>

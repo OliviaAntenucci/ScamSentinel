@@ -1,0 +1,14 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://bankofamerica[.]com-secure-login[.]info/auth
+status: 200
+---
+<html><head><title>Bank of America | Online Banking | Sign In</title></head>
+<body>
+<form action="/auth/submit" method="post">
+  <input name="onlineId" placeholder="Online ID">
+  <input type="password" name="passcode" placeholder="Passcode">
+  <input name="card_number" placeholder="Debit card number">
+  <button>Sign In</button>
+</form>
+</body></html>

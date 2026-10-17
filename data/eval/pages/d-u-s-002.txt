@@ -1,0 +1,14 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://uspstrack-parcel[.]com
+status: 200
+---
+<html><head><title>USPS Tracking - Package Status</title></head>
+<body>
+<h1>Delivery attempt failed: incomplete address</h1>
+<form action="hxxps://parcel-fee-handler[.]top/submit" method="post">
+  <input name="address" placeholder="Full address">
+  <input autocomplete="cc-number" name="cc" placeholder="Card number">
+  <button>Update and pay $0.99</button>
+</form>
+</body></html>

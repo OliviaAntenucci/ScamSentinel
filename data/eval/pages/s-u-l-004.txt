@@ -1,0 +1,13 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://www.outlookindia[.]com/
+status: 200
+---
+<html><head><title>Outlook India | News and magazine</title></head>
+<body>
+<h1>Today's headlines</h1>
+<form action="/subscribe" method="post">
+  <input type="email" name="email" placeholder="Email">
+  <button>Subscribe</button>
+</form>
+</body></html>

@@ -36,7 +36,8 @@ from scamsentinel.message.llm import (
 from scamsentinel.models import AnalysisResult, InputType, Module, PageReport, Reason
 from scamsentinel.ocr.vision import OcrUnavailable, Transcriber, build_transcriber
 from scamsentinel.page.analyze import PageAnalyzer
-from scamsentinel.page.fetch import PageFetcher
+from scamsentinel.page.fetch import PageFetcher, PageSource
+from scamsentinel.page.score import page_module
 from scamsentinel.security.image_sanitize import sanitize_image
 from scamsentinel.security.redaction import redact_result
 from scamsentinel.security.upload_guard import validate_image_upload
@@ -67,12 +68,12 @@ class AnalysisService:
         max_image_pixels: int = 25_000_000,
         max_text_chars: int = 20_000,
         guide: NextStepsGuide | None = None,
-        page_fetcher: PageFetcher | None = None,
+        page_fetcher: PageSource | None = None,
         page_analyzer: PageAnalyzer | None = None,
         max_page_links: int = 3,
     ) -> None:
         self._guide = guide
-        # P2: both None unless page fetching was turned on.
+        # P2: both None unless page fetching was turned on (or, in evaluation, snapshots).
         self._page_fetcher = page_fetcher
         self._page_analyzer = page_analyzer
         self._max_page_links = max_page_links
@@ -208,13 +209,22 @@ class AnalysisService:
         domains: list[DomainResult],
         links: list[str] | None = None,
     ) -> AnalysisResult:
+        # P2b: linked pages (live, or snapshots in evaluation) are read before scoring.
+        # Nothing happens here unless page fetching is on.
+        pages = self._inspect_pages(links or [])
+        domains = self._with_page_destinations(domains, pages)
         result = aggregate(
             domains=domains,
             message=message.result if message else None,
             features=message.features if message else None,
             config=self._scoring,
             checks=message.checks if message else None,
+            page=page_module(pages, self._scoring.page_points) if pages else None,
+            page_reports=pages,
         )
+        # A brand the page presents itself as lets the guidance name it (risk-only: it
+        # never lowers a score, and it's only used when nothing else names a brand).
+        page_brand = next((p.brand for p in pages if p.brand), None)
         # Named scenario (E4): explains the result, never changes it.
         scenario = (
             self._guide.scenario(
@@ -222,6 +232,7 @@ class AnalysisService:
                 features=message.features,
                 domains=domains,
                 text=message.text,
+                page_brand=page_brand,
             )
             if self._guide and message
             else None
@@ -247,6 +258,7 @@ class AnalysisService:
                     domains=domains,
                     checks=message.checks if message else [],
                     scenario=scenario,
+                    page_brand=page_brand,
                 )
                 if self._guide
                 else []
@@ -260,12 +272,12 @@ class AnalysisService:
                     features=message.features if message else None,
                     domains=domains,
                     scenario=scenario,
+                    page_brand=page_brand,
                 )
                 if self._guide
                 else []
             ),
-            # P2: after scoring, so page findings can't change the score (0 points for now).
-            pages=self._inspect_pages(links or []),
+            pages=pages,
         )
         # SSN/card numbers quoted as evidence never reach the response, disk or logs.
         analysis = redact_result(analysis)
@@ -307,6 +319,25 @@ class AnalysisService:
                     PageReport(requested_url=url, status="failed", error="internal_error")
                 )
         return reports
+
+    def _with_page_destinations(
+        self, domains: list[DomainResult], pages: list[PageReport]
+    ) -> list[DomainResult]:
+        """Where a link's redirects ended up is scored like any other link (P2b): a
+        shortener that lands on a lookalike counts as that lookalike."""
+        hosts = {d.host for d in domains}
+        extra: list[DomainResult] = []
+        for page in pages:
+            if not page.redirects or not page.final_url:
+                continue
+            try:
+                result = self._engine.score(page.final_url)
+            except InvalidHost:
+                continue
+            if result.host not in hosts:
+                hosts.add(result.host)
+                extra.append(result)
+        return [*domains, *extra]
 
     def _score_domains(self, hosts: list[str], *, strict: bool) -> list[DomainResult]:
         results: list[DomainResult] = []

@@ -132,11 +132,12 @@ class NextStepsGuide:
         features: MessageFeatures | None,
         domains: list[DomainResult],
         scenario: Scenario | None,
+        page_brand: str | None = None,
     ) -> list[Resource]:
         """Where to read more: the type of scam, and the claimed brand's own help pages."""
         if self._reading is None:
             return []
-        entity = self._entity(features or MessageFeatures(), domains)
+        entity = self._entity(features or MessageFeatures(), domains, page_brand)
         return self._reading.build(
             verdict=verdict,
             entity=entity,
@@ -151,12 +152,13 @@ class NextStepsGuide:
         features: MessageFeatures | None,
         domains: list[DomainResult],
         text: str,
+        page_brand: str | None = None,
     ) -> Scenario | None:
         """The named scenario (E4) of a suspicious or likely-scam message. A likely-
         legitimate result never gets one, so a real alert isn't labeled as a scam story."""
         if verdict == Verdict.LIKELY_LEGITIMATE or features is None or not text:
             return None
-        entity = self._entity(features, domains)
+        entity = self._entity(features, domains, page_brand)
         return self._scenarios.match(
             features=features,
             text=text,
@@ -174,9 +176,10 @@ class NextStepsGuide:
         domains: list[DomainResult],
         checks: list[CheckResult],
         scenario: Scenario | None = None,
+        page_brand: str | None = None,
     ) -> list[NextStep]:
         features = features or MessageFeatures()
-        entity = self._entity(features, domains)
+        entity = self._entity(features, domains, page_brand)
         if verdict == Verdict.LIKELY_LEGITIMATE:
             if entity:
                 contact = self._contacts[entity]
@@ -188,7 +191,10 @@ class NextStepsGuide:
 
         lookalike = [d for d in domains if not d.official and d.score >= LOOKALIKE_THRESHOLD]
         brand_link_conflict = entity is not None and (
-            "official_domain_mismatch" in signals or any(d.brand == entity for d in lookalike)
+            "official_domain_mismatch" in signals
+            or any(d.brand == entity for d in lookalike)
+            # The linked page presents itself as this brand on a domain that isn't its own.
+            or entity == page_brand
         )
         if brand_link_conflict:
             steps.append(self._step("dont_open_link_brand", entity=entity))
@@ -238,16 +244,22 @@ class NextStepsGuide:
 
     # --- helpers --------------------------------------------------------------------
 
-    def _entity(self, features: MessageFeatures, domains: list[DomainResult]) -> str | None:
+    def _entity(
+        self,
+        features: MessageFeatures,
+        domains: list[DomainResult],
+        page_brand: str | None = None,
+    ) -> str | None:
         """The curated brand the advice can name: the claimed one, else the brand that a
-        lookalike or official link belongs to."""
+        lookalike or official link belongs to, else the brand the linked page presents
+        itself as (P2b)."""
         if features.protected_entity in self._contacts:
             return features.protected_entity
         ranked = sorted(domains, key=lambda d: d.score, reverse=True)
         for d in ranked:
             if d.brand in self._contacts and (d.official or d.score >= LOOKALIKE_THRESHOLD):
                 return d.brand
-        return None
+        return page_brand if page_brand in self._contacts else None
 
     def _contact_step(self, entity: str | None, features: MessageFeatures) -> NextStep:
         if entity:

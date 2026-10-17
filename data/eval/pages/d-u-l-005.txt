@@ -1,0 +1,12 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://www.fedex[.]com/en-us/tracking.html
+status: 200
+---
+<html><head><title>FedEx Tracking</title></head>
+<body>
+<form action="/fedextrack" method="get">
+  <input name="trknbr" placeholder="Tracking ID">
+  <button>Track</button>
+</form>
+</body></html>

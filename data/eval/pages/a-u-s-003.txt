@@ -1,0 +1,9 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+# Cloaked (every 5th scam URL, decided before evaluation): shows a harmless page to
+# non-browser visitors, as many phishing kits do.
+url: hxxps://accounts.google[.]com-security-check[.]info/signin
+status: 200
+---
+<html><head><title>Welcome</title></head>
+<body><h1>Welcome to our community forum</h1><p>Registration is closed.</p></body></html>

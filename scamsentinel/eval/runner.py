@@ -18,21 +18,33 @@ from scamsentinel.guidance.next_steps import NextStepsGuide
 from scamsentinel.message.analyzer import MessageAnalyzer
 from scamsentinel.message.llm import CachedExtractor, build_extractor
 from scamsentinel.models import Verdict
+from scamsentinel.page.analyze import PageAnalyzer
+from scamsentinel.page.snapshots import SnapshotFetcher
 from scamsentinel.pipeline import AnalysisService
 from scamsentinel.store import Store
 from scamsentinel.verify.org_facts import build_org_fact_checker
 
 Ablation = Literal["full", "rules_only", "no_verify"]
+PagesMode = Literal["snapshot", "off"]
 _FIELD = {"text": "text", "url": "url", "email": "email_raw"}
 
 
-def build_service(settings: Settings, ablation: Ablation, db_path: Path) -> AnalysisService:
+def build_service(
+    settings: Settings,
+    ablation: Ablation,
+    db_path: Path,
+    pages: PagesMode = "off",
+    pages_dir: Path | None = None,
+) -> AnalysisService:
     """The production pipeline, optionally with parts switched off.
 
     - full: rules + LLM (if a key is configured) + verification
     - rules_only: no LLM
     - no_verify: verification checks contribute 0 points
     The LLM cache lives in `db_path`, so re-running an evaluation doesn't re-call the LLM.
+
+    pages="snapshot" answers page fetches from the hand-written pages in `pages_dir`
+    (data/eval/pages/) and never touches the network; "off" ignores pages (P2b).
     """
     store = Store(db_path, settings.retention_days)
     scoring = load_scoring(settings.config_dir)
@@ -61,12 +73,23 @@ def build_service(settings: Settings, ablation: Ablation, db_path: Path) -> Anal
         org_facts=org_facts,
         max_chars=settings.max_text_chars,
     )
+    page_fetcher = page_analyzer = None
+    if pages == "snapshot":
+        page_fetcher = SnapshotFetcher(pages_dir or settings.data_dir / "eval" / "pages")
+        page_analyzer = PageAnalyzer(
+            load_brands(settings.data_dir),
+            load_keywords(settings.data_dir).entity_mentions,
+            engine,
+        )
     return AnalysisService(
         engine=engine,
         analyzer=analyzer,
         scoring=scoring,
         store=store,
         guide=NextStepsGuide.from_files(settings.data_dir),
+        page_fetcher=page_fetcher,
+        page_analyzer=page_analyzer,
+        max_page_links=settings.page_fetch_max_links,
     )
 
 

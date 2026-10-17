@@ -28,7 +28,7 @@ import zlib
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Literal, Protocol
 from urllib.parse import urljoin
 
 import httpx
@@ -71,6 +71,13 @@ class FetchedPage:
     #   rate_limited, timeout, unreachable, too_many_redirects, http_<status>,
     #   not_html, unsupported_encoding, bad_redirect, failed
     error: str | None = None
+
+
+class PageSource(Protocol):
+    """Anything that turns a URL into a FetchedPage: the live/dry-run PageFetcher, or the
+    evaluation's SnapshotFetcher (page/snapshots.py), which never touches the network."""
+
+    def fetch(self, url: str) -> FetchedPage: ...
 
 
 class _Deadline(Exception):

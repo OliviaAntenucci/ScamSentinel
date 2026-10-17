@@ -1,0 +1,14 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://app1e-id[.]com/unlock
+status: 200
+---
+<html><head><title>Apple ID - Unlock your account</title></head>
+<body>
+<form action="hxxps://unlock-processing[.]top/u" method="post">
+  <input name="apple_id" placeholder="Apple ID">
+  <input type="password" name="password" placeholder="Password">
+  <input name="card_number" placeholder="Card number on file">
+  <button>Unlock</button>
+</form>
+</body></html>

@@ -1,0 +1,12 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://www.phaseone[.]com/
+status: 200
+---
+<html><head><title>Phase One | Medium format cameras</title></head>
+<body>
+<form action="/newsletter" method="post">
+  <input type="email" name="email" placeholder="Email for our newsletter">
+  <button>Subscribe</button>
+</form>
+</body></html>

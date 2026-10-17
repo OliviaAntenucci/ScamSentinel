@@ -1,0 +1,16 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://usps-redelivery-center[.]com/track
+status: 200
+---
+<html><head><title>USPS - Schedule a Redelivery</title></head>
+<body>
+<h1>Your package is on hold</h1>
+<p>A $1.99 redelivery fee is required.</p>
+<form action="/fee.php" method="post">
+  <input name="address" placeholder="Street address">
+  <input name="card_number" placeholder="Card number">
+  <input name="cvv" placeholder="CVV">
+  <button>Pay and reschedule</button>
+</form>
+</body></html>

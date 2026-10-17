@@ -1,0 +1,10 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://rnicrosoft-security[.]com/alert
+status: 200
+---
+<html><head><title>Microsoft Defender - Threat Detected</title></head>
+<body>
+<h1>Trojan spyware detected</h1>
+<p>Your personal files are at risk. Call support immediately: 1-844-555-0191</p>
+</body></html>

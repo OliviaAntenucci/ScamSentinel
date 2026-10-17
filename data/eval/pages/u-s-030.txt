@@ -1,0 +1,9 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+# Cloaked (every 5th scam URL, decided before evaluation): shows a harmless page to
+# non-browser visitors, as many phishing kits do.
+url: hxxps://tax-relief-2025[.]com
+status: 200
+---
+<html><head><title>Tax tips blog</title></head>
+<body><h1>Five ways to get organized for tax season</h1><p>Start a folder for your forms.</p></body></html>

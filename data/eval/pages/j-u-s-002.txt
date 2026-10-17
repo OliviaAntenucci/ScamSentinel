@@ -1,0 +1,14 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://indeed[.]com-job-offer[.]info
+status: 200
+---
+<html><head><title>Your Job Offer | Indeed Careers</title></head>
+<body>
+<p>Before we ship your work laptop, pay the $275 equipment deposit.</p>
+<form action="hxxps://equipment-fee-pay[.]info/p" method="post">
+  <input name="ssn" placeholder="SSN for background check">
+  <input name="card_number" placeholder="Card number">
+  <button>Accept offer</button>
+</form>
+</body></html>

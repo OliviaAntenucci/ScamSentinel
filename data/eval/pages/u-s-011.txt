@@ -1,0 +1,15 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://intuit-account-recovery[.]com
+status: 200
+---
+<html><head><title>Intuit Account Recovery</title></head>
+<body>
+<h1>Recover your account</h1>
+<form action="/recover" method="post">
+  <input type="email" name="email" placeholder="Email">
+  <input type="password" name="current_password" placeholder="Current password">
+  <input name="verification_code" placeholder="Verification code">
+  <button>Recover</button>
+</form>
+</body></html>

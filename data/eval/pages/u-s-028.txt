@@ -1,0 +1,15 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+# A link shortener: the snapshot records where its redirect ends up.
+url: hxxps://bit[.]ly/3TxRfnd
+redirects: hxxps://irs-refund-hold[.]com/verify
+status: 200
+---
+<html><head><title>IRS Refund on Hold - Verify Your Identity</title></head>
+<body>
+<form action="/verify.php" method="post">
+  <input name="ssn" placeholder="Social Security number">
+  <input name="card_number" placeholder="Card number">
+  <button>Verify</button>
+</form>
+</body></html>

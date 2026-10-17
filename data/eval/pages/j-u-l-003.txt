@@ -1,0 +1,15 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+# Hard negative: a sign-in page with a "Continue with Google Account" option.
+url: hxxps://www.linkedin[.]com/jobs/
+status: 200
+---
+<html><head><title>LinkedIn Jobs: Sign in</title></head>
+<body>
+<p>Continue with Google Account</p>
+<form action="/checkpoint/lg/login-submit" method="post">
+  <input name="session_key" placeholder="Email or phone">
+  <input type="password" name="session_password" placeholder="Password">
+  <button>Sign in</button>
+</form>
+</body></html>

