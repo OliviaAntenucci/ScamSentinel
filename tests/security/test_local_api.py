@@ -54,7 +54,11 @@ def test_responses_are_json(client):
     assert client.get("/healthz").headers["content-type"].startswith("application/json")
 
 
-@pytest.mark.parametrize("path", ["/", "/static/app.js", "/static/app.css"])
+@pytest.mark.parametrize(
+    "path",
+    ["/", "/results", "/saved", "/static/app.js", "/static/results.js",
+     "/static/account-menu.js", "/static/app.css"],
+)
 def test_frontend_has_strict_csp(client, path):
     csp = client.get(path).headers["Content-Security-Policy"]
     assert "default-src 'none'" in csp
@@ -69,11 +73,22 @@ def test_csp_only_on_frontend(client, path):
     assert "Content-Security-Policy" not in client.get(path).headers
 
 
-def test_frontend_never_uses_html_injection_sinks():
-    # Reasons quote scammer-written text, so the page must only ever use textContent.
-    source = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+@pytest.mark.parametrize("script", sorted(WEB_DIR.glob("*.js")), ids=lambda p: p.name)
+def test_frontend_never_uses_html_injection_sinks(script):
+    # Reasons quote scammer-written text, and the account menu shows a user-typed email,
+    # so every script must only ever use textContent.
+    source = script.read_text(encoding="utf-8")
     for sink in ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write", "eval("):
-        assert sink not in source
+        assert sink not in source, f"{script.name} uses {sink}"
+
+
+@pytest.mark.parametrize("page", ["index.html", "results.html", "saved.html"])
+def test_every_page_has_the_account_menu_and_no_inline_script(page):
+    html = (WEB_DIR / page).read_text(encoding="utf-8")
+    assert 'id="account-menu"' in html
+    assert '<script src="/static/account-menu.js" defer></script>' in html
+    # Every <script> loads a same-origin file; the CSP would block inline code anyway.
+    assert html.count("<script") == html.count('<script src="/static/')
 
 
 def test_create_app_uses_settings_hosts(settings):

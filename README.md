@@ -168,6 +168,8 @@ python -m scamsentinel             # API on http://127.0.0.1:8000
 
 Open `http://127.0.0.1:8000` in your browser to use the analyzer. The API reference is at `http://127.0.0.1:8000/docs`.
 
+To keep results, use the **Log in** button at the top right of any page. It lets you log in or create a local account (email plus a password of at least 10 characters), then takes you to **Saved analyses**. Once you're signed in, the same button shows your email and opens a menu with *Saved analyses* and *Log out*. Accounts and saved results stay in this installation's SQLite database: passwords are hashed with scrypt, and the session is an httpOnly, `SameSite=Strict` cookie.
+
 For command-line use, the API also supports:
 
 ```bash

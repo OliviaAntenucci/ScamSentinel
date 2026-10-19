@@ -8,12 +8,39 @@
     <title>Saved analyses — ScamSentinel</title>
     <link rel="stylesheet" href="/static/app.css">
     <script src="/static/results.js" defer></script>
+    <script src="/static/account-menu.js" defer></script>
   </head>
   <body>
     <header class="topbar">
       <a class="brand" href="/" aria-label="ScamSentinel home"><span class="brand-mark" aria-hidden="true">✓</span><span>Scam<span class="brand-light">Sentinel</span></span></a>
       <nav class="topnav" aria-label="Main navigation"><a class="nav-link" href="/">Analyzer</a><a class="nav-link active" href="/saved">Saved analyses</a></nav>
       <div class="local-status online"><span class="status-dot"></span><span>Stored locally</span></div>
+      <div class="account-menu" id="account-menu">
+        <button type="button" class="account-button" id="account-button" aria-haspopup="true" aria-expanded="false" aria-controls="account-panel">
+          <span class="account-icon" aria-hidden="true"></span><span class="account-button-label" id="account-button-label">Log in</span>
+        </button>
+        <div class="account-panel" id="account-panel" hidden>
+          <div id="account-signed-out">
+            <div class="auth-toggle" role="group" aria-label="Account action">
+              <button type="button" class="auth-tab selected" data-menu-mode="login" aria-pressed="true">Log in</button>
+              <button type="button" class="auth-tab" data-menu-mode="register" aria-pressed="false">Create account</button>
+            </div>
+            <form class="account-form" id="account-form">
+              <label>Email<input type="email" name="email" autocomplete="email" required maxlength="254"></label>
+              <label>Password<input type="password" name="password" autocomplete="current-password" required minlength="10" maxlength="128"></label>
+              <p class="account-hint" id="account-hint" hidden>At least 10 characters.</p>
+              <button class="analyze-button" type="submit" id="account-submit">Log in</button>
+              <p class="auth-error" id="account-error" role="alert" hidden></p>
+            </form>
+            <p class="account-note">Your account and saved analyses stay on this ScamSentinel installation.</p>
+          </div>
+          <div class="account-signed-in" id="account-signed-in" hidden>
+            <span class="account-email" id="account-menu-email"></span>
+            <a class="account-link" href="/saved">Saved analyses</a>
+            <button type="button" class="text-button account-logout" id="account-logout">Log out</button>
+          </div>
+        </div>
+      </div>
     </header>
     <main class="results-page saved-page">
       <div class="result-heading">
