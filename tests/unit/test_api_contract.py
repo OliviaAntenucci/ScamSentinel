@@ -2,6 +2,7 @@
 
 import re
 from email.message import EmailMessage
+from pathlib import Path
 
 import pytest
 
@@ -36,9 +37,24 @@ def test_frontend_is_served_with_static_assets(client):
     assert "default-src 'none'" in saved_page.headers["Content-Security-Policy"]
     assert client.get("/static/results.js").status_code == 200
     assert client.get("/static/account-menu.js").status_code == 200
-    for path in ("/", "/results", "/saved"):
-        # The account button at the top right of every page.
-        assert 'id="account-button"' in client.get(path).text
+    for path in ("/", "/results", "/saved", "/reliability"):
+        # The account button at the top right of every page, and a link to Reliability.
+        page = client.get(path).text
+        assert 'id="account-button"' in page
+        assert 'href="/reliability"' in page
+
+
+def test_reliability_page_matches_the_published_metrics(client):
+    # The page repeats the README's evaluation tables; every fraction it shows must be
+    # one the README reports, so the two can't drift apart silently.
+    page = client.get("/reliability")
+    assert page.status_code == 200
+    assert "default-src 'none'" in page.headers["Content-Security-Policy"]
+    readme = (Path(__file__).resolve().parents[2] / "README.md").read_text(encoding="utf-8")
+    fractions = set(re.findall(r"\((\d+/\d+)\)", page.text))
+    assert fractions
+    missing = {f for f in fractions if f"({f})" not in readme}
+    assert not missing, f"not in README: {sorted(missing)}"
 
 
 @pytest.mark.parametrize(

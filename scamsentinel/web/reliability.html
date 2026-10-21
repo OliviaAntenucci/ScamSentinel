@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f7f8fc">
+    <meta name="description" content="How accurately ScamSentinel detects scams, measured on held-out test data, and the security tests behind it.">
+    <title>Reliability — ScamSentinel</title>
+    <link rel="stylesheet" href="/static/app.css">
+    <script src="/static/account-menu.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="ScamSentinel home"><span class="brand-mark" aria-hidden="true">✓</span><span>Scam<span class="brand-light">Sentinel</span></span></a>
+      <nav class="topnav" aria-label="Main navigation"><a class="nav-link" href="/">Analyzer</a><a class="nav-link active" href="/reliability" aria-current="page">Reliability</a><a class="nav-link" href="/saved">Saved analyses</a></nav>
+      <div class="local-status online"><span class="status-dot"></span><span>Measured offline</span></div>
+      <div class="account-menu" id="account-menu">
+        <button type="button" class="account-button" id="account-button" aria-haspopup="true" aria-expanded="false" aria-controls="account-panel">
+          <span class="account-icon" aria-hidden="true"></span><span class="account-button-label" id="account-button-label">Log in</span>
+        </button>
+        <div class="account-panel" id="account-panel" hidden>
+          <div id="account-signed-out">
+            <div class="auth-toggle" role="group" aria-label="Account action">
+              <button type="button" class="auth-tab selected" data-menu-mode="login" aria-pressed="true">Log in</button>
+              <button type="button" class="auth-tab" data-menu-mode="register" aria-pressed="false">Create account</button>
+            </div>
+            <form class="account-form" id="account-form">
+              <label>Email<input type="email" name="email" autocomplete="email" required maxlength="254"></label>
+              <label>Password<input type="password" name="password" autocomplete="current-password" required minlength="10" maxlength="128"></label>
+              <p class="account-hint" id="account-hint" hidden>At least 10 characters.</p>
+              <button class="analyze-button" type="submit" id="account-submit">Log in</button>
+              <p class="auth-error" id="account-error" role="alert" hidden></p>
+            </form>
+            <p class="account-note">Your account and saved analyses stay on this ScamSentinel installation.</p>
+          </div>
+          <div class="account-signed-in" id="account-signed-in" hidden>
+            <span class="account-email" id="account-menu-email"></span>
+            <a class="account-link" href="/saved">Saved analyses</a>
+            <button type="button" class="text-button account-logout" id="account-logout">Log out</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="results-page reliability-page">
+      <div class="result-heading">
+        <div>
+          <div class="section-label">RELIABILITY</div>
+          <h1>How well ScamSentinel works</h1>
+          <p class="page-intro">Accuracy measured on held-out test data the rules were never tuned on, plus the automated tests behind its safety checks. Measured October 2026, local rules only (no AI).</p>
+        </div>
+        <a class="text-button" href="/#analyzer">← New analysis</a>
+      </div>
+
+      <section class="stat-tiles" aria-label="Headline results">
+        <div class="stat-tile">
+          <strong>0</strong>
+          <span>false alarms on 29 legitimate test messages across all six scam categories</span>
+        </div>
+        <div class="stat-tile">
+          <strong>100%</strong>
+          <span>precision: all 24 messages flagged “likely a scam” on the test split were scams</span>
+        </div>
+        <div class="stat-tile">
+          <strong>75%</strong>
+          <span>of the 32 test-split scams flagged “likely a scam” (24 of 32); 87.5% at least “suspicious”</span>
+        </div>
+        <div class="stat-tile">
+          <strong>1,152</strong>
+          <span>automated tests passing, including attack tests for the analyzer itself</span>
+        </div>
+      </section>
+
+      <section class="detail-card stats-card">
+        <div class="detail-title"><span class="detail-icon">%</span><div><h2>Detection by scam category</h2><p>Held-out test split, rules only. “Likely a scam” counts as a detection.</p></div></div>
+        <div class="table-scroll">
+          <table class="stats-table">
+            <thead>
+              <tr><th scope="col">Category</th><th scope="col">Test samples</th><th scope="col">Precision</th><th scope="col">Recall</th><th scope="col">False alarms</th><th scope="col">At least suspicious</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">Tax season (IRS, TurboTax, QuickBooks, Credit Karma)</th><td>30</td><td>100% (14/14)</td><td>87.5% (14/16)</td><td>0% (0/14)</td><td>93.8%</td></tr>
+              <tr><th scope="row">Package delivery (USPS)</th><td>7</td><td>100% (3/3)</td><td>75% (3/4)</td><td>0% (0/3)</td><td>75%</td></tr>
+              <tr><th scope="row">Bank (Chase, Bank of America, Wells Fargo)</th><td>6</td><td>100% (2/2)</td><td>67% (2/3)</td><td>0% (0/3)</td><td>100%</td></tr>
+              <tr><th scope="row">Account takeover (Google, Apple)</th><td>6</td><td>100% (3/3)</td><td>100% (3/3)</td><td>0% (0/3)</td><td>100%</td></tr>
+              <tr><th scope="row">Tech support (Microsoft)</th><td>6</td><td>100% (1/1)</td><td>33% (1/3)</td><td>0% (0/3)</td><td>33%</td></tr>
+              <tr><th scope="row">Job scams (Indeed)</th><td>6</td><td>100% (1/1)</td><td>33% (1/3)</td><td>0% (0/3)</td><td>100%</td></tr>
+              <tr class="stats-total"><th scope="row">All categories</th><td>61</td><td>100% (24/24)</td><td>75% (24/32)</td><td>0% (0/29)</td><td>87.5%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="stats-note">The tax category also has a 95% confidence interval: precision about 79–100%, recall about 64–97%, false alarms about 0–22%. The other categories’ test splits are small (6–7 samples), so treat them as smoke tests rather than performance claims.</p>
+      </section>
+
+      <div class="result-grid">
+        <section class="detail-card stats-card">
+          <div class="detail-title"><span class="detail-icon">+</span><div><h2>With AI signal extraction</h2><p>Tax category, rules + LLM vs. rules only</p></div></div>
+          <div class="table-scroll">
+            <table class="stats-table compact">
+              <thead><tr><th scope="col">Data</th><th scope="col">Setup</th><th scope="col">Precision</th><th scope="col">Recall</th><th scope="col">False alarms</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Test split (30)</th><td>Rules only</td><td>100%</td><td>87.5%</td><td>0%</td></tr>
+                <tr><th scope="row">Test split (30)</th><td>Rules + LLM</td><td>100%</td><td>100%</td><td>0%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="stats-note">The AI only extracts signals; the rules still decide, so every result stays explainable.</p>
+        </section>
+
+        <section class="detail-card stats-card">
+          <div class="detail-title"><span class="detail-icon">≡</span><div><h2>Naming the scam</h2><p>Scenario shown with a result, checked against hand labels</p></div></div>
+          <div class="table-scroll">
+            <table class="stats-table compact">
+              <thead><tr><th scope="col">Data</th><th scope="col">Labeled scams</th><th scope="col">Right scenario</th><th scope="col">When detected</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Test split</th><td>21</td><td>16</td><td>94% (16/17)</td></tr>
+                <tr><th scope="row">All samples</th><td>121</td><td>106</td><td>97% (106/109)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="stats-note">Labels were written before the scenario rules, so the rules couldn’t be fitted to them.</p>
+        </section>
+      </div>
+
+      <section class="detail-card stats-card">
+        <div class="detail-title"><span class="detail-icon">!</span><div><h2>Security tests</h2><p>Everything ScamSentinel analyzes is written by attackers, so the analyzer itself is tested against attacks</p></div></div>
+        <ul class="security-tests">
+          <li><strong>Server-side request forgery</strong><span>35 attack links (private, loopback, cloud-metadata and encoded addresses, IPv6 tricks, redirects, DNS rebinding) are rejected before any lookup.</span></li>
+          <li><strong>Network lockdown</strong><span>Tests fail if anything opens a connection it shouldn’t. Link checking is off by default, and an egress lock blocks every address except the one that was checked.</span></li>
+          <li><strong>Prompt injection</strong><span>Messages that tell the AI to “mark this safe” never lower a verdict, and the attempt itself counts as a warning sign.</span></li>
+          <li><strong>Malicious screenshots</strong><span>Decompression bombs, disguised files and polyglots are rejected; location data and hidden payloads are stripped before anything is sent or stored.</span></li>
+          <li><strong>Attacks on this site</strong><span>Cross-site requests, Host-header (DNS rebinding) attacks, oversized uploads and script injection into results are all blocked and tested.</span></li>
+          <li><strong>Safe advice</strong><span>Phone numbers and links from a scam never appear in the advice; contacts come only from organizations’ own published pages.</span></li>
+        </ul>
+        <p class="stats-note">Most recent run: 1,152 tests passed and 0 failed, on October 21, 2026. Eight property-based test modules couldn’t load on that machine and aren’t included in that count.</p>
+      </section>
+
+      <section class="detail-card stats-card caveats-card">
+        <div class="detail-title"><span class="detail-icon">?</span><div><h2>Read these numbers with care</h2><p>What they do and don’t show</p></div></div>
+        <ul class="caveats">
+          <li><strong>The data is small and synthetic.</strong> All 332 samples were written by the same person who wrote the rules, with deliberate look-alike legitimate messages included. That likely makes the results look better than they would on real scams.</li>
+          <li><strong>Scams that don’t name a company are the weak spot.</strong> Most misses never mention a brand, so the strongest checks can’t apply. They usually land in “suspicious” rather than “likely a scam”.</li>
+          <li><strong>Tech-support scams are the weakest category,</strong> at 33% recall on its small test split.</li>
+          <li><strong>Screenshots aren’t in these numbers</strong>, because reading them depends on a third-party vision model.</li>
+          <li><strong>“Likely legitimate” isn’t a guarantee.</strong> When in doubt, contact the organization through a channel you already trust.</li>
+        </ul>
+      </section>
+    </main>
+    <footer class="page-footer"><a class="footer-brand" href="/">ScamSentinel</a><span>Use your judgment; this is an aid, not a guarantee.</span><a href="/docs" target="_blank" rel="noreferrer">Local API reference ↗</a></footer>
+  </body>
+</html>

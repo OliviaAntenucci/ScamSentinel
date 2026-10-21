@@ -60,4 +60,8 @@ def create_app(
     def saved_frontend() -> FileResponse:
         return FileResponse(WEB_DIR / "saved.html")
 
+    @app.get("/reliability", include_in_schema=False)
+    def reliability_frontend() -> FileResponse:
+        return FileResponse(WEB_DIR / "reliability.html")
+
     return app

@@ -56,7 +56,7 @@ def test_responses_are_json(client):
 
 @pytest.mark.parametrize(
     "path",
-    ["/", "/results", "/saved", "/static/app.js", "/static/results.js",
+    ["/", "/results", "/saved", "/reliability", "/static/app.js", "/static/results.js",
      "/static/account-menu.js", "/static/app.css"],
 )
 def test_frontend_has_strict_csp(client, path):
@@ -82,7 +82,7 @@ def test_frontend_never_uses_html_injection_sinks(script):
         assert sink not in source, f"{script.name} uses {sink}"
 
 
-@pytest.mark.parametrize("page", ["index.html", "results.html", "saved.html"])
+@pytest.mark.parametrize("page", ["index.html", "results.html", "saved.html", "reliability.html"])
 def test_every_page_has_the_account_menu_and_no_inline_script(page):
     html = (WEB_DIR / page).read_text(encoding="utf-8")
     assert 'id="account-menu"' in html

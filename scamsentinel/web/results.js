@@ -83,6 +83,40 @@ function renderDomainExplanations(explanations) {
   $("#no-domain-explanations").hidden = explanations.length > 0;
 }
 
+function sayClaims(count) {
+  return count === 1 ? "1 claim conflicts" : `${count} claims conflict`;
+}
+
+// The heading is only as firm as the evidence: a page that impersonates a brand and asks
+// for credentials, or a link that isn't on the brand's official domain list, are facts;
+// otherwise it stays neutral.
+function linkCheckHeading(result) {
+  const analyzed = (result.pages ?? []).filter((page) => page.status === "analyzed" && page.brand);
+  const harvest = analyzed.find((page) => page.asks_for?.length);
+  const fake = (result.domain_explanations ?? [])[0];
+  const conflicts = (result.fact_checks ?? []).filter((row) => row.outcome === "conflicts").length;
+  const andClaims = conflicts ? `, and ${sayClaims(conflicts)} with published facts` : "";
+  if (harvest) {
+    return [
+      `This is a fake ${harvest.brand} page`,
+      `It uses ${harvest.brand}’s name on a site ${harvest.brand} doesn’t own and asks for ${harvest.asks_for.join(", ")}${andClaims}`,
+    ];
+  }
+  if (fake) {
+    const official = fake.official_domains.slice(0, 2).join(" or ");
+    return [
+      `This link isn’t ${fake.brand}`,
+      `${fake.domain} isn’t an official ${fake.brand} site${official ? ` (${official})` : ""}${andClaims}`,
+    ];
+  }
+  if (analyzed.length) {
+    const page = analyzed[0];
+    return [`This page isn’t ${page.brand}’s`, `It uses ${page.brand}’s name on a site ${page.brand} doesn’t own${andClaims}`];
+  }
+  if (conflicts) return ["The claims don’t add up", `${sayClaims(conflicts)} with published facts`];
+  return ["Link and claim checks", "Domain clues and claims checked against known facts"];
+}
+
 const PAGE_ERRORS = {
   timeout: "The page took too long to answer.",
   unreachable: "The site couldn’t be reached (or its certificate isn’t valid).",
@@ -267,6 +301,9 @@ function renderResult(result, fromSaved = false) {
   renderSubmitted(result, fromSaved);
   renderSteps(result.next_steps ?? []);
   renderResources(result.resources ?? []);
+  const [linkTitle, linkCaption] = linkCheckHeading(result);
+  $("#link-check-title").textContent = linkTitle;
+  $("#link-check-caption").textContent = linkCaption;
   renderDomainExplanations(result.domain_explanations ?? []);
   renderFactChecks(result.fact_checks ?? []);
   renderPages(result.pages ?? []);
