@@ -87,7 +87,7 @@ Details in [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
 | E2 | Richer domain explanations: which characters were swapped, the misspelling, the misleading extra words | ✅ Done |
 | E3 | Fact-check summary: which claims match, conflict with, or can't be checked against the trusted facts | ✅ Done |
 | E4 | Named scenarios per category (refund delay, payment demand, package on hold, …), added over time | ✅ Done |
-| P2 | Lightweight page fetch (no browser) to inspect forms and brand content, together with the SSRF URL guard | ✅ Built, off by default (P2a: informational) |
+| P2 | Lightweight page fetch (no browser) to inspect forms and brand content, together with the SSRF URL guard | ✅ Built, off by default (P2a: fetch and defenses; P2b: page evidence scored, only ever raising a score) |
 | P3 | Playwright headless-browser sandbox (screenshots, JavaScript-rendered pages, redirect chains) | Planned |
 | P4 | Docker packaging | Planned |
 

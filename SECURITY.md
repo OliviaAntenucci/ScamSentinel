@@ -78,7 +78,8 @@ TLS still verifies the real hostname while connecting to the pinned IP. httpcore
 - `test_ssrf.py`: every payload rejected without reaching DNS, legacy encodings, private resolutions, rebinding (one lookup, connection to the pinned IP), and redirects to the metadata address or a private name halfway through a chain.
 - `test_egress.py`: the lock, driven through `sys.audit` events.
 - `test_page_fetch.py`: limits, the gzip bomb, dry run under socket tripwires, the breaker and the rate limit.
-- `test_page_pipeline.py`: off by default, dry run doesn't connect, failures fail closed, 0 points.
+- `test_page_pipeline.py`: off by default, dry run doesn't connect, failures fail closed, evaluation snapshots never touch the network.
+- `test_page_score.py`: pages that weren't analyzed (dry run, blocked, failed) add nothing, and a page can only raise a score, never lower it.
 
 **What it can't prevent:** in `live` mode the scam site sees a visit from this machine's IP address and ScamSentinel's User-Agent. That's why `live` is opt-in.
 
@@ -249,6 +250,7 @@ These come back when the corresponding post-MVP phase lands (see [`architecture.
 | S5 | `test_allowlist.py` | Subdomain/suffix tricks never match the official allowlist | Passing |
 | S9 | `test_next_steps.py`, `test_scenarios.py` | Next-step advice never repeats a link, phone number or uncurated organization name from the input (every eval sample, plus property-based fuzzing); only curated official contacts appear. Scenario steps carry no links or numbers, scenario evidence quotes only our vocabulary, and scenarios never change a score | Passing |
 | S6 | `test_ssrf.py` | URL guard blocks internal targets via any encoding, redirect or rebind; payloads never reach DNS | Passing |
-| S10 | `test_egress.py`, `test_page_fetch.py`, `test_page_pipeline.py` | During a fetch only the pinned IP and port can be reached; the circuit breaker stops live fetching if that ever fires; dry run never resolves or connects; failures fail closed; page findings add no points | Passing |
+| S10 | `test_egress.py`, `test_page_fetch.py`, `test_page_pipeline.py`, `test_page_score.py` | During a fetch only the pinned IP and port can be reached; the circuit breaker stops live fetching if that ever fires; dry run never resolves or connects; failures fail closed; a page that wasn't analyzed adds nothing, and page evidence can only raise a score | Passing |
+| S11 | `test_api_image.py` | Email headers shown in a screenshot get sender checks, but a pictured "dkim=pass" never verifies a sender | Passing |
 
 All security tests run in CI on every push.

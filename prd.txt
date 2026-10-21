@@ -254,8 +254,11 @@ the tax-scam niche and explainability, and come before page fetching.
       next step, and hand-labeled eval samples                    (done)
   P2  Lightweight page fetch (httpx + HTML parser) + SSRF URL guard,
       egress lock and circuit breaker. Off by default; dry_run mode
-      never connects; findings informational (P2a)                (done)
-      P2b: score page evidence once a page-snapshot eval set exists
+      never connects (P2a)                                         (done)
+      P2b: page evidence scored (can only raise a score), measured
+      on saved page snapshots against a no-page ablation          (done)
+      Also: brand-agnostic link-vs-sender check for account-security
+      emails, and sender checks for screenshots of emails         (done)
   P3  Playwright headless-browser sandbox in an isolated container
   P4  Docker packaging
 

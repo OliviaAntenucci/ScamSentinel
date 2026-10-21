@@ -200,6 +200,7 @@ The verification layer turns claims in the message into checks against `data/fac
 | `payment_method_policy` | Payment methods + entity | A fact says the entity doesn't take that method (IRS: gift card / crypto / wire / P2P apps) |
 | `phone_number` | Claimed phone numbers + entity | Number isn't among the entity's published numbers (reported as "can't verify", lower weight) |
 | `sender_alignment` (email) | From / Reply-To / DKIM `header.d` | Claims a brand but sent from another domain, or Reply-To goes to a different domain. An official sender with passing DKIM is mitigating |
+| `sender_alignment`: `link_sender_mismatch` (email, any brand) | From domain + links + threats and requests | An account-security email (a suspicious-activity, suspension or lockout threat, or a request for a password, code or other sensitive data) links to a domain other than the sender's. Subdomains of the sender and any protected brand's official sites don't count (GovDelivery linking to irs.gov is fine). Needs no protected brand, so it covers "Northstar"-style senders the brand list doesn't know. 25 points |
 
 Output: `[{check, claim, verified: true|false|null, source, detail}]`. Checks that come back `false` become reasons. A check that passes, such as "link goes to irs.gov," is shown as a mitigating reason and lowers the score.
 
@@ -212,7 +213,7 @@ Output: `[{check, claim, verified: true|false|null, source, detail}]`. Checks th
 | Text (`text`) | Up to 20,000 characters. URLs and domains extracted, including defanged forms |
 | URL (`url`) | Scored by the domain engine only (running the message analyzer on the URL string would count the same evidence twice). **Never fetched** |
 | Email (`email_raw`) | Parsed with Python's `email` package. HTML bodies converted to text with an HTML parser, never rendered; link `href` targets are collected separately. Attachments listed by name/type/size, never opened. The domain module scores body links, link targets, and the From / Reply-To domains |
-| Screenshot (`POST /v1/analyze/image`, raw body) | Upload guard → sanitize → vision transcription (§8) → treated as text, with `input_type: "image"` |
+| Screenshot (`POST /v1/analyze/image`, raw body) | Upload guard → sanitize → vision transcription (§8) → treated as text, with `input_type: "image"`. If the transcribed text shows email headers (`From: Name <a@b.example>`, `Reply-To:`), they're read by `headers_from_text` and get the email sender checks, and the sender domains are scored. A screenshot never verifies a sender: there's no trusted `Authentication-Results`, so a pictured "dkim=pass" is ignored |
 
 ---
 
@@ -311,7 +312,7 @@ Weights, points, and floors live in `config/scoring.yaml`. They're tuned on the 
 
 ### Dataset (`data/eval/samples.jsonl`)
 
-191 hand-written samples in two categories. **Tax** (the MVP set, 152): 40/35 scam/legitimate texts, 12/10 emails, 30/25 URLs, across all four tax brands plus brandless scams. **Delivery** (39): 10/8 texts, 5/5 emails, 6/5 URLs. Both have with deliberate hard negatives and off-vocabulary scams. Composition, rules and limitations are in [`data/eval/SOURCES.md`](data/eval/SOURCES.md). Real-world corpora (OpenPhish / PhishTank URLs, public phishing-email corpora) are the planned next addition, marked `synthetic: false` and reported separately. Screenshots aren't in the set yet.
+332 hand-written samples in six categories (tax 152, delivery 39, bank 39, and 34 each for account takeover, tech support and job scams; see §16 for the later ones). **Tax** (the MVP set, 152): 40/35 scam/legitimate texts, 12/10 emails, 30/25 URLs, across all four tax brands plus brandless scams. **Delivery** (39): 10/8 texts, 5/5 emails, 6/5 URLs. All categories have deliberate hard negatives and off-vocabulary scams. Composition, rules and limitations are in [`data/eval/SOURCES.md`](data/eval/SOURCES.md). Real-world corpora (OpenPhish / PhishTank URLs, public phishing-email corpora) are the planned next addition, marked `synthetic: false` and reported separately. Screenshots aren't in the set yet.
 
 Every record: `{id, group?, input_type, label, brand, content (scam URLs defanged), source, synthetic, notes?}`. Validated by `eval/dataset.py` (unique ids, known fields), and tests enforce that scam links are defanged.
 
@@ -375,7 +376,7 @@ The CT tables (`ct/store.py`) live in the same file. They hold public certificat
 
 ## 14. Post-MVP roadmap
 
-Built only after the MVP works end to end and has evaluation numbers. Done: P1 (CT watcher), G1 (brand-agnostic core + delivery category), G2 (bank impersonation), E1 (next steps), E2 (domain explanations), E3 (fact-check summary), G3 (account takeover, tech support, job scams), E4 (named scenarios), P2a (page fetch, off by default, informational). Next: P2b (scoring with page evidence, once there's a snapshot set to measure it) → P3 → P4.
+Built only after the MVP works end to end and has evaluation numbers. Done: P1 (CT watcher), G1 (brand-agnostic core + delivery category), G2 (bank impersonation), E1 (next steps), E2 (domain explanations), E3 (fact-check summary), G3 (account takeover, tech support, job scams), E4 (named scenarios), P2a (page fetch, off by default) and P2b (scoring with page evidence, measured on saved page snapshots). Also built alongside them: the brand-agnostic `link_sender_mismatch` email check (§6) and sender checks for screenshots of emails (§7). Next: P3 → P4.
 
 ### Scam categories (G1 ✅, G2 ✅, G3 ✅)
 
@@ -399,7 +400,7 @@ E1–E4 change no scores, so evaluation numbers stay comparable. Each needs test
 | Phase | What | Notes |
 |---|---|---|
 | **P1** ✅ | **Certificate Transparency watcher** | Poll crt.sh politely (every 6 h, sequential, backoff) for certificates containing brand tokens. Score each new name with the existing domain engine and store candidates ≥ 50. Expose `GET /v1/ct/candidates`. Cheap, because the domain engine already exists. See [§15](#15-certificate-transparency-watcher-p1). |
-| **P2** ✅ (P2a) | **Lightweight page fetch** (built: see [§23](#23-lightweight-page-fetch-p2); off by default, findings informational) | `httpx` + an HTML parser (no browser). Look for credential/SSN forms, forms posting to other domains, and brand mentions on unofficial domains. **Requires the SSRF URL guard first** (strict parsing, resolve-then-pin, reject non-global IPs, re-check every redirect hop). Guard stub and payload tests already exist. |
+| **P2** ✅ (P2a + P2b) | **Lightweight page fetch** (built: see [§23](#23-lightweight-page-fetch-p2); off by default; page evidence is scored but can only raise a score) | `httpx` + an HTML parser (no browser). Look for credential/SSN forms, forms posting to other domains, and brand mentions on unofficial domains. **Requires the SSRF URL guard first** (strict parsing, resolve-then-pin, reject non-global IPs, re-check every redirect hop). Guard stub and payload tests already exist. |
 | **P3** | **Headless-browser sandbox** | Playwright for JavaScript-rendered pages, screenshots and redirect chains, run in an isolated container with an egress proxy that blocks internal addresses. |
 | **P4** | **Docker packaging** | Containerize the API and (with P3) the sandbox with locked-down settings. |
 
@@ -589,7 +590,7 @@ DomainEngine.score("turb0tax-refund.com")
 
 `summary` always ends with the brand's official sites. A domain that only uses the brand name ("myturbotaxfiling.com") gets "Uses the TurboTax name, but … is not a TurboTax domain."
 
-**Where it appears.** On every `DomainResult` (so `GET /v1/domain/score` returns it), and on analysis results as `domain_explanations[]`: one per lookalike registrable domain, highest score first, at most five. The UI shows them under "Why the link looks fake". Official and unrelated domains get none.
+**Where it appears.** On every `DomainResult` (so `GET /v1/domain/score` returns it), and on analysis results as `domain_explanations[]`: one per lookalike registrable domain, highest score first, at most five. The UI shows them in the "Link and claim checks" card, whose heading states the strongest checked fact ("This link isn't IRS"). Official and unrelated domains get no explanation, but the card still lists them with what was checked ("doesn't imitate a protected brand, so there's no official site list to compare it with"), so no link is silently left out.
 
 **Safety.** The domain is attacker-chosen. Explanations quote it as plain text: the UI renders them with `textContent` and never as a link, and they go through the same SSN/card redaction as reasons (a hostname can carry digits). Only data the engine computed is used; nothing is fetched or resolved.
 
@@ -791,7 +792,7 @@ Each result carries `resources[]`: links where the reader can learn about the ty
 
 ## 23. Lightweight page fetch (P2)
 
-Until P2, a link was judged only by its name, so a `bit.ly` link or a neutral domain like `parcel-redeliver-now.com` scored 0. P2 can look at the page behind the link: one plain GET, like `curl`, not a browser. It's **off by default**, and in this first step (P2a) its findings are **informational: 0 points**, so published metrics are unchanged.
+Until P2, a link was judged only by its name, so a `bit.ly` link or a neutral domain like `parcel-redeliver-now.com` scored 0. P2 can look at the page behind the link: one plain GET, like `curl`, not a browser. It's **off by default**. P2a built the fetch and its defenses; P2b scores what the page shows (see [P2b](#p2b-scoring-with-page-evidence) below). The headline metrics are rules-only with no pages, so they're unchanged.
 
 ### Modes (`SCAMSENTINEL_PAGE_FETCH`)
 
@@ -846,9 +847,20 @@ The HTML is attacker-written, so it goes through the standard library's pure-Pyt
 
 Titles are capped at 150 characters, visible text at 50,000. Titles, URLs and findings go through the SSN/card redaction, and the UI ("What the linked page shows") renders them as plain text, never links.
 
-### Next: P2b
+### P2b: scoring with page evidence
 
-Page evidence should eventually feed the score and the brand-dependent pipeline: a brand found on the page would unlock fact checks, scenarios, next steps and help links for brandless scams. That needs measuring first. The eval domains are invented, so it needs a set of saved page snapshots linked to samples, a fetcher that reads them, and a "no page" ablation.
+Page findings feed a **page module** (`page/score.py`, `page_points` in `config/scoring.yaml`). Points come mostly from combinations, because every real login page has a password field:
+
+| Finding | Points |
+|---|---|
+| `brand_on_unofficial_page` | 40 |
+| Sensitive fields: password 10, card 10, code 15, SSN 20 | capped at 30 |
+| `form_posts_elsewhere` | 15 |
+| `meta_refresh` | 5 |
+
+The highest-scoring page counts. A page that presents itself as a brand on a domain the brand doesn't own **and** asks for a password, card, code or SSN triggers the `page_credential_harvest` floor (85). A brand found on the page also lets the next steps, scenario and help links name it, which matters for brandless messages. A redirect's final destination is scored by the domain engine like any other link.
+
+**Measured without the network.** `data/eval/pages/` holds hand-written page snapshots keyed by URL (85 files; 17 of the 21 test-split URL samples have one). `SnapshotFetcher` answers fetches from them, and `python -m scamsentinel.eval --pages snapshot|off` gives the with/without ablation.
 
 **Page evidence only raises the score.** The aggregator computes the weighted score with and without the page module and keeps the higher one. The `weighted_score` reason says when a page was set aside ("page 40 not weighted: it would lower the score"). Without this, a page whose only finding is `brand_on_unofficial_page` (40) pulled a stronger domain score down. The first measurement (2026-10-21, test split, rules only) showed it: `u-s-010` 70 → 57 and `d-u-s-006` 60 → 51, and strict recall fell from 75.0% to 68.8%.
 
