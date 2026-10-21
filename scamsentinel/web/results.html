@@ -10,10 +10,10 @@
     <script src="/static/results.js" defer></script>
     <script src="/static/account-menu.js" defer></script>
   </head>
-  <body>
+  <body class="theme-refresh">
     <header class="topbar">
       <a class="brand" href="/" aria-label="ScamSentinel home">
-        <span class="brand-mark" aria-hidden="true">✓</span>
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M16 3.5 27 8v7.4c0 7.1-4.7 11.5-11 13.5-6.3-2-11-6.4-11-13.5V8l11-4.5Z" stroke="currentColor" stroke-width="2.2"/><path d="m11.2 16.1 3.2 3.2 6.7-7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         <span>Scam<span class="brand-light">Sentinel</span></span>
       </a>
       <nav class="topnav" aria-label="Main navigation">
@@ -84,7 +84,7 @@
         </section>
 
         <section class="detail-card submitted-card" id="submitted-card" hidden>
-          <div class="detail-title"><span class="detail-icon">✉</span><div><h2>What you submitted</h2><p id="submitted-caption">Shown as plain text: links aren’t clickable, and SSN and card numbers are masked</p></div></div>
+          <div class="detail-title"><span class="detail-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4.5 6.5 7.5 6 7.5-6"/></svg></span><div><h2>What you submitted</h2><p id="submitted-caption">Shown as plain text: links aren’t clickable, and SSN and card numbers are masked</p></div></div>
           <img class="submitted-image" id="submitted-image" alt="The screenshot you submitted, with its metadata removed" hidden>
           <span class="subsection-title" id="submitted-text-label" hidden><span>Text read from the screenshot</span></span>
           <pre class="submitted-text" id="submitted-text"></pre>
@@ -92,17 +92,17 @@
 
         <div class="result-grid">
           <section class="detail-card">
-            <div class="detail-title"><span class="detail-icon">✓</span><div><h2>What to do next</h2><p>Practical steps to protect yourself</p></div></div>
+            <div class="detail-title"><span class="detail-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6.5h10M10 12h10M10 17.5h10M3.8 6.4l1.4 1.4 2.6-2.6M3.8 11.9l1.4 1.4 2.6-2.6M3.8 17.4l1.4 1.4 2.6-2.6"/></svg></span><div><h2>What to do next</h2><p>Practical steps to protect yourself</p></div></div>
             <ol class="next-steps-list" id="next-steps-list"></ol>
             <p class="empty-detail" id="no-next-steps" hidden>No specific steps are needed based on this result.</p>
           </section>
           <section class="detail-card">
-            <div class="detail-title"><span class="detail-icon">i</span><div><h2>Learn more</h2><p>Trusted resources for further reading</p></div></div>
+            <div class="detail-title"><span class="detail-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.8C10.4 5.4 8.3 4.7 5.8 4.7c-.9 0-1.9.1-2.8.4v13.4c.9-.3 1.9-.4 2.8-.4 2.5 0 4.6.7 6.2 2.1 1.6-1.4 3.7-2.1 6.2-2.1.9 0 1.9.1 2.8.4V5.1c-.9-.3-1.9-.4-2.8-.4-2.5 0-4.6.7-6.2 2.1Zm0 0v13.4"/></svg></span><div><h2>Learn more</h2><p>Trusted resources for further reading</p></div></div>
             <ul class="resource-list" id="resource-list"></ul>
             <p class="empty-detail" id="no-resources" hidden>No additional resources for this analysis.</p>
           </section>
           <section class="detail-card">
-            <div class="detail-title"><span class="detail-icon">⌕</span><div><h2 id="link-check-title">Link and claim checks</h2><p id="link-check-caption">Domain clues and claims checked against known facts</p></div></div>
+            <div class="detail-title"><span class="detail-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5M7.8 10.6l1.9 1.9 3.4-3.6"/></svg></span><div><h2 id="link-check-title">Link and claim checks</h2><p id="link-check-caption">Domain clues and claims checked against known facts</p></div></div>
             <div id="domain-explanations-list"></div>
             <p class="empty-detail" id="no-domain-explanations" hidden>No links or sender domains were found to check.</p>
             <div class="fact-checks">
@@ -117,11 +117,11 @@
             </div>
           </section>
           <section class="detail-card" id="pages-card" hidden>
-            <div class="detail-title"><span class="detail-icon">⧉</span><div><h2>What the linked page shows</h2><p>Checked through the SSRF guard; nothing on a page is ever run</p></div></div>
+            <div class="detail-title"><span class="detail-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M3 9h18M6.5 6.8h.01M9.5 6.8h.01"/></svg></span><div><h2>What the linked page shows</h2><p>Checked through the SSRF guard; nothing on a page is ever run</p></div></div>
             <div id="page-reports"></div>
           </section>
           <section class="detail-card signals-card">
-            <div class="detail-title"><span class="detail-icon">!</span><div><h2>Signals detected</h2><p id="signal-count"></p></div><span class="signals-score" id="signals-score"></span></div>
+            <div class="detail-title"><span class="detail-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 21 19.5H3L12 4Z"/><path d="M12 10v4.2m0 2.7v.01"/></svg></span><div><h2>Signals detected</h2><p id="signal-count"></p></div><span class="signals-score" id="signals-score"></span></div>
             <div class="evidence-list" id="evidence-list"></div>
           </section>
         </div>

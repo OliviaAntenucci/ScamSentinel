@@ -288,6 +288,20 @@ function renderEvidence(reasons, score) {
   }
 }
 
+// The score counts up while the ring fills in (app.css: same 0.2s delay and 1.1s length),
+// unless motion is reduced.
+function countUp(node, value) {
+  node.textContent = value;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const start = performance.now() + 200;
+  const step = (now) => {
+    const t = Math.min(1, Math.max(0, (now - start) / 1100));
+    node.textContent = t < 1 ? Math.round(value * (1 - (1 - t) ** 3)) : value;
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 function renderResult(result, fromSaved = false) {
   const verdicts = {
     likely_legitimate: ["Likely legitimate", "No major warning signs found", "legitimate"],
@@ -300,7 +314,7 @@ function renderResult(result, fromSaved = false) {
   const scoreColor = result.risk_score >= 60 ? "#d65f6a" : result.risk_score >= 30 ? "#e3a64f" : "#65b68e";
   ring.style.setProperty("--score", `${Math.max(0, Math.min(100, result.risk_score))}%`);
   ring.style.setProperty("--score-color", scoreColor);
-  $("#risk-score").textContent = result.risk_score;
+  countUp($("#risk-score"), result.risk_score);
   $("#verdict-pill").textContent = label;
   $("#result-title").textContent = title;
   const inputName = { text: "Message", url: "Link", email: "Email", image: "Screenshot" }[result.input_type] ?? "Content";
