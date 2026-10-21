@@ -465,6 +465,90 @@ if (logoutButton) {
   });
 }
 
+// Email header lines (and a mail app's chrome in screenshots) aren't part of the excerpt.
+const SHOWN_HEADER = /^\s*(?:(?:from|to|reply-to|subject|date|cc|content-type)\s*:.*|message details|mail\s*\|\s*inbox)\s*$/i;
+
+function shorten(value, limit) {
+  return value.length > limit ? `${value.slice(0, limit - 1).trimEnd()}…` : value;
+}
+
+// Words from a mail app's menus that a screenshot picks up ("Inbox Starred Sent ...").
+const MAIL_UI_WORDS = new Set([
+  "mail", "inbox", "compose", "starred", "snoozed", "sent", "drafts", "spam", "trash", "archive",
+  "important", "more", "reply", "forward", "delete", "search", "primary", "promotions", "social",
+  "updates", "labels", "+", "|", "←", "→",
+]);
+
+// Drops the menu words a line starts with ("Mail + Compose Inbox Sent Unusual sign-in" →
+// "Unusual sign-in"); a line that is only menu words becomes empty.
+function withoutMailChrome(line) {
+  const words = line.trim().split(/\s+/).filter(Boolean);
+  let start = 0;
+  while (start < words.length && MAIL_UI_WORDS.has(words[start].toLowerCase())) start += 1;
+  return words.slice(start).join(" ");
+}
+
+// What a message is about, in a few words, from the threat the rules found. The reason
+// details are fixed templates ("Threatens <label>: ..."), see message/scoring.py.
+const THREAT_TOPICS = [
+  ["suspicious activity on your account", "Sign-in alert"],
+  ["account suspension", "Account suspension notice"],
+  ["losing access to your account", "Account lockout warning"],
+  ["a held or undeliverable package", "Package delivery notice"],
+  ["losing your refund", "Tax refund notice"],
+  ["an infected or hacked device", "Virus warning"],
+  ["losing a job offer", "Job offer"],
+  ["arrest", "Arrest threat"],
+  ["legal action", "Legal threat"],
+  ["penalties", "Penalty notice"],
+];
+
+function topicFrom(reasons) {
+  const details = reasons.map((reason) => reason.detail ?? "");
+  for (const [label, topic] of THREAT_TOPICS) {
+    if (details.some((detail) => detail.startsWith(`Threatens ${label}:`))) return topic;
+  }
+  if (reasons.some((reason) => reason.signal === "unusual_payment_method")) return "Payment demand";
+  if (details.some((detail) => /^Asks for a password|^Asks for a verification/.test(detail))) return "Login details request";
+  if (reasons.some((reason) => reason.signal === "sensitive_request")) return "Personal details request";
+  return null;
+}
+
+function fewWords(value, count) {
+  const words = value.replace(/\s+/g, " ").trim().split(" ");
+  return words.length > count ? `${words.slice(0, count).join(" ")}…` : words.join(" ");
+}
+
+// A saved card's title is a few descriptive words built from the findings: the named
+// scenario, else what the message threatens or asks for, else the email subject or the
+// link's site. The brand it claims to be is added when there is one. The excerpt is the
+// text itself, without email headers or the mail app's menus.
+function savedSummary(result) {
+  const kind = { text: "Message", url: "Link", email: "Email", image: "Screenshot" }[result.input_type] ?? "Analysis";
+  const reasons = result.reasons ?? [];
+  const content = result.submitted?.content ?? "";
+  const lines = content.split(/\r?\n/);
+  const subject = lines.map((line) => line.match(/^\s*subject\s*:\s*(.+)$/i)?.[1]).find(Boolean);
+  const brand = reasons.map((reason) => reason.detail?.match(/^Presents itself as (.+?):/)?.[1]).find(Boolean);
+
+  let title = result.scenario?.name ?? topicFrom(reasons);
+  if (!title && subject) title = fewWords(subject, 6);
+  if (!title && result.input_type === "url") {
+    const host = content.trim().replace(/^[a-z]+:\/\//i, "").split(/[/?#]/)[0];
+    title = host ? `Link to ${host}` : null;
+  }
+  if (!title) title = `${kind} analysis`;
+  if (brand && !title.includes(brand)) {
+    title += result.verdict === "likely_legitimate" ? ` from ${brand}` : ` posing as ${brand}`;
+  }
+
+  const excerpt = result.input_type === "url" ? "" : lines
+    .filter((line) => !SHOWN_HEADER.test(line))
+    .map(withoutMailChrome)
+    .join(" ").replace(/\s+/g, " ").trim();
+  return { title: shorten(title, 60), excerpt: shorten(excerpt, 220) };
+}
+
 async function loadSaved() {
   try {
     const results = await jsonRequest("/v1/saved");
@@ -474,25 +558,39 @@ async function loadSaved() {
     list.replaceChildren();
     for (const result of results) {
       const item = document.createElement("article");
-      item.className = "saved-item";
+      const tone = result.verdict === "likely_scam" ? "likely-scam"
+        : result.verdict === "suspicious" ? "suspicious" : "legitimate";
+      item.className = `saved-item ${tone}`;
       const verdict = result.verdict === "likely_scam" ? "Likely a scam"
         : result.verdict === "suspicious" ? "Suspicious" : "Likely legitimate";
+
+      const ring = document.createElement("div");
+      ring.className = "saved-ring";
+      ring.style.setProperty("--score", `${Math.max(0, Math.min(100, result.risk_score))}%`);
+      ring.setAttribute("aria-label", `Risk score ${result.risk_score} of 100`);
+      text(ring, "strong", "", String(result.risk_score));
+      item.append(ring);
+
       const details = document.createElement("div");
-      text(details, "span", "saved-verdict", verdict);
-      text(details, "strong", "saved-score", `Risk score ${result.risk_score}/100`);
+      details.className = "saved-details";
+      const meta = document.createElement("div");
+      meta.className = "saved-meta";
+      text(meta, "span", "verdict-pill", verdict);
       const date = new Date(result.created_at);
-      text(details, "span", "saved-date", Number.isNaN(date.getTime()) ? "" : date.toLocaleString());
-      if (result.submitted) {
-        const kind = { text: "Message", url: "Link", email: "Email", image: "Screenshot" }[result.input_type] ?? "Input";
-        const preview = result.submitted.content.replace(/\s+/g, " ").trim().slice(0, 160);
-        text(details, "span", "saved-input", `${kind}: ${preview}`);
-      }
+      text(meta, "span", "saved-date", Number.isNaN(date.getTime()) ? "" : date.toLocaleString());
+      details.append(meta);
+      const { title, excerpt } = savedSummary(result);
+      text(details, "h3", "saved-title", title);
+      if (excerpt) text(details, "p", "saved-excerpt", excerpt);
       item.append(details);
+
+      const actions = document.createElement("div");
+      actions.className = "saved-actions";
       const link = document.createElement("a");
       link.className = "text-button";
       link.href = `/results?analysis=${encodeURIComponent(result.analysis_id)}&saved=1`;
       link.textContent = "View result →";
-      item.append(link);
+      actions.append(link);
       const remove = document.createElement("button");
       remove.className = "text-button remove-saved";
       remove.type = "button";
@@ -508,7 +606,8 @@ async function loadSaved() {
           remove.disabled = false;
         }
       });
-      item.append(remove);
+      actions.append(remove);
+      item.append(actions);
       list.append(item);
     }
     $("#saved-empty").hidden = results.length > 0;
