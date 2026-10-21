@@ -325,20 +325,22 @@ What the numbers show:
 
 ### Page evidence (P2b)
 
-Measured 2026-10-21, rules only, test split (61 samples across all six categories). The linked pages come from hand-written snapshots in `data/eval/pages/` (17 of the 21 test-split URL samples have one), so nothing touches the network. The ablation is the same run with pages ignored (`--pages off`).
+Measured 2026-10-21, rules only. The linked pages come from hand-written snapshots in `data/eval/pages/` (17 of the 21 test-split URL samples have one), so nothing touches the network. The ablation is the same run with pages ignored (`--pages off`).
 
-| Pages | Precision | Recall | F1 | FPR | Triage recall | Triage FPR |
-|---|---|---|---|---|---|---|
-| Off (ablation) | 100% (24/24) | 75.0% (24/32) | 85.7% | 0% (0/29) | 87.5% | 3.4% |
-| Snapshots | 100% (22/22) | **68.8%** (22/32) | 81.5% | 0% (0/29) | 87.5% | 3.4% |
+| Data | Pages | Precision | Recall | F1 | FPR | Triage recall | Triage FPR |
+|---|---|---|---|---|---|---|---|
+| Test split (61) | Off (ablation) | 100% (24/24) | 75.0% (24/32) | 85.7% | 0% (0/29) | 87.5% | 3.4% |
+| Test split (61) | Snapshots | 100% (24/24) | 75.0% (24/32) | 85.7% | 0% (0/29) | 87.5% | 3.4% |
+| Dev split (68) | Off (ablation) | 100% (30/30) | 81.1% (30/37) | 89.6% | 0% (0/31) | 86.5% | 0% |
+| Dev split (68) | Snapshots | 100% (30/30) | 81.1% (30/37) | 89.6% | 0% (0/31) | **89.2%** | 0% |
 
-Scenario accuracy is unchanged (76%, 94% when detected). What the numbers show:
-- **Page evidence currently costs two detections.** `u-s-010` (IRS, 70 → 57) and `d-u-s-006` (USPS, 60 → 51) drop from *likely scam* to *suspicious*. Their pages show only `brand_on_unofficial_page` (40 points). Because the page module counts in the weighted average whenever it scores above 0, that 40 pulls the stronger domain score down: 70 × 0.55 + 40 × 0.45 = 57. Evidence that confirms the impersonation lowers the score.
-- **When a page asks for credentials, it helps.** Six scam URLs where the page shows a brand *and* sensitive fields reach the 85 `page_credential_harvest` floor (from 60–75). That makes them more confident, but none of them was missed before.
+Scenario accuracy is the same with and without pages (test 76%, dev 88%). What the numbers show:
+- **The first measurement found a bug, and it's fixed.** Page evidence was averaged in whenever the page scored above 0. A page that only shows the brand (`brand_on_unofficial_page`, 40 points) pulled a stronger domain score down: `u-s-010` 70 → 57 and `d-u-s-006` 60 → 51, both *suspicious*. Strict test recall fell to 68.8% (22/32). Now the page counts only when it raises the score, and both are back at 70 and 60 (*likely scam*). The fix was checked on dev first, then test was run once.
+- **When a page asks for credentials, it helps.** Six test-split scam URLs whose page shows a brand *and* sensitive fields reach the 85 `page_credential_harvest` floor (from 60–75). That makes them more confident, but none of them was missed before. On dev, the page evidence moves one more scam into *suspicious*.
 - **No new false alarms.** Two legitimate URLs gain a few points from a login form or an off-site form (`u-l-010` 0 → 10, `j-u-l-004` 0 → 15) and stay *likely legitimate*.
-- **No brandless misses recovered yet.** All page findings on the test split are on URLs that already named a brand.
+- **No brandless misses recovered yet.** Every page finding on the test split is on a URL that already named a brand, so the headline numbers don't move.
 
-Until the dilution is fixed, page evidence should stay off for scoring. The snapshots are hand-written by the rules' author, like the rest of the data.
+The snapshots are hand-written by the rules' author, like the rest of the data.
 
 Reproduce: `python -m scamsentinel.eval --split test --pages snapshot` (or `--pages off` for the ablation).
 

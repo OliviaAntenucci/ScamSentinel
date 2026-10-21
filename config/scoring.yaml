@@ -4,7 +4,7 @@
 weights:
   domain: 0.55
   message: 0.45
-  page: 0.45 # P2b: only weighted when a fetched page scored > 0, like the domain module
+  page: 0.45 # P2b: only weighted when a fetched page scored > 0 and weighting it raises the score
 
 # 0-29 likely_legitimate, 30-59 suspicious, 60-100 likely_scam
 bands:

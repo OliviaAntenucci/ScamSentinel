@@ -64,7 +64,8 @@ def test_fetch_from_snapshots(tmp_path):
 
 
 def test_offline_snapshot(tmp_path):
-    fetcher = SnapshotFetcher(write(tmp_path, "a.txt", SAMPLE.replace("status: 200", "status: 404")))
+    offline = SAMPLE.replace("status: 200", "status: 404")
+    fetcher = SnapshotFetcher(write(tmp_path, "a.txt", offline))
     page = fetcher.fetch("https://appleid-unlock-support.com/login")
     assert page.error == "http_404"
     assert page.html is None

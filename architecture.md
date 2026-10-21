@@ -850,7 +850,16 @@ Titles are capped at 150 characters, visible text at 50,000. Titles, URLs and fi
 
 Page evidence should eventually feed the score and the brand-dependent pipeline: a brand found on the page would unlock fact checks, scenarios, next steps and help links for brandless scams. That needs measuring first. The eval domains are invented, so it needs a set of saved page snapshots linked to samples, a fetcher that reads them, and a "no page" ablation.
 
-**First measurement (2026-10-21, test split, rules only, `--pages snapshot` vs `--pages off`):** strict precision 100% / 100%, recall 68.8% (22/32) vs 75.0% (24/32), FPR 0% / 0%. Triage (87.5% recall, 3.4% FPR) and scenarios (76%) are unchanged. Page evidence currently **lowers** strict recall. The page module is weighted (0.45) whenever it scores above 0, so a page whose only finding is `brand_on_unofficial_page` (40) pulls a stronger domain score down: `u-s-010` 70 → 57 and `d-u-s-006` 60 → 51, both below the 60 band. Pages with a brand plus sensitive fields reach the 85 `page_credential_harvest` floor (6 scams, none of them previously missed). Two legitimate URLs gain 10–15 points and stay likely legitimate. A fix should keep corroborating page evidence from lowering the score, for example by weighting the page module only when it outscores the others, or by treating it as a floor or boost and not an average term. Re-measure on dev before touching test again.
+**Page evidence only raises the score.** The aggregator computes the weighted score with and without the page module and keeps the higher one. The `weighted_score` reason says when a page was set aside ("page 40 not weighted: it would lower the score"). Without this, a page whose only finding is `brand_on_unofficial_page` (40) pulled a stronger domain score down. The first measurement (2026-10-21, test split, rules only) showed it: `u-s-010` 70 → 57 and `d-u-s-006` 60 → 51, and strict recall fell from 75.0% to 68.8%.
+
+**Measurement after the fix (2026-10-21, rules only, `--pages snapshot` vs `--pages off`):** checked on dev first, then test run once.
+
+| Split | Strict recall (snapshot / off) | Triage recall | FPR |
+|---|---|---|---|
+| Test (61) | 75.0% / 75.0% | 87.5% / 87.5% | 0% / 0% |
+| Dev (68) | 81.1% / 81.1% | 89.2% / 86.5% | 0% / 0% |
+
+Pages with a brand plus sensitive fields reach the 85 `page_credential_harvest` floor (6 test scams, none previously missed). Two legitimate test URLs gain 10–15 points and stay likely legitimate. No brandless miss is recovered yet: every page finding in the test split is on a URL that already names a brand. That would need snapshots for brandless scam links in message samples.
 
 ### Limitations
 
