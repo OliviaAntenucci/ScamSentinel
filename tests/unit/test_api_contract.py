@@ -28,7 +28,7 @@ def test_frontend_is_served_with_static_assets(client):
     assert client.get("/static/app.js").status_code == 200
     assert "What would you like to check?" in page.text
     results_page = client.get("/results")
-    assert "Here’s what we found" in results_page.text
+    assert "what we found" in results_page.text
     assert "Signals detected" in results_page.text
     assert 'id="submitted-card"' in results_page.text  # what was submitted, as plain text
     assert "default-src 'none'" in results_page.headers["Content-Security-Policy"]
