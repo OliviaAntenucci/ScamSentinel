@@ -116,6 +116,55 @@ def test_email_sender_checks(make_analyzer):
     )
 
 
+def analyze_email(make_analyzer, raw: bytes):
+    parsed = parse_eml(raw)
+    return make_analyzer().analyze(
+        parsed.analysis_text(), input_type="email", email=parsed, extra_urls=parsed.links
+    )
+
+
+SIGN_IN_ALERT = (
+    "Subject: Unusual sign-in activity\r\n\r\n"
+    "We noticed unusual sign-in activity on your account. "
+    "Review your account security at https://{link}/security\r\n"
+)
+
+
+def test_account_alert_linking_away_from_the_sender(make_analyzer):
+    # No protected brand: the sender's own domain is the only thing to compare with.
+    raw = b"From: Northstar <alerts@northstar.example>\r\n" + SIGN_IN_ALERT.format(
+        link="northstar-account-review.example"
+    ).encode()
+    analysis = analyze_email(make_analyzer, raw)
+    mismatch = next(c for c in analysis.checks if c.signal == "link_sender_mismatch")
+    assert mismatch.claim == "northstar-account-review.example"
+    assert "link_sender_mismatch" in signals(analysis)
+
+
+def test_account_alert_linking_to_its_own_site_is_fine(make_analyzer):
+    raw = b"From: Northstar <alerts@mail.northstar.example>\r\n" + SIGN_IN_ALERT.format(
+        link="account.northstar.example"
+    ).encode()
+    assert "link_sender_mismatch" not in signals(analyze_email(make_analyzer, raw))
+
+
+def test_links_to_an_official_brand_site_are_fine(make_analyzer):
+    # Like GovDelivery sending IRS alerts that link to irs.gov.
+    raw = b"From: IRS <irs@service.govdelivery.com>\r\n" + SIGN_IN_ALERT.format(
+        link="www.irs.gov"
+    ).encode()
+    assert "link_sender_mismatch" not in signals(analyze_email(make_analyzer, raw))
+
+
+def test_a_newsletter_that_links_out_is_fine(make_analyzer):
+    raw = (
+        b"From: Northstar <news@northstar.example>\r\n"
+        b"Subject: Our spring reading list\r\n\r\n"
+        b"Five books we loved this month: https://books.example/spring\r\n"
+    )
+    assert "link_sender_mismatch" not in signals(analyze_email(make_analyzer, raw))
+
+
 def test_dkim_verified_official_sender_is_mitigating(make_analyzer):
     raw = (
         b"From: IRS <alerts@irs.gov>\r\n"

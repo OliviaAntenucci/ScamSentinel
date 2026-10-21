@@ -66,6 +66,9 @@ verify_points:
   phone_number_unknown: 10
   sender_brand_mismatch: 25
   reply_to_mismatch: 15
+  # An account-security email whose links go to a domain other than the sender's (any
+  # brand, protected or not).
+  link_sender_mismatch: 25
   sender_verified: -10
   # From the LLM's knowledge, not a published source, so worth less and never mitigating.
   org_domain_mismatch_unverified: 10

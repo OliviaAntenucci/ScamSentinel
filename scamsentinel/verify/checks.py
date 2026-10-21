@@ -40,6 +40,11 @@ _CHANNELS: dict[str, set[str]] = {
 }
 
 
+# Threats that make an email about the reader's account, where a real sender links to
+# its own site.
+_ACCOUNT_THREATS = frozenset({"suspicious_activity", "account_suspension", "access_loss"})
+
+
 class CheckResult(BaseModel):
     check: CheckName
     # Key into verify_points in config/scoring.yaml. Signals without points (the
@@ -94,6 +99,7 @@ class Verifier:
             checks += self._phone_numbers(entity, features.claimed_phone_numbers)
         if email is not None:
             checks += self._sender_alignment(email)
+            checks += self._link_alignment(email, features)
         return checks
 
     def unknown_org_domains(
@@ -367,6 +373,46 @@ class Verifier:
                 )
             )
         return checks
+
+    def _link_alignment(self, email: ParsedEmail, features: MessageFeatures) -> list[CheckResult]:
+        """An account-security email whose links leave the sender's own domain.
+
+        Works without a protected brand: a real sign-in alert links to the site that sent
+        it. Only checked when the email is about the account (a security threat, or a
+        request for credentials), so newsletters that link out don't count. Links to any
+        protected brand's official site are left out (e.g. GovDelivery linking to irs.gov).
+        """
+        from_registrable = self._registrable(email.from_domain)
+        if from_registrable is None:
+            return []
+        about_account = any(t.type in _ACCOUNT_THREATS for t in features.threats) or bool(
+            features.sensitive_requests
+        )
+        if not about_account:
+            return []
+        official = {d for b in self._brands.values() for d in b.official_domains}
+        elsewhere = []
+        for url in features.claimed_urls:
+            registrable = self._registrable(url)
+            if registrable and registrable != from_registrable and registrable not in official:
+                if registrable not in elsewhere:
+                    elsewhere.append(registrable)
+        if not elsewhere:
+            return []
+        return [
+            CheckResult(
+                check="sender_alignment",
+                signal="link_sender_mismatch",
+                claim=", ".join(elsewhere),
+                verified=False,
+                basis="email_headers",
+                fact=f"The sender's own domain: {from_registrable}",
+                detail=(
+                    f"An account-security email from {from_registrable} links to "
+                    f"{', '.join(elsewhere)}, not to the sender's own site"
+                ),
+            )
+        ]
 
     # --- helpers --------------------------------------------------------------------
 
