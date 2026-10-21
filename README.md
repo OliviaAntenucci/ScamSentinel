@@ -320,6 +320,25 @@ What the numbers show:
 - **Legitimate messages:** 3 of 154 got a scenario, all because they were already scored *suspicious*: a real-style Wells Fargo "unusual activity" alert (*Fake bank fraud alert*), a Credit Karma tip about checking your refund (*Refund lure*), and a genuine QuickBooks invoice sent for a merchant (*Payment problem or overdue invoice*). The UI says a suspicious message only *resembles* a known pattern.
 - Like the other numbers, these labels were written by the same author as the rules. The categories have only 2–10 labeled test samples each.
 
+### Page evidence (P2b)
+
+Measured 2026-10-21, rules only, test split (61 samples across all six categories). The linked pages come from hand-written snapshots in `data/eval/pages/` (17 of the 21 test-split URL samples have one), so nothing touches the network. The ablation is the same run with pages ignored (`--pages off`).
+
+| Pages | Precision | Recall | F1 | FPR | Triage recall | Triage FPR |
+|---|---|---|---|---|---|---|
+| Off (ablation) | 100% (24/24) | 75.0% (24/32) | 85.7% | 0% (0/29) | 87.5% | 3.4% |
+| Snapshots | 100% (22/22) | **68.8%** (22/32) | 81.5% | 0% (0/29) | 87.5% | 3.4% |
+
+Scenario accuracy is unchanged (76%, 94% when detected). What the numbers show:
+- **Page evidence currently costs two detections.** `u-s-010` (IRS, 70 → 57) and `d-u-s-006` (USPS, 60 → 51) drop from *likely scam* to *suspicious*. Their pages show only `brand_on_unofficial_page` (40 points). Because the page module counts in the weighted average whenever it scores above 0, that 40 pulls the stronger domain score down: 70 × 0.55 + 40 × 0.45 = 57. Evidence that confirms the impersonation lowers the score.
+- **When a page asks for credentials, it helps.** Six scam URLs where the page shows a brand *and* sensitive fields reach the 85 `page_credential_harvest` floor (from 60–75). That makes them more confident, but none of them was missed before.
+- **No new false alarms.** Two legitimate URLs gain a few points from a login form or an off-site form (`u-l-010` 0 → 10, `j-u-l-004` 0 → 15) and stay *likely legitimate*.
+- **No brandless misses recovered yet.** All page findings on the test split are on URLs that already named a brand.
+
+Until the dilution is fixed, page evidence should stay off for scoring. The snapshots are hand-written by the rules' author, like the rest of the data.
+
+Reproduce: `python -m scamsentinel.eval --split test --pages snapshot` (or `--pages off` for the ablation).
+
 Reproduce: `python -m scamsentinel.eval --split test --category tax` (or `--category delivery` / `bank` / `account_takeover` / `tech_support` / `job`; omit it for everything; add `--report reports/eval-test.md` for a markdown report, and `--ablation full` for the LLM, cached in `var/eval.db`). Methodology: [`architecture.md` §10](architecture.md#10-evaluation-harness).
 
 ---
