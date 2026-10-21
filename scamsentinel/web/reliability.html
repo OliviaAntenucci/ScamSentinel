@@ -135,6 +135,17 @@
         <p class="stats-note">Most recent run: 1,155 tests passed and 0 failed, on October 21, 2026. Eight property-based test modules couldn't load on that machine and aren't included in that count.</p>
       </section>
 
+      <section class="detail-card stats-card score-card">
+        <div class="detail-title"><span class="detail-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span><div><h2>How the risk score is calculated</h2><p>Fixed rules decide every point, so each one traces back to the text that caused it</p></div></div>
+        <ul class="security-tests">
+          <li><strong>1. Each part is scored</strong><span>Links are compared with real brands (a lookalike like <code>irs-refund-secure.com</code> scores 50–90). The message earns points per warning sign: +25 for asking for a password or SSN, +30 for a gift-card or crypto demand, +10 per threat, and more when a claim conflicts with an organization’s own published facts.</span></li>
+          <li><strong>2. The parts are combined</strong><span>A weighted average: links 55%, message 45% (link 70 and message 100 make 84). A part that found nothing isn’t averaged in, and the linked page only counts if it raises the score.</span></li>
+          <li><strong>3. Caps and floors</strong><span>Capped at 40 when every link is official and nothing sensitive is asked for. Strong combinations set a minimum, such as asking for personal data plus a lookalike link (at least 90).</span></li>
+          <li><strong>4. The verdict</strong><span>0–29 likely legitimate, 30–59 suspicious, 60–100 likely a scam. Every result lists each signal with its points and the math that produced the score.</span></li>
+        </ul>
+        <p class="stats-note">The AI, when it’s used, only reports signals it can quote from the message. It never assigns points or a verdict.</p>
+      </section>
+
       <section class="detail-card stats-card caveats-card">
         <div class="detail-title"><span class="detail-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5m0-8v.01"/></svg></span><div><h2>Read these numbers with care</h2><p>What they do and don't show</p></div></div>
         <ul class="caveats">
