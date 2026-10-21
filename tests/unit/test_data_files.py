@@ -106,6 +106,6 @@ def test_every_category_has_facts(settings):
 
 def test_scoring_config_loads(settings):
     cfg = load_scoring(settings.config_dir)
-    assert set(cfg.weights) == {Module.DOMAIN, Module.MESSAGE}
+    assert set(cfg.weights) == {Module.DOMAIN, Module.MESSAGE, Module.PAGE}
     assert cfg.bands.suspicious == 30
     assert cfg.bands.likely_scam == 60
