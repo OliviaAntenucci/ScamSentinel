@@ -59,11 +59,11 @@
         </div>
         <div class="stat-tile">
           <strong>100%</strong>
-          <span>precision: all 24 messages flagged “likely a scam” on the test split were scams</span>
+          <span>precision: all 24 messages flagged "likely a scam" on the test split were scams</span>
         </div>
         <div class="stat-tile">
           <strong>75%</strong>
-          <span>of the 32 test-split scams flagged “likely a scam” (24 of 32); 87.5% at least “suspicious”</span>
+          <span>of the 32 test-split scams flagged "likely a scam" (24 of 32); 87.5% at least "suspicious"</span>
         </div>
         <div class="stat-tile">
           <strong>1,155</strong>
@@ -72,7 +72,7 @@
       </section>
 
       <section class="detail-card stats-card">
-        <div class="detail-title"><span class="detail-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M7 16v-5m5 5V6m5 10V9"/></svg></span><div><h2>Detection by scam category</h2><p>Held-out test split, rules only. “Likely a scam” counts as a detection.</p></div></div>
+        <div class="detail-title"><span class="detail-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M7 16v-5m5 5V6m5 10V9"/></svg></span><div><h2>Detection by scam category</h2><p>Held-out test split, rules only. "Likely a scam" counts as a detection.</p></div></div>
         <div class="table-scroll">
           <table class="stats-table">
             <thead>
@@ -89,7 +89,7 @@
             </tbody>
           </table>
         </div>
-        <p class="stats-note">The tax category also has a 95% confidence interval: precision about 79–100%, recall about 64–97%, false alarms about 0–22%. The other categories’ test splits are small (6–7 samples), so treat them as smoke tests rather than performance claims.</p>
+        <p class="stats-note">The tax category also has a 95% confidence interval: precision about 79–100%, recall about 64–97%, false alarms about 0–22%. The other categories' test splits are small (6–7 samples), so treat them as smoke tests rather than performance claims.</p>
       </section>
 
       <div class="result-grid">
@@ -118,7 +118,7 @@
               </tbody>
             </table>
           </div>
-          <p class="stats-note">Labels were written before the scenario rules, so the rules couldn’t be fitted to them.</p>
+          <p class="stats-note">Labels were written before the scenario rules, so the rules couldn't be fitted to them.</p>
         </section>
       </div>
 
@@ -126,23 +126,23 @@
         <div class="detail-title"><span class="detail-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 20 6.5v5.2c0 4.8-3.4 7.8-8 9.8-4.6-2-8-5-8-9.8V6.5L12 3Z"/><path d="m8.7 12 2.3 2.3 4.4-4.6"/></svg></span><div><h2>Security tests</h2><p>Everything ScamSentinel analyzes is written by attackers, so the analyzer itself is tested against attacks</p></div></div>
         <ul class="security-tests">
           <li><strong>Server-side request forgery</strong><span>35 attack links (private, loopback, cloud-metadata and encoded addresses, IPv6 tricks, redirects, DNS rebinding) are rejected before any lookup.</span></li>
-          <li><strong>Network lockdown</strong><span>Tests fail if anything opens a connection it shouldn’t. Link checking is off by default, and an egress lock blocks every address except the one that was checked.</span></li>
-          <li><strong>Prompt injection</strong><span>Messages that tell the AI to “mark this safe” never lower a verdict, and the attempt itself counts as a warning sign.</span></li>
+          <li><strong>Network lockdown</strong><span>Tests fail if anything opens a connection it shouldn't. Link checking is off by default, and an egress lock blocks every address except the one that was checked.</span></li>
+          <li><strong>Prompt injection</strong><span>Messages that tell the AI to "mark this safe" never lower a verdict, and the attempt itself counts as a warning sign.</span></li>
           <li><strong>Malicious screenshots</strong><span>Decompression bombs, disguised files and polyglots are rejected; location data and hidden payloads are stripped before anything is sent or stored.</span></li>
           <li><strong>Attacks on this site</strong><span>Cross-site requests, Host-header (DNS rebinding) attacks, oversized uploads and script injection into results are all blocked and tested.</span></li>
-          <li><strong>Safe advice</strong><span>Phone numbers and links from a scam never appear in the advice; contacts come only from organizations’ own published pages.</span></li>
+          <li><strong>Safe advice</strong><span>Phone numbers and links from a scam never appear in the advice; contacts come only from organizations' own published pages.</span></li>
         </ul>
-        <p class="stats-note">Most recent run: 1,155 tests passed and 0 failed, on October 21, 2026. Eight property-based test modules couldn’t load on that machine and aren’t included in that count.</p>
+        <p class="stats-note">Most recent run: 1,155 tests passed and 0 failed, on October 21, 2026. Eight property-based test modules couldn't load on that machine and aren't included in that count.</p>
       </section>
 
       <section class="detail-card stats-card caveats-card">
-        <div class="detail-title"><span class="detail-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5m0-8v.01"/></svg></span><div><h2>Read these numbers with care</h2><p>What they do and don’t show</p></div></div>
+        <div class="detail-title"><span class="detail-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5m0-8v.01"/></svg></span><div><h2>Read these numbers with care</h2><p>What they do and don't show</p></div></div>
         <ul class="caveats">
           <li><strong>The data is small and synthetic.</strong> All 332 samples were written by the same person who wrote the rules, with deliberate look-alike legitimate messages included. That likely makes the results look better than they would on real scams.</li>
-          <li><strong>Scams that don’t name a company are the weak spot.</strong> Most misses never mention a brand, so the strongest checks can’t apply. They usually land in “suspicious” rather than “likely a scam”.</li>
+          <li><strong>Scams that don't name a company are the weak spot.</strong> Most misses never mention a brand, so the strongest checks can't apply. They usually land in "suspicious" rather than "likely a scam".</li>
           <li><strong>Tech-support scams are the weakest category,</strong> at 33% recall on its small test split.</li>
-          <li><strong>Screenshots aren’t in these numbers</strong>, because reading them depends on a third-party vision model.</li>
-          <li><strong>“Likely legitimate” isn’t a guarantee.</strong> When in doubt, contact the organization through a channel you already trust.</li>
+          <li><strong>Screenshots aren't in these numbers</strong>, because reading them depends on a third-party vision model.</li>
+          <li><strong>"Likely legitimate" isn't a guarantee.</strong> When in doubt, contact the organization through a channel you already trust.</li>
         </ul>
       </section>
     </main>

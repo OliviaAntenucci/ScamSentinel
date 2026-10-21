@@ -725,3 +725,15 @@ textarea::placeholder { color: #8f90a7; }
 @media (prefers-reduced-motion: reduce) {
   .theme-refresh *:not(.button-spinner), .theme-refresh *::before, .theme-refresh *::after { animation: none !important; transition: none !important; }
 }
+
+/* Square corners on every box, button, input and pill. Shapes that are circles by design
+   (status dots, score rings, avatars, the spinner, step numbers) stay round. */
+*, *::before, *::after { border-radius: 0 !important; }
+.status-dot, .account-icon, .account-icon::before,
+.theme-refresh .section-label::before, .eyebrow-line, .eyebrow-line::after, .hero-assurance svg,
+.orbit, .orbit::before, .scan-avatar, .risk-pointer, .note-check, .step-badge span,
+.button-spinner, .score-ring, .score-inner, .verdict-pill::before,
+.theme-refresh .account-actions > span::before, .saved-ring,
+.theme-refresh .result-overview .score-ring::after, .theme-refresh .detail-card .next-step::before,
+.theme-refresh .caveats li::before { border-radius: 50% !important; }
+.account-icon::after { border-radius: 7px 7px 2px 2px !important; }
