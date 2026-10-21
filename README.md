@@ -4,7 +4,7 @@
 
 Send it a suspicious text message, email, URL, or screenshot. ScamSentinel decides whether it's a scam and tells you *why*, citing the specific evidence behind every point of the score: lookalike domains, impersonation, pressure tactics, payment and data demands, and claims that contradict an organization's own published policies.
 
-It's a portfolio cybersecurity project with two halves: **detection** (explainable scoring, measured per scam category) and **securing the detector itself**, which takes attacker-written input by design and is threat-modeled and tested as an attack surface.
+It's a cybersecurity project with two halves: **detection** (explainable scoring, measured per scam category) and **securing the detector itself**, which takes attacker-written input by design and is threat-modeled and tested as an attack surface.
 
 Detection is organized into **scam categories**, each backed by its own trusted facts, signals and labeled test data:
 
