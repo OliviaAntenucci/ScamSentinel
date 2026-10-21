@@ -407,3 +407,17 @@ async function updateApiStatus() {
 }
 
 updateApiStatus();
+
+// "How it works" fades in as it scrolls into view. Without IntersectionObserver, or with
+// reduced motion, it's simply shown.
+if ("IntersectionObserver" in window && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  document.documentElement.classList.add("reveal-ready");
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      entry.target.classList.add("revealed");
+      observer.unobserve(entry.target);
+    }
+  }, { threshold: 0.15 });
+  for (const item of document.querySelectorAll("[data-reveal]")) observer.observe(item);
+}
