@@ -138,7 +138,7 @@ def save_analysis(
         return {"analysis_id": analysis_id}
     result = _service(request).get_analysis(analysis_id)
     if result is None:
-        raise HTTPException(status_code=404, detail="analysis not found or expired")
+        raise HTTPException(status_code=404, detail="analysis not found")
     request.app.state.account_store.save_account_analysis(account[0], result)
     return {"analysis_id": analysis_id}
 
@@ -164,6 +164,38 @@ def get_saved_analysis(
     if result is None:
         raise HTTPException(status_code=404, detail="saved analysis not found")
     return result
+
+
+@router.get("/v1/saved/{analysis_id}/image")
+def get_saved_analysis_image(
+    request: Request,
+    analysis_id: Annotated[str, Path(pattern=ANALYSIS_ID_PATTERN)],
+    account: AuthenticatedAccount,
+) -> Response:
+    store = request.app.state.account_store
+    if store.get_account_analysis(account[0], analysis_id) is None:
+        raise HTTPException(status_code=404, detail="saved analysis not found")
+    return _image_response(store.get_input_image(analysis_id))
+
+
+# The cleaned screenshots this API stores (upload_guard detects these from magic bytes).
+STORED_IMAGE_TYPES = frozenset({"image/png", "image/jpeg", "image/webp"})
+
+
+def _image_response(image: tuple[str, bytes] | None) -> Response:
+    """Serve a stored screenshot inertly: its exact image type with nosniff (set by the
+    middleware), and a sandboxing CSP in case the URL is opened on its own."""
+    if image is None or image[0] not in STORED_IMAGE_TYPES:
+        raise HTTPException(status_code=404, detail="no screenshot for this analysis")
+    mime, data = image
+    return Response(
+        content=data,
+        media_type=mime,
+        headers={
+            "Content-Disposition": "inline",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+        },
+    )
 
 
 @router.get("/healthz")
@@ -248,8 +280,16 @@ def get_analysis(
 ) -> AnalysisResult:
     result = _service(request).get_analysis(analysis_id)
     if result is None:
-        raise HTTPException(status_code=404, detail="analysis not found or expired")
+        raise HTTPException(status_code=404, detail="analysis not found")
     return result
+
+
+@router.get("/v1/analysis/{analysis_id}/image")
+def get_analysis_image(
+    request: Request, analysis_id: Annotated[str, Path(pattern=ANALYSIS_ID_PATTERN)]
+) -> Response:
+    """The cleaned screenshot (metadata stripped) behind an image analysis."""
+    return _image_response(_service(request).get_input_image(analysis_id))
 
 
 @router.get("/v1/domain/score")

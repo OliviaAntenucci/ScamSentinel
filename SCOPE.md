@@ -116,7 +116,7 @@ Details in [`architecture.md` §14](architecture.md#14-post-mvp-roadmap).
 - Don't publish live, working phishing URLs in the repository. Store eval URLs defanged (`hxxps://example[.]com`).
 
 ### Data handling
-- Inputs may contain victims' personal data. Analyses are retained for 7 days by default, SSN- and card-like numbers are redacted in logs, and user submissions never go into the public eval set without consent.
+- Inputs may contain victims' personal data. Analyses and their inputs are kept until deleted, SSN- and card-like numbers are redacted in results, stored inputs and logs, and user submissions never go into the public eval set without consent.
 - With an LLM key, the name of an organization the message claims to be from (when it isn't a curated brand) is also sent to the provider for a fact check. Its answer is treated as unverified, risk-only evidence, never as a trusted fact.
 - Groq's free tier sends input text to a third party. Only analyze synthetic or public samples with the LLM enabled. Never send real victims' personal data. Rules-only mode (no API key) keeps everything local.
 

@@ -98,6 +98,35 @@ def test_an_empty_page_doesnt_dilute_the_message():
     assert with_page.risk_score == without.risk_score == 70
 
 
+def test_a_weaker_page_never_lowers_the_score():
+    # Like u-s-010: the rest scores 70, the page only shows the brand (40). Averaged,
+    # that's suspicious; a page that confirms the impersonation can't lower the score.
+    message = ModuleResult(module=Module.MESSAGE, score=70, reasons=[])
+    page = ModuleResult(module=Module.PAGE, score=40, reasons=[])
+    brand_only = report("brand_on_unofficial_page", brand="IRS")
+    result = aggregate(
+        domains=[], message=message, features=None, config=CONFIG,
+        page=page, page_reports=[brand_only],
+    )
+    assert result.risk_score == 70
+    weighted = next(r for r in result.reasons if r.signal == "weighted_score")
+    assert "page 40 not weighted: it would lower the score" in weighted.detail
+
+
+def test_a_stronger_page_still_raises_the_score():
+    message = ModuleResult(module=Module.MESSAGE, score=20, reasons=[])
+    page = ModuleResult(module=Module.PAGE, score=60, reasons=[])
+    result = aggregate(
+        domains=[], message=message, features=None, config=CONFIG,
+        page=page, page_reports=[report("brand_on_unofficial_page", brand="IRS")],
+    )
+    weights = CONFIG.weights
+    expected = (20 * weights[Module.MESSAGE] + 60 * weights[Module.PAGE]) / (
+        weights[Module.MESSAGE] + weights[Module.PAGE]
+    )
+    assert result.risk_score == round(expected)
+
+
 def test_no_page_means_the_old_behavior():
     message = ModuleResult(module=Module.MESSAGE, score=42, reasons=[])
     result = aggregate(domains=[], message=message, features=None, config=CONFIG)

@@ -42,6 +42,40 @@ def test_metadata_and_polyglot_never_reach_the_vision_model(image_client, fake_t
     assert mime == "image/jpeg"
 
 
+def test_screenshot_and_its_text_are_kept_with_the_result(image_client, fake_transcriber):
+    client = image_client(fake_transcriber(text=SCAM_TEXT))
+    data = jpeg(extra_segments=[jpeg_segment(0xE1, EXIF_SAMPLE)]) + ZIP_SIGNATURE + b"payload"
+    body = post_image(client, data, "image/jpeg").json()
+    assert body["submitted"] == {"content": SCAM_TEXT, "image_mime": "image/jpeg"}
+
+    image = client.get(f"/v1/analysis/{body['analysis_id']}/image")
+    assert image.status_code == 200
+    assert image.content == jpeg()  # the cleaned image: no EXIF, nothing appended
+    assert image.headers["content-type"] == "image/jpeg"
+    assert image.headers["x-content-type-options"] == "nosniff"
+    assert "sandbox" in image.headers["content-security-policy"]
+
+
+def test_saved_screenshot_is_scoped_to_the_account(image_client, fake_transcriber):
+    client = image_client(fake_transcriber(text=SCAM_TEXT))
+    analysis_id = post_image(client, jpeg(), "image/jpeg").json()["analysis_id"]
+    path = f"/v1/saved/{analysis_id}/image"
+    assert client.get(path).status_code == 401
+
+    client.post(
+        "/v1/auth/register", json={"email": "shot@local.test", "password": "correct horse battery"}
+    )
+    assert client.get(path).status_code == 404  # not saved yet
+    client.post(f"/v1/saved/{analysis_id}", json={})
+    assert client.get(path).content == jpeg()
+
+    other = image_client(fake_transcriber(text=SCAM_TEXT))
+    other.post(
+        "/v1/auth/register", json={"email": "other@local.test", "password": "another safe password"}
+    )
+    assert other.get(path).status_code == 404
+
+
 def test_content_type_is_not_trusted(image_client, fake_transcriber):
     # Detected from magic bytes: a PNG labeled octet-stream still works...
     client = image_client(fake_transcriber(text=SCAM_TEXT))

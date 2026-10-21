@@ -334,13 +334,17 @@ Every record: `{id, group?, input_type, label, brand, content (scam URLs defange
 ## 11. Data model (SQLite)
 
 ```
-analyses(id PK, created_at, expires_at, input_type, input_hash, verdict, risk_score, result_json)
+analyses(id PK, created_at, expires_at, input_type, input_hash, verdict, risk_score, result_json)   -- expires_at unused ('')
+input_images(analysis_id PK, mime, data)   -- the cleaned screenshot behind an image analysis
 llm_cache(key PK, provider, model, features_json, created_at)   -- key = sha256(provider, model, prompt version, normalized text)
+accounts(id PK, email UNIQUE, password_hash, created_at)
+account_sessions(token_hash PK, account_id, expires_at)
+saved_analyses(account_id, analysis_id, created_at, result_json)   -- PK (account_id, analysis_id)
 ct_candidates(domain PK, registrable, score, brand, techniques, cert_id, issuer, not_before, first_seen, last_seen)   -- P1
 ct_polls(id PK, started_at, finished_at, queries, failed_queries, names_seen, candidates, new_candidates)             -- P1
 ```
 
-`scamsentinel/store.py` opens a fresh connection per call (safe under FastAPI's thread pool). The raw input is never stored, only its SHA-256 hash and the result. Expired analyses are hidden immediately and deleted on startup. Cached LLM features quote the analyzed text, so they expire on the same 7-day schedule. Uploaded images are processed in memory and never written to disk.
+`scamsentinel/store.py` opens a fresh connection per call (safe under FastAPI's thread pool). Each result carries what was submitted (`submitted.content`: the message, URL or raw email as entered, or the text read from a screenshot), with SSN- and card-like numbers masked by the same redaction as the rest of the result. For a screenshot, the cleaned image is stored in `input_images`. That's the re-encoded image with its metadata stripped and anything appended removed, never the upload as sent. `GET /v1/analysis/{id}/image` and, for a saved analysis, the account-scoped `GET /v1/saved/{id}/image` serve it with its exact image type, `nosniff`, and a `default-src 'none'; sandbox` CSP. Analyses and their inputs are kept until deleted: nothing expires them. Saving copies the result, input included, into the account's `saved_analyses`. Only cached LLM features expire after 7 days, because they hold unredacted quotes. Results from before inputs were kept have no `submitted` field and still load.
 
 The CT tables (`ct/store.py`) live in the same file. They hold public certificate data, not user input, so they aren't purged. The watcher process writes them and the API only reads them.
 

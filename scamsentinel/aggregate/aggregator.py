@@ -1,6 +1,7 @@
 """Risk aggregator (architecture.md §9): renormalized weights, mitigating cap, floors.
 
     risk = Σ (w_m / Σ w_active) · score_m      over the modules that ran
+    (the page module only when it raises the score)
     then the mitigating cap, then floors (minimum scores for high-confidence combos)
 
 The aggregator explains itself with AGGREGATE reasons (points 0) so the final number
@@ -56,6 +57,30 @@ def domain_module(domains: list[DomainResult]) -> ModuleResult | None:
     )
 
 
+def _weigh(
+    modules: list[ModuleResult], config: ScoringConfig
+) -> tuple[int, list[ModuleResult], str]:
+    """Renormalized weighted average over the modules that found something.
+
+    "No link looks like a brand" isn't evidence that a message is legitimate (only
+    official links are, and those are handled by the mitigating cap). So a domain or
+    page module that found nothing doesn't dilute the others; it's still reported.
+    """
+    weighted_modules = [
+        m for m in modules if m.score > 0 or m.module == Module.MESSAGE or len(modules) == 1
+    ]
+    if not weighted_modules:
+        weighted_modules = [m for m in modules if m.module == Module.DOMAIN] or modules[:1]
+    weights = {m.module: config.weights.get(m.module, 0.0) for m in weighted_modules}
+    total_weight = sum(weights.values())
+    weighted = sum(m.score * weights[m.module] / total_weight for m in weighted_modules)
+    terms = " + ".join(
+        f"{m.module.value} {m.score} × {weights[m.module] / total_weight:.2f}"
+        for m in weighted_modules
+    )
+    return math.floor(weighted + 0.5), weighted_modules, terms
+
+
 def aggregate(
     *,
     domains: list[DomainResult],
@@ -70,31 +95,24 @@ def aggregate(
     if not modules:
         raise ValueError("nothing to aggregate")
 
-    # "No link looks like a brand" isn't evidence that a message is legitimate (only
-    # official links are, and those are handled by the mitigating cap). So a domain
-    # module that found nothing doesn't dilute the message score; it's still reported.
-    # The same goes for a page that showed nothing (P2b).
-    weighted_modules = [
-        m
-        for m in modules
-        if m.score > 0
-        or m.module == Module.MESSAGE
-        or (m.module == Module.DOMAIN and message is None and page is None)
-    ]
-    if not weighted_modules:
-        weighted_modules = [m for m in modules if m.module == Module.DOMAIN] or modules[:1]
-    weights = {m.module: config.weights.get(m.module, 0.0) for m in weighted_modules}
-    total_weight = sum(weights.values())
-    weighted = sum(m.score * weights[m.module] / total_weight for m in weighted_modules)
-    risk = math.floor(weighted + 0.5)
+    risk, weighted_modules, terms = _weigh(modules, config)
 
-    terms = " + ".join(
-        f"{m.module.value} {m.score} × {weights[m.module] / total_weight:.2f}"
-        for m in weighted_modules
-    )
-    skipped = [m.module.value for m in modules if m not in weighted_modules]
+    # Page evidence only ever adds to the other modules (P2b). A page that confirms an
+    # impersonation with fewer points than the domain found (brand on the page, nothing
+    # asked for) would otherwise pull the average down, so it's left out instead.
+    page_set_aside = False
+    others = [m for m in modules if m is not page]
+    if page is not None and page in weighted_modules and others:
+        risk_without, weighted_without, terms_without = _weigh(others, config)
+        if risk_without > risk:
+            risk, weighted_modules, terms = risk_without, weighted_without, terms_without
+            page_set_aside = True
+
+    skipped = [m.module.value for m in modules if m not in weighted_modules and m.score == 0]
     if skipped:
         terms += f" ({' and '.join(skipped)} 0 not weighted: nothing found)"
+    if page_set_aside:
+        terms += f" (page {page.score} not weighted: it would lower the score)"
     reasons = [r for m in modules for r in m.reasons]
     reasons.append(
         _reason("weighted_score", f"Weighted score: {terms} = {risk}", evidence=None)

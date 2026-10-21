@@ -82,6 +82,13 @@
           </div>
         </section>
 
+        <section class="detail-card submitted-card" id="submitted-card" hidden>
+          <div class="detail-title"><span class="detail-icon">✉</span><div><h2>What you submitted</h2><p id="submitted-caption">Shown as plain text: links aren’t clickable, and SSN and card numbers are masked</p></div></div>
+          <img class="submitted-image" id="submitted-image" alt="The screenshot you submitted, with its metadata removed" hidden>
+          <span class="subsection-title" id="submitted-text-label" hidden><span>Text read from the screenshot</span></span>
+          <pre class="submitted-text" id="submitted-text"></pre>
+        </section>
+
         <div class="result-grid">
           <section class="detail-card">
             <div class="detail-title"><span class="detail-icon">✓</span><div><h2>What to do next</h2><p>Practical steps to protect yourself</p></div></div>
@@ -141,7 +148,7 @@
           </div>
           <p class="auth-error" id="auth-error" role="alert" hidden></p>
           <p class="save-confirmation" id="save-confirmation" role="status" hidden></p>
-          <p class="privacy-caption">Accounts and saved results stay in this ScamSentinel installation. Saving stores the result, not the original message.</p>
+          <p class="privacy-caption">Accounts and saved results stay in this ScamSentinel installation. Saving keeps the result together with what you submitted (SSN and card numbers masked).</p>
         </section>
       </div>
     </main>

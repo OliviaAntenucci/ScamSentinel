@@ -29,6 +29,7 @@ def test_frontend_is_served_with_static_assets(client):
     results_page = client.get("/results")
     assert "Here’s what we found" in results_page.text
     assert "Signals detected" in results_page.text
+    assert 'id="submitted-card"' in results_page.text  # what was submitted, as plain text
     assert "default-src 'none'" in results_page.headers["Content-Security-Policy"]
     saved_page = client.get("/saved")
     assert "Saved analyses" in saved_page.text

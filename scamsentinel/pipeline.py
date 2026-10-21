@@ -33,7 +33,14 @@ from scamsentinel.message.llm import (
     LlmUnavailable,
     build_extractor,
 )
-from scamsentinel.models import AnalysisResult, InputType, Module, PageReport, Reason
+from scamsentinel.models import (
+    AnalysisResult,
+    InputType,
+    Module,
+    PageReport,
+    Reason,
+    SubmittedInput,
+)
 from scamsentinel.ocr.vision import OcrUnavailable, Transcriber, build_transcriber
 from scamsentinel.page.analyze import PageAnalyzer
 from scamsentinel.page.fetch import PageFetcher, PageSource
@@ -161,7 +168,9 @@ class AnalysisService:
         # Links whose pages may be inspected (P2): the submitted URL, or the message's own
         # links. Never the email's sender domains.
         links = [refang(raw.strip())] if message is None else message.features.claimed_urls
-        return self._finish(input_type, raw.encode(), message, domains, links)
+        return self._finish(
+            input_type, raw.encode(), message, domains, links, SubmittedInput(content=raw)
+        )
 
     def analyze_image(self, data: bytes) -> AnalysisResult:
         """Analyze a screenshot.
@@ -196,10 +205,22 @@ class AnalysisService:
         )
         message.result.reasons.insert(0, transcribed)
         domains = self._score_domains(message.features.claimed_urls, strict=False)
-        return self._finish("image", data, message, domains, message.features.claimed_urls)
+        # The cleaned image is what's kept, never the upload as sent (EXIF, appended data).
+        return self._finish(
+            "image",
+            data,
+            message,
+            domains,
+            message.features.claimed_urls,
+            SubmittedInput(content=text, image_mime=info.mime),
+            image=(info.mime, clean),
+        )
 
     def get_analysis(self, analysis_id: str) -> AnalysisResult | None:
         return self._store.get_analysis(analysis_id)
+
+    def get_input_image(self, analysis_id: str) -> tuple[str, bytes] | None:
+        return self._store.get_input_image(analysis_id)
 
     def _finish(
         self,
@@ -208,6 +229,8 @@ class AnalysisService:
         message: MessageAnalysis | None,
         domains: list[DomainResult],
         links: list[str] | None = None,
+        submitted: SubmittedInput | None = None,
+        image: tuple[str, bytes] | None = None,
     ) -> AnalysisResult:
         # P2b: linked pages (live, or snapshots in evaluation) are read before scoring.
         # Nothing happens here unless page fetching is on.
@@ -278,10 +301,12 @@ class AnalysisService:
                 else []
             ),
             pages=pages,
+            submitted=submitted,
         )
-        # SSN/card numbers quoted as evidence never reach the response, disk or logs.
+        # SSN/card numbers in the evidence or the input never reach the response, disk or
+        # logs.
         analysis = redact_result(analysis)
-        self._store.save_analysis(analysis, hashlib.sha256(raw).hexdigest())
+        self._store.save_analysis(analysis, hashlib.sha256(raw).hexdigest(), image=image)
         # Metadata only: the analyzed content is never logged.
         logger.info(
             "analysis %s input=%s verdict=%s score=%d llm=%s degraded=%s",

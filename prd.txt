@@ -162,9 +162,11 @@ Evaluation
   NFR-2  Latency (p95, local): text/URL/email < 4 s; screenshot < 10 s.
   NFR-3  Security: see SECURITY.md. Upload, injection, no-fetch and
          local-API tests pass in CI.
-  NFR-4  Privacy: analyses are kept for at most 7 days by default. SSN-like
-         and card-like numbers are redacted before logging. Nothing is
-         sent to the LLM beyond the input text.
+  NFR-4  Privacy: analyses are kept, with their input, until deleted, so
+         saved analyses can show what was submitted. SSN-like and card-like
+         numbers are redacted in results, the stored input and logs; cached
+         LLM output expires after 7 days. Nothing is sent to the LLM beyond
+         the input text.
   NFR-5  Determinism: given the same LLM features, scoring is fully
          deterministic and unit-testable.
   NFR-6  Cost: at most one LLM call per input (two for a screenshot:

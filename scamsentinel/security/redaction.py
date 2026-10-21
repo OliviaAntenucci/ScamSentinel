@@ -43,7 +43,8 @@ def redact(text: str) -> str:
 
 def redact_result(result: AnalysisResult) -> AnalysisResult:
     """Copy of `result` with SSN/card numbers removed from every reason, domain explanation
-    (a hostname can carry digits too) and fact check (claims quote the message)."""
+    (a hostname can carry digits too), fact check (claims quote the message), page report
+    and the submitted input itself."""
     reasons = [
         r.model_copy(
             update={
@@ -59,12 +60,16 @@ def redact_result(result: AnalysisResult) -> AnalysisResult:
     checks = [type(c).model_validate(_redact_strings(c.model_dump())) for c in result.fact_checks]
     # Page titles, URLs and findings quote attacker-written pages (P2).
     pages = [type(p).model_validate(_redact_strings(p.model_dump())) for p in result.pages]
+    submitted = result.submitted
+    if submitted is not None:
+        submitted = submitted.model_copy(update={"content": redact(submitted.content)})
     return result.model_copy(
         update={
             "reasons": reasons,
             "domain_explanations": explanations,
             "fact_checks": checks,
             "pages": pages,
+            "submitted": submitted,
         }
     )
 

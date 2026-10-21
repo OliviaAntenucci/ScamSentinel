@@ -1,7 +1,8 @@
-"""SQLite storage: analysis results (7-day retention) and the LLM response cache.
+"""SQLite storage: analysis results with their inputs, accounts, and the LLM response cache.
 
-A new connection per call keeps this safe under FastAPI's thread pool without sharing a
-connection across threads.
+Analyses (and the screenshots behind them) are kept until deleted; only the LLM cache
+expires. A new connection per call keeps this safe under FastAPI's thread pool without
+sharing a connection across threads.
 """
 
 from __future__ import annotations
@@ -27,6 +28,13 @@ CREATE TABLE IF NOT EXISTS analyses (
     result_json TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS analyses_expires_at ON analyses (expires_at);
+
+-- The cleaned screenshot (metadata stripped) behind an image analysis.
+CREATE TABLE IF NOT EXISTS input_images (
+    analysis_id TEXT PRIMARY KEY,
+    mime        TEXT NOT NULL,
+    data        BLOB NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS llm_cache (
     key           TEXT PRIMARY KEY,
@@ -74,7 +82,11 @@ class Store:
 
     # --- analyses -------------------------------------------------------------------
 
-    def save_analysis(self, result: AnalysisResult, input_hash: str) -> None:
+    def save_analysis(
+        self, result: AnalysisResult, input_hash: str, image: tuple[str, bytes] | None = None
+    ) -> None:
+        """Store a result (its `submitted` input included) and, for a screenshot, the
+        cleaned image as (mime, bytes)."""
         with self._connect() as db:
             db.execute(
                 "INSERT INTO analyses (id, created_at, expires_at, input_type, input_hash, "
@@ -82,7 +94,7 @@ class Store:
                 (
                     result.analysis_id,
                     result.created_at.isoformat(),
-                    (result.created_at + self.retention).isoformat(),
+                    "",  # analyses no longer expire; the column stays for older databases
                     result.input_type,
                     input_hash,
                     result.verdict.value,
@@ -90,26 +102,37 @@ class Store:
                     result.model_dump_json(),
                 ),
             )
+            if image is not None:
+                db.execute(
+                    "INSERT INTO input_images (analysis_id, mime, data) VALUES (?, ?, ?)",
+                    (result.analysis_id, image[0], image[1]),
+                )
 
     def get_analysis(self, analysis_id: str) -> AnalysisResult | None:
         with self._connect() as db:
             row = db.execute(
-                "SELECT result_json FROM analyses WHERE id = ? AND expires_at > ?",
-                (analysis_id, _now().isoformat()),
+                "SELECT result_json FROM analyses WHERE id = ?", (analysis_id,)
             ).fetchone()
         return AnalysisResult.model_validate_json(row[0]) if row else None
 
-    def purge_expired(self) -> int:
-        """Delete expired analyses and cache entries (NFR-4). Returns analyses removed.
-
-        Cached LLM features quote the analyzed text, so they expire on the same schedule.
-        """
-        now = _now()
-        cache_cutoff = (now - self.retention).isoformat()
+    def get_input_image(self, analysis_id: str) -> tuple[str, bytes] | None:
+        """The screenshot behind an analysis as (mime, bytes), if it was one."""
         with self._connect() as db:
-            db.execute("DELETE FROM llm_cache WHERE created_at <= ?", (cache_cutoff,))
+            row = db.execute(
+                "SELECT mime, data FROM input_images WHERE analysis_id = ?", (analysis_id,)
+            ).fetchone()
+        return (row[0], bytes(row[1])) if row else None
+
+    def purge_expired(self) -> int:
+        """Delete expired LLM cache entries (NFR-4). Returns the number removed.
+
+        Cached LLM features quote the analyzed text and hold it unredacted, so they still
+        expire. Analyses are kept until deleted.
+        """
+        cache_cutoff = (_now() - self.retention).isoformat()
+        with self._connect() as db:
             return db.execute(
-                "DELETE FROM analyses WHERE expires_at <= ?", (now.isoformat(),)
+                "DELETE FROM llm_cache WHERE created_at <= ?", (cache_cutoff,)
             ).rowcount
 
     # --- LLM cache ------------------------------------------------------------------

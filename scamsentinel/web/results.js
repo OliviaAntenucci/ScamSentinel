@@ -136,6 +136,27 @@ function renderPages(pages) {
   }
 }
 
+function renderSubmitted(result, fromSaved) {
+  const card = $("#submitted-card");
+  if (!card) return;
+  const submitted = result.submitted;
+  card.hidden = !submitted;
+  if (!submitted) return;
+  // Attacker-written content: plain text only, so links in it are never clickable.
+  $("#submitted-text").textContent = submitted.content;
+  const image = $("#submitted-image");
+  const isImage = Boolean(submitted.image_mime);
+  image.hidden = !isImage;
+  $("#submitted-text-label").hidden = !isImage;
+  if (isImage) {
+    const id = encodeURIComponent(result.analysis_id);
+    image.src = fromSaved ? `/v1/saved/${id}/image` : `/v1/analysis/${id}/image`;
+    image.addEventListener("error", () => { image.hidden = true; }, { once: true });
+  } else {
+    image.removeAttribute("src");
+  }
+}
+
 const FACT_OUTCOMES = {
   conflicts: ["Conflicts", "conflicts"],
   cannot_verify: ["Can’t verify", "unverified"],
@@ -211,7 +232,7 @@ function renderEvidence(reasons, score) {
   }
 }
 
-function renderResult(result) {
+function renderResult(result, fromSaved = false) {
   const verdicts = {
     likely_legitimate: ["Likely legitimate", "No major warning signs found", "legitimate"],
     suspicious: ["Suspicious", "Some warning signs need a closer look", "suspicious"],
@@ -243,6 +264,7 @@ function renderResult(result) {
     notes.textContent = "";
   }
   renderScenario(result.scenario ?? null, result.verdict);
+  renderSubmitted(result, fromSaved);
   renderSteps(result.next_steps ?? []);
   renderResources(result.resources ?? []);
   renderDomainExplanations(result.domain_explanations ?? []);
@@ -401,6 +423,11 @@ async function loadSaved() {
       text(details, "strong", "saved-score", `Risk score ${result.risk_score}/100`);
       const date = new Date(result.created_at);
       text(details, "span", "saved-date", Number.isNaN(date.getTime()) ? "" : date.toLocaleString());
+      if (result.submitted) {
+        const kind = { text: "Message", url: "Link", email: "Email", image: "Screenshot" }[result.input_type] ?? "Input";
+        const preview = result.submitted.content.replace(/\s+/g, " ").trim().slice(0, 160);
+        text(details, "span", "saved-input", `${kind}: ${preview}`);
+      }
       item.append(details);
       const link = document.createElement("a");
       link.className = "text-button";
@@ -448,8 +475,9 @@ async function initialize() {
     const params = new URLSearchParams(window.location.search);
     const id = params.get("analysis");
     if (!id) throw new Error("No analysis was selected. Start a new analysis to see its results.");
-    const endpoint = params.get("saved") === "1" ? `/v1/saved/${encodeURIComponent(id)}` : `/v1/analysis/${encodeURIComponent(id)}`;
-    renderResult(await jsonRequest(endpoint));
+    const fromSaved = params.get("saved") === "1";
+    const endpoint = fromSaved ? `/v1/saved/${encodeURIComponent(id)}` : `/v1/analysis/${encodeURIComponent(id)}`;
+    renderResult(await jsonRequest(endpoint), fromSaved);
   } catch (error) {
     pageError.textContent = error.message;
     pageError.hidden = false;

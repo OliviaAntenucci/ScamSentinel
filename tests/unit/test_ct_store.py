@@ -102,5 +102,5 @@ def test_shares_the_analysis_database(tmp_path):
     Store(path)
     store = CtStore(path)
     store.upsert([candidate()])
-    Store(path)  # reopening (and purging expired analyses) leaves CT candidates alone
+    Store(path)  # reopening (and purging the expired LLM cache) leaves CT candidates alone
     assert len(CtStore(path).list_candidates()) == 1

@@ -132,6 +132,17 @@ class FactCheck(BaseModel):
     last_reviewed: date | None = None
 
 
+class SubmittedInput(BaseModel):
+    """What was analyzed, kept with the result so a saved analysis shows it. SSN- and
+    card-like numbers are masked like everywhere else."""
+
+    # The message, URL or raw email as entered; for a screenshot, the text read from it.
+    content: str
+    # Set for a screenshot: its cleaned image (metadata stripped) is stored separately and
+    # served by /v1/analysis/{id}/image.
+    image_mime: str | None = None
+
+
 class AnalysisResult(BaseModel):
     analysis_id: str
     created_at: datetime
@@ -161,3 +172,5 @@ class AnalysisResult(BaseModel):
     resources: list[Resource] = []
     # What the linked pages showed (P2). Empty unless page fetching is turned on.
     pages: list[PageReport] = []
+    # What was submitted. None on analyses made before inputs were kept.
+    submitted: SubmittedInput | None = None
