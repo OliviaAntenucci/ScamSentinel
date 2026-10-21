@@ -33,6 +33,40 @@ def test_screenshot_of_scam(image_client, fake_transcriber, data, content_type):
     assert client.get(f"/v1/analysis/{body['analysis_id']}").json() == body
 
 
+EMAIL_SCREENSHOT_TEXT = (
+    "Mail | Inbox\n"
+    "Message details\n"
+    "From: Northstar Demo Security <security@northstar-demo.example>\n"
+    "Reply-To: northstar-support-desk@account-help.example\n"
+    "Subject: Urgent: unusual sign-in detected - your account will be suspended\n"
+    "We detected an unusual sign-in to your account. Verify your account now:\n"
+    "https://northstar-account-review.example/verify\n"
+)
+
+
+def test_screenshot_of_an_email_checks_the_shown_sender(image_client, fake_transcriber):
+    client = image_client(fake_transcriber(text=EMAIL_SCREENSHOT_TEXT))
+    body = post_image(client, png()).json()
+    signals = {r["signal"] for r in body["reasons"]}
+    assert {"link_sender_mismatch", "reply_to_mismatch"} <= signals
+    # The link and both sender domains are listed as checked, not just lookalikes.
+    checked = {r["evidence"] for r in body["reasons"] if r["module"] == "domain"}
+    assert {
+        "northstar-account-review.example", "northstar-demo.example", "account-help.example"
+    } <= checked
+    assert {row["outcome"] for row in body["fact_checks"]} == {"conflicts"}
+
+
+def test_a_screenshot_never_verifies_a_sender(image_client, fake_transcriber):
+    text = (
+        "From: IRS <alerts@irs.gov>\n"
+        "Authentication-Results: mx.example; dkim=pass header.d=irs.gov\n"
+        "The filing deadline is April 15."
+    )
+    body = post_image(image_client(fake_transcriber(text=text)), png()).json()
+    assert "sender_verified" not in {r["signal"] for r in body["reasons"]}
+
+
 def test_metadata_and_polyglot_never_reach_the_vision_model(image_client, fake_transcriber):
     transcriber = fake_transcriber(text=SCAM_TEXT)
     data = jpeg(extra_segments=[jpeg_segment(0xE1, EXIF_SAMPLE)]) + ZIP_SIGNATURE + b"payload"

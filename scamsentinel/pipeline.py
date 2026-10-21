@@ -24,7 +24,7 @@ from scamsentinel.domain.engine import DomainEngine, DomainResult, get_engine
 from scamsentinel.domain.explain import DomainExplanation
 from scamsentinel.domain.normalize import InvalidHost
 from scamsentinel.guidance.next_steps import NextStepsGuide
-from scamsentinel.ingest.email import parse_eml
+from scamsentinel.ingest.email import headers_from_text, parse_eml
 from scamsentinel.ingest.urls import refang
 from scamsentinel.message.analyzer import MessageAnalysis, MessageAnalyzer
 from scamsentinel.message.llm import (
@@ -192,7 +192,10 @@ class AnalysisService:
             raise NoTextFound
         text = text[: self._max_text_chars]
 
-        message = self._analyzer.analyze(text, input_type="image")
+        # A screenshot of an email may show its From/Reply-To lines; check those like an
+        # email's (never as DKIM-verified: a picture proves nothing about the sender).
+        shown_email = headers_from_text(text)
+        message = self._analyzer.analyze(text, input_type="image", email=shown_email)
         transcribed = Reason(
             module=Module.OCR,
             signal="transcribed",
@@ -204,7 +207,12 @@ class AnalysisService:
             points=0,
         )
         message.result.reasons.insert(0, transcribed)
-        domains = self._score_domains(message.features.claimed_urls, strict=False)
+        senders = (
+            [shown_email.from_domain, shown_email.reply_to_domain] if shown_email else []
+        )
+        domains = self._score_domains(
+            [*message.features.claimed_urls, *(s for s in senders if s)], strict=False
+        )
         # The cleaned image is what's kept, never the upload as sent (EXIF, appended data).
         return self._finish(
             "image",

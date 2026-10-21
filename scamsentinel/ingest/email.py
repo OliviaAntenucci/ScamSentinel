@@ -87,6 +87,34 @@ def parse_eml(raw: bytes) -> ParsedEmail:
     )
 
 
+_SHOWN_HEADER = re.compile(r"^\s*(From|Reply-To|Subject)\s*:\s*(.+?)\s*$", re.I | re.M)
+
+
+def headers_from_text(text: str) -> ParsedEmail | None:
+    """Sender headers shown in a screenshot of an email ("From: Name <a@b.com>").
+
+    Only what the picture shows: there's no Authentication-Results to trust, so nothing
+    here can verify a sender (dkim_pass_domains stays empty). None unless a From line
+    with an address is shown.
+    """
+    shown: dict[str, str] = {}
+    for name, value in _SHOWN_HEADER.findall(text):
+        shown.setdefault(name.lower(), value)
+    from_display, from_address = parseaddr(shown.get("from", ""))
+    if "@" not in from_address:
+        return None
+    _, reply_to = parseaddr(shown.get("reply-to", ""))
+    return ParsedEmail(
+        from_display=from_display or None,
+        from_address=from_address,
+        from_domain=_domain(from_address),
+        reply_to_address=reply_to or None,
+        reply_to_domain=_domain(reply_to),
+        subject=shown.get("subject"),
+        body_text=text,
+    )
+
+
 def _header(msg: EmailMessage, name: str) -> str | None:
     value = msg.get(name)
     return str(value).strip() if value is not None else None

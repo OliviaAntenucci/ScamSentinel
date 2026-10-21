@@ -67,20 +67,40 @@ function renderResources(resources) {
   $("#no-resources").hidden = safe.length > 0;
 }
 
-function renderDomainExplanations(explanations) {
+// Domains that were checked but don't imitate a brand still get a row, so a link is never
+// silently left out of this card.
+const PLAIN_DOMAIN_NOTES = {
+  no_lookalike_signals: "It doesn’t imitate a brand ScamSentinel protects, so there’s no official site list to compare it with. That alone doesn’t make it safe.",
+  official_domain: "It’s on the brand’s official site list.",
+  ip_address_host: "Links that use a bare IP address instead of a name are unusual for real organizations.",
+};
+
+function domainRow(list, domain, lines) {
+  const item = document.createElement("div");
+  item.className = "domain-explanation";
+  text(item, "span", "domain-name", domain);
+  const summary = document.createElement("ul");
+  summary.className = "domain-summary";
+  for (const line of lines) text(summary, "li", "", line);
+  item.append(summary);
+  list.append(item);
+}
+
+function renderDomainExplanations(explanations, reasons) {
   const list = $("#domain-explanations-list");
   list.replaceChildren();
-  for (const explanation of explanations) {
-    const item = document.createElement("div");
-    item.className = "domain-explanation";
-    text(item, "span", "domain-name", explanation.domain);
-    const lines = document.createElement("ul");
-    lines.className = "domain-summary";
-    for (const line of explanation.summary ?? []) text(lines, "li", "", line);
-    item.append(lines);
-    list.append(item);
+  for (const explanation of explanations) domainRow(list, explanation.domain, explanation.summary ?? []);
+  const explained = new Set(explanations.map((explanation) => explanation.domain));
+  const shown = new Set();
+  for (const reason of reasons) {
+    const host = reason.evidence;
+    const note = PLAIN_DOMAIN_NOTES[reason.signal];
+    if (reason.module !== "domain" || !host || !note || shown.has(host)) continue;
+    if ([...explained].some((domain) => host === domain || host.endsWith(`.${domain}`))) continue;
+    shown.add(host);
+    domainRow(list, host, [reason.detail, note]);
   }
-  $("#no-domain-explanations").hidden = explanations.length > 0;
+  $("#no-domain-explanations").hidden = list.childElementCount > 0;
 }
 
 function sayClaims(count) {
@@ -113,6 +133,8 @@ function linkCheckHeading(result) {
     const page = analyzed[0];
     return [`This page isn’t ${page.brand}’s`, `It uses ${page.brand}’s name on a site ${page.brand} doesn’t own${andClaims}`];
   }
+  const offSite = (result.reasons ?? []).find((reason) => reason.signal === "link_sender_mismatch");
+  if (offSite) return ["This link doesn’t go to the sender’s site", offSite.detail];
   if (conflicts) return ["The claims don’t add up", `${sayClaims(conflicts)} with published facts`];
   return ["Link and claim checks", "Domain clues and claims checked against known facts"];
 }
@@ -304,7 +326,7 @@ function renderResult(result, fromSaved = false) {
   const [linkTitle, linkCaption] = linkCheckHeading(result);
   $("#link-check-title").textContent = linkTitle;
   $("#link-check-caption").textContent = linkCaption;
-  renderDomainExplanations(result.domain_explanations ?? []);
+  renderDomainExplanations(result.domain_explanations ?? [], result.reasons ?? []);
   renderFactChecks(result.fact_checks ?? []);
   renderPages(result.pages ?? []);
   renderEvidence(result.reasons ?? [], result.risk_score);
